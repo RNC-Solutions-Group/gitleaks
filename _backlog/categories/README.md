@@ -9,6 +9,20 @@ Current reviews:
 - [Closed](closed.md): the authoritative **RNC-only exclusion register**, currently #1939; upstream remains open.
 - [Security hardening](security-hardening.md): PRs #2308 and #2336 with their linked issues; **reviewed — testing**, not yet integrated.
 
+## Single-owner category routing
+
+Each upstream issue/PR may have **exactly one canonical RNC category** at a time. Moving an item removes its active listing from the old category; the [closed ledger](closed.md) overrides active categories. Incidental references to another category's candidates are kept to a minimum and do **not** establish a second ownership assignment.
+
+| Canonical category | Issues | PRs | Scope |
+| --- | ---: | ---: | --- |
+| [Crosswalk duplicates](crosswalk-duplicates.md) | 33 | 48 | Competing proposals and nearby-but-distinct reports awaiting review |
+| [Dependencies](dependencies.md) | 11 | 19 | Build/toolchain, pinned modules, CI and related issues |
+| [Security hardening](security-hardening.md) | 3 | 2 | Two reviewed security PRs and their directly linked issues; testing |
+| [Closed](closed.md) | 1 | 0 | No more current RNC work; upstream may remain open |
+| **Unique assigned IDs** | **48** | **69** | Two duplicate-category issues fall outside the open-issue snapshot |
+
+The three top-level Markdown reports ([issues](../01-issue-backlog.md), [PRs](../02-open-pull-requests.md), and [crosswalk](../03-pr-issue-crosswalk.md)) ~~strike through~~ items once assigned to a category. Strikethrough is **routing**, not upstream closure or implemented code. Their original counts remain historical snapshot counts. JSON and CSV source exports remain unchanged.
+
 Use one Markdown file per meaningful topic (for example `scanner-correctness.md` or `output-safety.md`). Record for each considered issue/PR:
 
 | Field | Required evidence |
