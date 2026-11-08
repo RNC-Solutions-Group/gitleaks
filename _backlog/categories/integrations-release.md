@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**7 active upstream issues · 7 upstream PRs · 12 work packages.** Additional action/permission reports #2063, #1913, #1343, host Podman report #1385, and competing PR #1915 have evidence-backed [RNC exclusions](exclusions.md). Cross-platform baseline issue #1893 moved to [scan integrity](scan-integrity.md); broad build-normalization request #1588 moved to [dependencies](dependencies.md). Docker version issue #1984 / PR #2081 and orphaned-tag issue #2086 moved here from Git & Hooks. Existing upstream state is unchanged.
+**8 active upstream issues · 7 upstream PRs · 13 work packages.** Additional action/permission reports #2063, #1913, #1343, host Podman report #1385, and competing PR #1915 have evidence-backed [RNC exclusions](exclusions.md). Cross-platform baseline issue #1893 moved to [scan integrity](scan-integrity.md); broad build-normalization request #1588 moved to [dependencies](dependencies.md). Docker version issue #1984 / PR #2081 and orphaned-tag issue #2086 moved here from Git & Hooks. Former Needs Review issue #1127 is now routed here as a Windows/Azure DevOps scan-invocation problem; its cause remains open for reproduction. Existing upstream state is unchanged.
 
 CI, installations, releases, platforms, images and packaging outside the already separated dependency pin register. Current master and hardened Docker branch must not be conflated.
 
@@ -20,10 +20,16 @@ CI, installations, releases, platforms, images and packaging outside the already
 | [#1754](https://github.com/gitleaks/gitleaks/issues/1754) | — | Setting a minimum version of GitLeaks when useDefault = true | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1661](https://github.com/gitleaks/gitleaks/pull/1661) (@ianzone) | chore: release npm | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1485](https://github.com/gitleaks/gitleaks/pull/1485) (@suhovius) | Add install.sh bash script installation option | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+| [#1127](https://github.com/gitleaks/gitleaks/issues/1127) | — | PowerShell `Start-Process` invocation of Gitleaks 8.14.1 in a Windows Server 2016/Azure DevOps build reports an error after an apparently successful scan. | **RECLASSIFIED — CI/Windows INTEGRATION; REPRO PENDING** | Issue supplies PowerShell commands and two historical screenshots (error text unavailable for independent verification). Master still exposes deprecated `detect --no-git`, whereas modern `dir` scanning differs; neither proves the observed failure was in scanner code rather than process handling or CI output. Keep open; require transcribed error, exit code, captured stderr/stdout, and current `dir` reproduction. | — |
 | [#1365](https://github.com/gitleaks/gitleaks/issues/1365) | — | Installing gitleaks not working | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1217](https://github.com/gitleaks/gitleaks/pull/1217) (@becojo) | Sign container using Cosign | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1210](https://github.com/gitleaks/gitleaks/issues/1210) | — | Debian and GitLeak build failures | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#885](https://github.com/gitleaks/gitleaks/issues/885) | — | Create docker tags also for major and minor versions | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+
+## Needs Review retirement — category ownership clarification (2026-11-08)
+
+- **Issue #1127** is a concrete Windows CI/PowerShell scanner-invocation report rather than an unclassifiable request. Retained **here** without claiming the 2023 error is fixed or Azure DevOps caused it. Its screenshots could not be retrieved; no runtime reproduction was performed.
+- Former Needs Review issue [#1864](exclusions.md) is a GitLab-owned secret-detection ruleset concern, now recorded in RNC exclusions. The catch-all category has no remaining owner entries.
 
 ## Focused review: preserved distinctions
 

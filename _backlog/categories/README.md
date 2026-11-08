@@ -15,17 +15,16 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | [Reporting and output](reporting-output.md) | 26 | 8 | 27 |
 | [Performance and stability](performance-stability.md) | 3 | 2 | 4 |
 | [Dependency and build pins](dependencies.md) | 8 | 12 | 20 |
-| [Integrations and releases](integrations-release.md) | 7 | 7 | 12 |
+| [Integrations and releases](integrations-release.md) | 8 | 7 | 13 |
 | [Optional features](features.md) | 5 | 2 | 5 |
 | [Candidate duplicates / competing fixes](crosswalk-duplicates.md) | 27 | 46 | 32 |
 | [Documentation](documentation.md) | 5 | 9 | 10 |
-| [Unclassified review](needs-review.md) | 2 | 0 | 2 |
-| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 31 | 33 | 54 |
+| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 32 | 33 | 55 |
 | **Total assigned from open snapshot** | **285** | **252** | **423** |
 
-**Unassigned from snapshot: 0 issues, 0 PRs.** This is **100% routing coverage**, not 100% technical review or remediation. A routed candidate remains active unless documented otherwise. The original three inventories and raw API exports keep their historical totals. A struck-through link in the three Markdown inventories means *categorized*, never *closed on GitHub*.
+**Unassigned from snapshot: 0 issues, 0 PRs.** The former `Needs Review` catch-all was retired: #1864 is excluded by documented third-party scope and #1127 is owned by Integrations and Releases, with its uncertainty retained. This is **100% routing coverage**, not 100% technical review or remediation. A routed candidate remains active unless documented otherwise. The original three inventories and raw API exports keep their historical totals. A struck-through link in the three Markdown inventories means *categorized*, never *closed on GitHub*.
 
-**Focused elimination tally (2026-11-08):** 31 of 285 upstream issues and 33 of 252 upstream PRs are excluded from independent RNC review as obsolete, superseded, or closed by exception. **254 issues / 219 PRs remain active across all categories.** The 54 exclusion-column work-package slots are not a claim of 54 unique root causes or fixes. Issue #2063 was separated from workflow PR #2209 (different repositories), whereas issue #1316 was paired with PR #2311 after Git-source review; those two package-count adjustments offset each other, restoring the first-pass total of 423 even though ownership and evidence improved.
+**Focused elimination tally (2026-11-08):** 32 of 285 upstream issues and 33 of 252 upstream PRs are excluded from independent RNC review as obsolete, superseded, or closed by exception. **253 issues / 219 PRs remain active across all categories.** The 55 exclusion-column work-package slots are not a claim of 55 unique root causes or fixes. Issue #2063 was separated from workflow PR #2209 (different repositories), whereas issue #1316 was paired with PR #2311 after Git-source review; those two package-count adjustments offset each other, restoring the first-pass total of 423 even though ownership and evidence improved.
 
 Two duplicate-category issue targets may be referenced outside the current open-issue snapshot; those historical references are not included in the 285 count. The original duplicate report's 174 candidate-link tally is unchanged. Counts in this table use **unique open-snapshot IDs**, so historic counts and a document's incidental hyperlinks must not be summed.
 
