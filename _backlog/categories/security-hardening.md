@@ -2,7 +2,9 @@
 
 Primary active category for upstream dependency-security PRs [#2308](https://github.com/gitleaks/gitleaks/pull/2308) and [#2336](https://github.com/gitleaks/gitleaks/pull/2336) and associated upstream issues. The records below reflect *review and testing*, **not** integrated or released fixes.
 
-The [closed ledger](closed.md) is authoritative: excluded RNC-closed items are not duplicated in this active table.
+The [closed ledger](closed.md) is authoritative: excluded RNC-closed items are not duplicated in this active table. The two PRs and three linked issues below belong **only** to this category, not dependencies or duplicates.
+
+**Additional-linkage check:** the crosswalk's extra apparent CVE-issue relationship is a third-party Cobra release-note reference, not a Gitleaks security fix. No additional first-party PR/issue relationships were confirmed from this pass, so there are no new `PENDING REVIEW` candidates yet.
 
 ## Tracked work
 
