@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**4 upstream issues · 2 upstream PRs · 4 work packages.** Each ID is owned by this category once; linked PRs and issues share a row. Existing upstream state is unchanged.
+**3 active upstream issues · 1 upstream PR · 3 work packages.** Historic v8.2.1 crash #752 is [obsolete](closed.md). The README-only #2212 patch moved to [documentation](documentation.md); issue #2019 remains here for its actual memory/OOM behavior. Existing upstream state is unchanged.
 
 Memory, hangs, race-prone parsers, decoding cost, and crashes. First establish a measurable reproduction and a bounded test workload.
 
@@ -13,9 +13,8 @@ Memory, hangs, race-prone parsers, decoding cost, and crashes. First establish a
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
 | [#1338](https://github.com/gitleaks/gitleaks/issues/1338) | [#2246](https://github.com/gitleaks/gitleaks/pull/2246) (@aron-intframe) | gitdiff report "parser" can cause an infinite wait on parser error; proposal: fix(sources): stop a failed diff parse from hanging or silently truncating a scan | **SOURCE-CHECKED — TEST PENDING** | Patch inspected: `master/sources/git.go` still uses the unguarded diff-parser flow; needs hang tests. | — |
-| [#2019](https://github.com/gitleaks/gitleaks/issues/2019) | [#2212](https://github.com/gitleaks/gitleaks/pull/2212) (@RajeshRajendiran) | Memory issue in GitLab when scanning large repos with Gitleaks (--max-decode-depth behavior); proposal: docs: fix stale --max-decode-depth default in README | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+| [#2019](https://github.com/gitleaks/gitleaks/issues/2019) | — | Large GitLab scan uses up to 24 GB and OOMs with default decode depth 5; disabling decoding avoids it. | **ISSUE — REPRO PENDING** | Current `cmd/root.go` defaults to 5. The PR #2212 only corrects stale README text, so it does not resolve memory behavior; keep independent. | — |
 | [#1437](https://github.com/gitleaks/gitleaks/issues/1437) | — | hang on futex | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| [#752](https://github.com/gitleaks/gitleaks/issues/752) | — | invalid memory address or nil pointer dereference | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 
 ## Decision gate
 

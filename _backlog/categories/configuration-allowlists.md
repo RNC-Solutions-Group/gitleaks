@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**34 upstream issues · 28 upstream PRs · 49 work packages.** Each ID is owned by this category once; linked PRs and issues share a row. Existing upstream state is unchanged.
+**35 upstream issues · 27 upstream PRs · 48 work packages.** Remote-config #1557/#1630 moved here; the NuGet rule PR #1071 is superseded on master, while Putty detection PR #1373 moved to [provider rules](detection-rules.md). Existing upstream state is unchanged.
 
 Config loading, ignore files, allowlist conditions, baselines, inline suppression, and configuration ergonomics. A narrow change can accidentally disable detection: use negative tests.
 
@@ -12,6 +12,7 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
+| [#1557](https://github.com/gitleaks/gitleaks/issues/1557) | [#1630](https://github.com/gitleaks/gitleaks/pull/1630) (@cduggn) | Remote configuration URL, fetch/config commands and loading. | **RECLASSIFIED — PENDING REVIEW** | Patch adds `cmd/config.go`, `config/remote_config.go`, tests and module changes; this is configuration acquisition, not source-file scan integrity. | — |
 | [#2320](https://github.com/gitleaks/gitleaks/issues/2320) | [#2346](https://github.com/gitleaks/gitleaks/pull/2346) (@delaysystem) | regexTarget = "line" allowlists see the previous line's newline, so ^-anchored regexes never match after the first line; proposal: fix(detect): exclude the previous line's newline from Finding.Line | **SOURCE-CHECKED — TEST PENDING** | Patch inspected: adjusts `detect/codec/segment.go` and location tests; check line/column effects. | — |
 | [#2295](https://github.com/gitleaks/gitleaks/issues/2295) | [#2306](https://github.com/gitleaks/gitleaks/pull/2306) (@rotirotirafa) | Preserve Firebase example-key provenance in the generated gcp-api-key allowlist; proposal: docs: preserve Firebase example key provenance in generated config | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#2296](https://github.com/gitleaks/gitleaks/issues/2296) | [#2297](https://github.com/gitleaks/gitleaks/pull/2297) (@AdamMagued) | Feature request: allow `--redact` and other report options in `.gitleaks.toml`; proposal: feat: support report options and redact in config file | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
@@ -44,7 +45,6 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 | — | [#1581](https://github.com/gitleaks/gitleaks/pull/1581) (@rgmz) | Update global allowlist to ignore alpha or numeric sequences | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1566](https://github.com/gitleaks/gitleaks/pull/1566) (@rgmz) | WIP: use secret hash as fingerprint | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1534](https://github.com/gitleaks/gitleaks/pull/1534) (@rgmz) | Ignore leading newlines | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| — | [#1373](https://github.com/gitleaks/gitleaks/pull/1373) (@baruchiro) | Add PuttyPrivateKey rule and allowlist for raw content | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1325](https://github.com/gitleaks/gitleaks/issues/1325) | — | Enhance function of .gitleaksignore | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1284](https://github.com/gitleaks/gitleaks/issues/1284) | — | Baseline entries require more than the fingerprint | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1279](https://github.com/gitleaks/gitleaks/issues/1279) | — | Allowlist may not be working as expected, per Discord | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
@@ -54,7 +54,6 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 | [#1182](https://github.com/gitleaks/gitleaks/issues/1182) | — | Feature - Ignore false positives by specifying text to replace before testing line | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1137](https://github.com/gitleaks/gitleaks/issues/1137) | — | Central gitleaks allowlist stopwords is not working as expected | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1091](https://github.com/gitleaks/gitleaks/issues/1091) | — | Improve gitleaksignore to handle uncommitted secrets | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| — | [#1071](https://github.com/gitleaks/gitleaks/pull/1071) (@jankonikola93) | add rule for checking nuget.config passwords | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#999](https://github.com/gitleaks/gitleaks/issues/999) | — | How to configure gitleaks | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#827](https://github.com/gitleaks/gitleaks/issues/827) | — | Add validation config parameter | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#811](https://github.com/gitleaks/gitleaks/issues/811) | — | gitleaks ignores bad fields in the configuration silently | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |

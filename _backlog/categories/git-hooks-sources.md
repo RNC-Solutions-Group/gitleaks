@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**21 upstream issues · 15 upstream PRs · 30 work packages.** Each ID is owned by this category once; linked PRs and issues share a row. Existing upstream state is unchanged.
+**22 active upstream issues · 12 active upstream PRs · 27 work packages.** Hook PRs #2025/#2039 and old v7 #555 were excluded by [closed.md](closed.md); #643 is a detection-rule PR and moved to provider rules. Issue #2003/PR #2128 moved here from the duplicate crosswalk. Existing upstream state is unchanged.
 
 Git history, pre-commit/pre-receive, staged changes, git diff/log behavior, and Git source integration. Reproduce independently of generic directory scanning.
 
@@ -12,6 +12,7 @@ Git history, pre-commit/pre-receive, staged changes, git diff/log behavior, and 
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
+| [#2003](https://github.com/gitleaks/gitleaks/issues/2003) | [#2128](https://github.com/gitleaks/gitleaks/pull/2128) (@puneetdixit200) | Quoted `--log-opts` such as `--no-notes` fail to reach Git correctly. | **RECLASSIFIED — PENDING REVIEW** | Patch replaces `strings.Split` with a quote-aware parser in `sources/git.go` and adds tests. Competing #2205 only modifies CSV formatting and is now owned by reporting. | — |
 | — | [#2318](https://github.com/gitleaks/gitleaks/pull/2318) (@MAHIR-BABBAR) | fix: skip allowlisted commits in Git.Fragments | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#2311](https://github.com/gitleaks/gitleaks/pull/2311) (@tonymet) | enforce standard git log format to avoid custom format.pretty breaks | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1028](https://github.com/gitleaks/gitleaks/issues/1028) | [#2301](https://github.com/gitleaks/gitleaks/pull/2301) (@bhaskargurram-ai) | Unable to detect secrets introduced during merge; proposal: fix(git): detect secrets introduced in merge commits | **SOURCE-CHECKED — TEST PENDING** | Patch inspected: proposed merge-commit handling; reproduce before disposition. | — |
@@ -20,8 +21,6 @@ Git history, pre-commit/pre-receive, staged changes, git diff/log behavior, and 
 | [#2129](https://github.com/gitleaks/gitleaks/issues/2129) | [#2203](https://github.com/gitleaks/gitleaks/pull/2203) (@RajeshRajendiran) | `gitleaks git` silently reports "no leaks found" with exit 0 when `git log` writes anything to stderr (git-crypt repos affected by default); proposal: fix: stderr from git log no longer silently drops remaining commits | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#2086](https://github.com/gitleaks/gitleaks/issues/2086) | — | Tag v8.30.1 not an ancestor of master, breaks pre-commit autoupdate | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1984](https://github.com/gitleaks/gitleaks/issues/1984) | [#2081](https://github.com/gitleaks/gitleaks/pull/2081) (@Smeet23) | --version flag returns placeholder text in v8.29.0 instead of actual version number; proposal: fix(docker): inject version via build-arg instead of git describe | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| — | [#2039](https://github.com/gitleaks/gitleaks/pull/2039) (@maledb404) | fix: Add pass_filenames: false to gitleaks-system | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| — | [#2025](https://github.com/gitleaks/gitleaks/pull/2025) (@JanKleine) | fix: stop passing filenames for gitleaks-system | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1993](https://github.com/gitleaks/gitleaks/issues/1993) | — | gitleaks protect --staged hangs in non-standard terminal environments (PTY/pipe deadlock) | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1923](https://github.com/gitleaks/gitleaks/issues/1923) | — | Support loading gitleaks configs from git refs | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1409](https://github.com/gitleaks/gitleaks/issues/1409) | [#1918](https://github.com/gitleaks/gitleaks/pull/1918) (@Holzhaus) | gitleaks does not scan correct files with pre-commit run --files; proposal: Fix pre-commit hook by use git-agnostic file-based checking | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
@@ -40,8 +39,6 @@ Git history, pre-commit/pre-receive, staged changes, git diff/log behavior, and 
 | [#1022](https://github.com/gitleaks/gitleaks/issues/1022) | — | Error: unknown option "staged" when running pre-commit with docker_image language | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#949](https://github.com/gitleaks/gitleaks/issues/949) | — | can we configure gitleaks as a global level hook/template | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#821](https://github.com/gitleaks/gitleaks/issues/821) | — | Incoming commits are not scanned as part of pre-receive hook | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| — | [#643](https://github.com/gitleaks/gitleaks/pull/643) (@ds50421) | Pull request to detect API keys,bearer token and JWT token hardcoded in gitlab/github ci file | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| — | [#555](https://github.com/gitleaks/gitleaks/pull/555) (@grogancolin) | Add file_hash to commit | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 
 ## Decision gate
 

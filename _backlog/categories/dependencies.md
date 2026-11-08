@@ -9,8 +9,8 @@ Snapshot source: [Open PR inventory](../02-open-pull-requests.md), [issue invent
 | PR disposition | Count | Basis |
 | --- | ---: | --- |
 | Partially superseded — further review | 2 | Docker builder or some modules are newer, but each PR still contains unresolved source/CI or dependency changes |
-| Unreviewed / relevance check | 11 | Candidate changes still require diff, version, safety, and test review |
-| **Total active dependency/build PR candidates** | **13** | Five verified RNC-superseded PRs moved to [closed.md](closed.md); excludes #2326 |
+| Unreviewed / relevance check | 10 | Candidate changes still require diff, version, safety, and test review |
+| **Total active dependency/build PR candidates** | **12** | Six superseded/obsolete PRs moved to [closed.md](closed.md); excludes #2326 |
 
 ## Open PRs to review
 
@@ -33,7 +33,6 @@ Snapshot source: [Open PR inventory](../02-open-pull-requests.md), [issue invent
 
 
 
-| [#1099](https://github.com/gitleaks/gitleaks/pull/1099) | Fix: go.mod version changed back to 1.18 | Version-compatibility change, not a vulnerability dependency upgrade | UNREVIEWED / RELEVANCE CHECK |
 
 **Critical boundary:** Go toolchain updates do **not** automatically upgrade dependencies in `go.mod` or `go.sum`. The fork's `master` still pins `klauspost/compress v1.18.0`, `go-re2 v1.9.0`, `cobra v1.9.1`, `viper v1.19.0`, and other older modules. A new Go builder does not prove these PRs are redundant.
 
@@ -57,12 +56,9 @@ These came from the open-issue inventory plus targeted build and dependency sear
 | [#1120](https://github.com/gitleaks/gitleaks/issues/1120) | Please bump golang.org/x/sys dependency | Check x/sys platform compatibility against the fork’s pinned version |
 | [#2031](https://github.com/gitleaks/gitleaks/issues/2031) | Rename in the go.mod file? | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
 | [#1839](https://github.com/gitleaks/gitleaks/issues/1839) | Module path discrepancy after repository migration | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
-| [#1544](https://github.com/gitleaks/gitleaks/issues/1544) | invalid go version '1.22.0': must match format 1.23 | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
 | [#1305](https://github.com/gitleaks/gitleaks/issues/1305) | git version 1.8.3.1 does not support git -C which the latest version of gitleaks uses. date(2023-11-30).   | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
 | [#1226](https://github.com/gitleaks/gitleaks/issues/1226) | `go run ...` module declares its path as: github.com/zricethezav/gitleaks | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
 | [#1209](https://github.com/gitleaks/gitleaks/issues/1209) | Cannot build from source: incorrect go.mod | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
-| [#1057](https://github.com/gitleaks/gitleaks/issues/1057) | Go version 1.19 is unsuported by tidy ( requires 1.19 ) | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
-| [#1029](https://github.com/gitleaks/gitleaks/issues/1029) | Documentation: installation of dependencies when installing from source. | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
 | [#833](https://github.com/gitleaks/gitleaks/issues/833) | Undocumented golang and git version requirements | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
 | [#1944](https://github.com/gitleaks/gitleaks/issues/1944) | Build release binary in GitHub Actions | Release reproducibility / build pipeline |
 

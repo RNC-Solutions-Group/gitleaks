@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**46 upstream issues · 28 upstream PRs · 66 work packages.** Each ID is owned by this category once; linked PRs and issues share a row. Existing upstream state is unchanged.
+**46 upstream issues · 31 upstream PRs · 69 work packages.** PRs #1745 (semantic stopword edits), #1265 (XML rule), and #1043 (private-key rule) moved here by diff evidence; each ID has one owner. Existing upstream state is unchanged.
 
 Rule false negatives/positives, regex behavior, private-key handling, and finding accuracy. This includes correctness work that needs fixtures, not just additional patterns.
 
@@ -12,6 +12,9 @@ Rule false negatives/positives, regex behavior, private-key handling, and findin
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
+| — | [#1265](https://github.com/gitleaks/gitleaks/pull/1265) (@baruchiro) | Extend generic rule matching into XML child/attribute content. | **RECLASSIFIED — PENDING REVIEW** | Patch changes generator `generic.go`, rule validation and bundled TOML, not reporting output. | — |
+| — | [#1043](https://github.com/gitleaks/gitleaks/pull/1043) (@icecream-monster) | Detect non-PEM private-key form and adjust PEM key regex. | **RECLASSIFIED — PENDING REVIEW** | Diff modifies private-key rule generator and TOML. Old implementation may need adaptation; no runtime proof or adoption. | — |
+| — | [#1745](https://github.com/gitleaks/gitleaks/pull/1745) (@jessp01) | Nominal typo fixes also change default stopwords `addres`→`address`, `busines`→`business`, `clas`→`class` in both generator and bundled TOML. | **RECLASSIFIED — PENDING REVIEW** | These are detection-filtering semantics, not cosmetic spelling: prefix stopwords may be deliberate. Compare false positives/negatives before any adoption; other comment typos in the PR are incidental. | — |
 | — | [#2342](https://github.com/gitleaks/gitleaks/pull/2342) (@delaysystem) | test(rules): enable two dormant generic-api-key true positives | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1085](https://github.com/gitleaks/gitleaks/issues/1085) | [#2341](https://github.com/gitleaks/gitleaks/pull/2341) (@delaysystem) | Private key regex is greedy; proposal: test(detect): lock in two separate findings for two private keys | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#2327](https://github.com/gitleaks/gitleaks/issues/2327) | [#2335](https://github.com/gitleaks/gitleaks/pull/2335) (@dajiaohuang) | generic-api-key misses base64 secrets that start with + or /; proposal: fix: detect generic keys with + or / prefix | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |

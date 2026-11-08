@@ -12,6 +12,12 @@ This branch contains an initial, reproducible review snapshot of **upstream `git
 - [data/](data/): structured public-safe JSON snapshots, filterable CSV, and collection manifest.
 - [categories/](categories/README.md): where reviewed candidates and experiment outcomes will be documented.
 
+## RNC second-pass junk-drawer assessment (2026-11-08)
+
+The [category ownership register](categories/README.md) now reflects a code/diff-based elimination pass against fork `master` at `5f6ec56c`. **20 issues and 29 PRs** have defensible RNC exclusions (obsolete, superseded, or closed by exception); **265 issues and 223 PRs** remain active for independent review. Details, original contributor links, rationale, and reopen criteria are in [closed.md](categories/closed.md). Additional cross-category moves were made from actual changed files; competing nonidentical fixes remain pending.
+
+These are **RNC review dispositions only**. They do not close upstream GitHub items, endorse or adopt a surviving PR, or prove that any unresolved defect is fixed. The three full Markdown inventories still represent their original upstream snapshot, with strikethrough meaning *routed*; the JSON/CSV data exports remain unchanged.
+
 ## Review lifecycle
 
 1. **Unreviewed:** collected, automatically linked/classified, no technical judgment yet.

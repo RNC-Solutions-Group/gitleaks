@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**4 upstream issues · 0 upstream PRs · 4 work packages.** Each ID is owned by this category once; linked PRs and issues share a row. Existing upstream state is unchanged.
+**2 active upstream issues · 0 upstream PRs · 2 work packages.** Issue #2322 (empty template) and the external licensing email complaint #1624 have been excluded in [closed.md](closed.md); no upstream state was changed.
 
 Ambiguous, insufficiently evidenced, or out-of-domain reports. These are parked for clarification; none is presumed bogus or resolved.
 
@@ -12,9 +12,7 @@ Ambiguous, insufficiently evidenced, or out-of-domain reports. These are parked 
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
-| [#2322](https://github.com/gitleaks/gitleaks/issues/2322) | — | ghghj | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1864](https://github.com/gitleaks/gitleaks/issues/1864) | — | Sample AKIA credentials cause SAST/Security Scanners to false flag | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| [#1624](https://github.com/gitleaks/gitleaks/issues/1624) | — | Organisation key email never received | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1127](https://github.com/gitleaks/gitleaks/issues/1127) | — | Gitleaks 8.14.1 Strange bug!? | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 
 ## Decision gate
