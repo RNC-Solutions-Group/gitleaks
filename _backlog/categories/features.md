@@ -1,17 +1,17 @@
 # Features — Gitleaks candidate register
 
-This is the **single active category** for feature and developer-experience proposals selected for RNC evaluation. Issues and PRs for the same work package belong together here, even when one has a different title-only classification in the original snapshot. The [closed ledger](closed.md) remains a separate exclusion register.
+This is the **single active category** for feature and developer-experience proposals selected for RNC evaluation. Issues and PRs for the same work package belong together here, even when one has a different title-only classification in the original snapshot. The [closed ledger](exclusions.md) remains a separate exclusion register.
 
 ## Completed exclusions
 
-The legacy v7/Go 1.16 [PR #652](closed.md) is **OBSOLETE_RNC** after direct patch comparison with v8 `master`. Its exact build-tag change is not an active candidate. The functional proposals below remain pending.
+The legacy v7/Go 1.16 [PR #652](exclusions.md) is **OBSOLETE_RNC** after direct patch comparison with v8 `master`. Its exact build-tag change is not an active candidate. The functional proposals below remain pending.
 
 ## Evaluation gate
 
 1. Check relevance to the current fork's module path, Go toolchain requirements, supported install commands, and release artifacts.
 2. Reproduce with an appropriate old-toolchain test environment only if still supported and safe; record error quality separately from actual minimum-version enforcement.
 3. If adopted, retain contributor attribution and record the RNC implementation branch, PR, commit, and regression evidence.
-4. If superseded or obsolete, record the reason in [closed.md](closed.md); no upstream state changes.
+4. If superseded or obsolete, record the reason in [exclusions.md](exclusions.md); no upstream state changes.
 
 The original snapshot entry remains struck through in the [open PR Markdown report](../02-open-pull-requests.md), indicating category assignment—not upstream closure. JSON and CSV exports remain untouched.
 

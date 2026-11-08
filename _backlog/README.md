@@ -14,7 +14,9 @@ This branch contains an initial, reproducible review snapshot of **upstream `git
 
 ## RNC second-pass junk-drawer assessment (2026-11-08)
 
-The [category ownership register](categories/README.md) now reflects a code/diff-based elimination pass against fork `master` at `5f6ec56c`. **20 issues and 29 PRs** have defensible RNC exclusions (obsolete, superseded, or closed by exception); **265 issues and 223 PRs** remain active for independent review. Details, original contributor links, rationale, and reopen criteria are in [closed.md](categories/closed.md). Additional cross-category moves were made from actual changed files; competing nonidentical fixes remain pending.
+The [category ownership register](categories/README.md) now reflects code/diff and targeted issue-body elimination passes against fork `master` at `5f6ec56c`. **25 issues and 31 PRs** have defensible RNC exclusions (obsolete, superseded, or closed by exception); **260 issues and 221 PRs** remain active for independent review. Details, original contributor links, rationale, and reopen criteria are in [exclusions.md](categories/exclusions.md). Additional cross-category moves were made from actual changed files; competing nonidentical fixes remain pending.
+
+The focused categories are [documentation](categories/documentation.md) (including an **attribution-preserving, separate-branch seven-PR consolidation recommendation**), [dependencies](categories/dependencies.md) (open issue triage and a repaired PR table), [integrations/release](categories/integrations-release.md), and [needs review](categories/needs-review.md). No proposed documentation patches have been adopted here.
 
 These are **RNC review dispositions only**. They do not close upstream GitHub items, endorse or adopt a surviving PR, or prove that any unresolved defect is fixed. The three full Markdown inventories still represent their original upstream snapshot, with strikethrough meaning *routed*; the JSON/CSV data exports remain unchanged.
 

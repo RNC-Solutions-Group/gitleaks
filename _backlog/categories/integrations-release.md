@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**11 active upstream issues · 7 upstream PRs · 16 work packages.** SchemaStore #2188, UBI8 `tarfile` #1465, and the separate JavaScript `gitleaks-action` artifact-upload report #1257 are RNC-closed by exception in [closed.md](closed.md). Existing upstream state is unchanged.
+**5 active upstream issues · 6 upstream PRs · 10 work packages.** Additional action/permission reports #2063, #1913, #1343, host Podman report #1385, and competing PR #1915 have evidence-backed [RNC exclusions](exclusions.md). Cross-platform baseline issue #1893 moved to [scan integrity](scan-integrity.md); broad build-normalization request #1588 moved to [dependencies](dependencies.md). Existing upstream state is unchanged.
 
 CI, installations, releases, platforms, images and packaging outside the already separated dependency pin register. Current master and hardened Docker branch must not be conflated.
 
@@ -13,21 +13,24 @@ CI, installations, releases, platforms, images and packaging outside the already
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
 | — | [#2220](https://github.com/gitleaks/gitleaks/pull/2220) (@kobihikri) | ci: attach provenance and SBOM attestations to the published images | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| [#2063](https://github.com/gitleaks/gitleaks/issues/2063) | [#2209](https://github.com/gitleaks/gitleaks/pull/2209) (@trinathone) | Org. repo with licence + PR from fork = missing license key error; proposal: fix: Org. repo with licence + PR from fork = missing license key error | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+| — | [#2209](https://github.com/gitleaks/gitleaks/pull/2209) (@trinathone) | Add PR triggering with a fork-secret skip condition to this repository's `gitleaks.yml` workflow. | **SOURCE-CHECKED — REVIEW PENDING** | Current master workflow runs on `push` / manual dispatch only. PR adds `pull_request` but skips forks outright; this does **not** fix the general reusable Action license behavior in excluded issue #2063. Supersedes unsafe older workflow rewrite #1915 as a separate review slot; test event/permissions behavior before any adoption. | — |
 | [#2155](https://github.com/gitleaks/gitleaks/issues/2155) | [#2156](https://github.com/gitleaks/gitleaks/pull/2156) (@MChorfa) | Add dedicated SDK embedding issue template; proposal: chore(github): add SDK embedding issue template | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| — | [#1915](https://github.com/gitleaks/gitleaks/pull/1915) (@SGreeshma) | ci: add GitHub Actions workflow to run Gitleaks on push/PR | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| [#1913](https://github.com/gitleaks/gitleaks/issues/1913) | — | GitLeaks to support on merge_group | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| [#1893](https://github.com/gitleaks/gitleaks/issues/1893) | — | The results generated on the Windows platform and the Linux platform are inconsistent. | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1754](https://github.com/gitleaks/gitleaks/issues/1754) | — | Setting a minimum version of GitLeaks when useDefault = true | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1661](https://github.com/gitleaks/gitleaks/pull/1661) (@ianzone) | chore: release npm | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| [#1588](https://github.com/gitleaks/gitleaks/issues/1588) | — | Request: Normalize build process | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1485](https://github.com/gitleaks/gitleaks/pull/1485) (@suhovius) | Add install.sh bash script installation option | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| [#1385](https://github.com/gitleaks/gitleaks/issues/1385) | — | lsetxattr: permission denied with podman | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1365](https://github.com/gitleaks/gitleaks/issues/1365) | — | Installing gitleaks not working | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| [#1343](https://github.com/gitleaks/gitleaks/issues/1343) | — | Resource not accessible by integration | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1217](https://github.com/gitleaks/gitleaks/pull/1217) (@becojo) | Sign container using Cosign | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1210](https://github.com/gitleaks/gitleaks/issues/1210) | — | Debian and GitLeak build failures | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#885](https://github.com/gitleaks/gitleaks/issues/885) | — | Create docker tags also for major and minor versions | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+
+## Focused review: preserved distinctions
+
+- **#2220 vs #1217:** the release PRs change different supply-chain controls. #2220 enables provenance/SBOM attestations in Buildx; #1217 adds Cosign signing. Neither independently supersedes the other, and neither exists in `master/.github/workflows/release.yml` today. **Both pending.**
+- **#2209 vs #1915:** master already has a release-pinned Gitleaks scan workflow, but no PR event trigger. #1915's older unpinned-action rewrite is redundant/unsafe relative to #2209's retained approach. **#2209 pending**, not merged or proven safe for forks.
+- **#2155/#2156:** the proposed SDK issue template is new and absent from `.github/ISSUE_TEMPLATE/`; treat it as an optional governance decision, not an already-implemented feature. **Pending.**
+- **#1661, #1485:** npm distribution and an executable `curl|bash` installer expand release/distribution surfaces; neither is a doc-only change. **Pending separate security/support review.**
+- **#1210, #1365:** older Debian architecture and WSL build failures have no validated current-toolchain reproduction; keep pending rather than assuming new Go fixes them. **#1944** release-binary provenance and `SIGILL` belongs in [dependencies](dependencies.md), not this workflow-only package set.
+- **#885:** current release workflow delegates tags to `docker/metadata-action` without explicit major/minor semver tags; no proof the requested stable major/minor tags exist. **Pending.**
 
 ## Decision gate
 

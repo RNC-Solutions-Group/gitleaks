@@ -4,7 +4,7 @@ Source snapshot: [2026-11-08 Gitleaks backlog](../README.md) · [Candidate-link 
 
 ## Scope and counting
 
-This is a **candidate duplicate register**, not a list of merged or implemented fixes. Items promoted to other active categories or [excluded by RNC](closed.md) are not separately active here; historical crosswalk tables below retain their original source relationships and authors. It uses the 174 initial candidate relationships and distinguishes high-signal `Fixes/Closes/Resolves` references or explicit issue URLs from low-signal bare number mentions.
+This is a **candidate duplicate register**, not a list of merged or implemented fixes. Items promoted to other active categories or [excluded by RNC](exclusions.md) are not separately active here; historical crosswalk tables below retain their original source relationships and authors. It uses the 174 initial candidate relationships and distinguishes high-signal `Fixes/Closes/Resolves` references or explicit issue URLs from low-signal bare number mentions.
 
 Current active ownership after the second pass: **27 issues / 46 PRs / 32 review packages**. The 285/252/174 counts immediately below are the immutable upstream collection and initial crosswalk, not current active-candidate totals.
 
@@ -33,7 +33,7 @@ These are distinct issue records that may describe the same root cause.
 
 ## B. Competing PRs for the same issue — historical candidate crosswalk
 
-This is the complete set of issue targets from the **initial** crosswalk that had **at least two high-signal open PR references**. It is preserved for contributor attribution and is not the current active-review queue; see the second-pass decisions in [closed.md](closed.md). Every contributor remains individually credited.
+This is the complete set of issue targets from the **initial** crosswalk that had **at least two high-signal open PR references**. It is preserved for contributor attribution and is not the current active-review queue; see the second-pass decisions in [exclusions.md](exclusions.md). Every contributor remains individually credited.
 
 | Issue | Problem | Strong PR candidates | PR authors | Triage |
 | --- | --- | ---: | --- | --- |
@@ -108,7 +108,7 @@ No upstream PR was cherry-picked, no RNC security branch was modified, and no me
 
 ## C. Additional links and competing proposals — full-routing pass
 
-These items were not fully assigned during the earlier duplicate review. The 174 original crosswalk relationships and its confidence figures are a **historical snapshot**; newer semantic associations are explicitly **tentative**. Entries stay active only unless specifically excluded by [closed.md](closed.md), with one category owner.
+These items were not fully assigned during the earlier duplicate review. The 174 original crosswalk relationships and its confidence figures are a **historical snapshot**; newer semantic associations are explicitly **tentative**. Entries stay active only unless specifically excluded by [exclusions.md](exclusions.md), with one category owner.
 
 | Issue(s) | PR(s) and contributor(s) | Candidate overlap | RNC status | Next gate |
 | --- | --- | --- | --- | --- |
@@ -124,11 +124,11 @@ These items were not fully assigned during the earlier duplicate review. The 174
 
 **Master code checks:** #2329 addresses the current first-chunk heuristic; #2317 addresses archive content validation. #2338 concerns staged files classified as binary. #2324 proposes a new safe-boundary line-completion helper absent from `master/sources/common.go`. These are distinct failure modes even if they share the scanner's fail-open symptoms. **Do not mark any of them fixed or adopted until tests demonstrate it.**
 
-**Weak crosswalk rule:** PR #2324 mentions #1651, #2292 mentions #1981, and #2280 mentions #2225; these are potential competing implementation paths, not verified `Fixes` relationships. The upstream PR #1435 is already RNC-superseded and remains exclusively in [closed.md](closed.md).
+**Weak crosswalk rule:** PR #2324 mentions #1651, #2292 mentions #1981, and #2280 mentions #2225; these are potential competing implementation paths, not verified `Fixes` relationships. The upstream PR #1435 is already RNC-superseded and remains exclusively in [exclusions.md](exclusions.md).
 
 ## Second-pass overlap disposition
 
-- **Retired redundant patch reviews:** #1943, #2151, #2163, #2204, #2049, #2053, #2124, #2171. Each exact edit or strictly included edit is covered by a still-open representative PR (#2319, #2199, or #2343). The older issues #1859, #1895, #2160, and #2048 were collapsed under canonical active issues #2302, #2121, and #2120. The [RNC exclusion ledger](closed.md) preserves individual credit and reopen triggers.
+- **Retired redundant patch reviews:** #1943, #2151, #2163, #2204, #2049, #2053, #2124, #2171. Each exact edit or strictly included edit is covered by a still-open representative PR (#2319, #2199, or #2343). The older issues #1859, #1895, #2160, and #2048 were collapsed under canonical active issues #2302, #2121, and #2120. The [RNC exclusion ledger](exclusions.md) preserves individual credit and reopen triggers.
 - **Moved based on actual diffs:** issue #2003 and PR #2128 are now in [Git/hooks](git-hooks-sources.md) because the patch corrects Git log option tokenization; PR #2205 independently modifies **CSV multiline-message formatting** and is in [reporting-output](reporting-output.md). A textual #2003 mention was not enough to call these competing fixes.
 - **Moved provider-rule ownership:** PR #2280 actually adds Supabase and database-credential rules and is now linked to issue #2279 in [provider rules](detection-rules.md); its weak issue mentions do not justify a separate duplicate-category work package.
 - **Still in review:** The `withinColumns` cluster (#2122) has materially different implementation diffs; unreadable-file remedies (#2232) have different handling/tests; the report-permission (#2299) and provider-rule (#2309) candidates differ. None of those were discarded by title similarity.

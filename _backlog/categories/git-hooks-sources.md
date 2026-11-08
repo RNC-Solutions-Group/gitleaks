@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**22 active upstream issues · 12 active upstream PRs · 27 work packages.** Hook PRs #2025/#2039 and old v7 #555 were excluded by [closed.md](closed.md); #643 is a detection-rule PR and moved to provider rules. Issue #2003/PR #2128 moved here from the duplicate crosswalk. Existing upstream state is unchanged.
+**22 active upstream issues · 12 active upstream PRs · 27 work packages.** Hook PRs #2025/#2039 and old v7 #555 were excluded by [exclusions.md](exclusions.md); #643 is a detection-rule PR and moved to provider rules. Issue #2003/PR #2128 moved here from the duplicate crosswalk. Existing upstream state is unchanged.
 
 Git history, pre-commit/pre-receive, staged changes, git diff/log behavior, and Git source integration. Reproduce independently of generic directory scanning.
 

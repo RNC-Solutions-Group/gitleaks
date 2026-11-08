@@ -2,7 +2,7 @@
 
 Snapshot source: [Open PR inventory](../02-open-pull-requests.md), [issue inventory](../01-issue-backlog.md) (2026-11-08). This is a **title/search-based first pass**, enriched with pinned version checks from the fork. It is not an SBOM comparison against every image.
 
-**Ownership rule:** [closed.md](closed.md) is the canonical RNC exclusion list. Items recorded there are omitted from active tables here. Security CVE PRs and their linked issues are **excluded from this register** and tracked exclusively in [security-hardening.md](security-hardening.md).
+**Ownership rule:** [exclusions.md](exclusions.md) is the canonical RNC exclusion list. Items recorded there are omitted from active tables here. Security CVE PRs and their linked issues are **excluded from this register** and tracked exclusively in [security-hardening.md](security-hardening.md).
 
 ## Summary
 
@@ -10,7 +10,7 @@ Snapshot source: [Open PR inventory](../02-open-pull-requests.md), [issue invent
 | --- | ---: | --- |
 | Partially superseded — further review | 2 | Docker builder or some modules are newer, but each PR still contains unresolved source/CI or dependency changes |
 | Unreviewed / relevance check | 10 | Candidate changes still require diff, version, safety, and test review |
-| **Total active dependency/build PR candidates** | **12** | Six superseded/obsolete PRs moved to [closed.md](closed.md); excludes #2326 |
+| **Total active dependency/build PR candidates** | **12** | Six superseded/obsolete PRs moved to [exclusions.md](exclusions.md); excludes #2326 |
 
 ## Open PRs to review
 
@@ -26,22 +26,17 @@ Snapshot source: [Open PR inventory](../02-open-pull-requests.md), [issue invent
 | [#2141](https://github.com/gitleaks/gitleaks/pull/2141) | build(deps): bump github.com/fatih/semgroup from 1.2.0 to 1.3.0 | semgroup v1.2.0 → v1.3.0 | UNREVIEWED / RELEVANCE CHECK |
 | [#2139](https://github.com/gitleaks/gitleaks/pull/2139) | build(deps): bump github.com/spf13/viper from 1.19.0 to 1.21.0 | viper v1.19.0 → v1.21.0 | UNREVIEWED / RELEVANCE CHECK |
 | [#2115](https://github.com/gitleaks/gitleaks/pull/2115) | chore: bump Go to 1.26.3 to fix vulnerabilities | RNC hardened Docker builder uses Go 1.27.3, **but** `master/go.mod` still says 1.24.11 and `.github/workflows/test.yml` still requests Go 1.25 | **PARTIAL — REVIEW CI / SOURCE-BUILD SCOPE** |
-
 | [#2100](https://github.com/gitleaks/gitleaks/pull/2100) | chore: Upgrade lipgloss to v2.0.3 | lipgloss v0.5.0 → proposed v2.0.3 (major API migration) | UNREVIEWED / RELEVANCE CHECK |
 | [#2035](https://github.com/gitleaks/gitleaks/pull/2035) | chore(go.mod): update go version and dependencies | Go builder, `mholt/archives v0.1.5`, and many module updates already supersede the proposal, **but** the PR proposes `go-re2 v1.10.0` while master retains v1.9.0; related PR #2289 proposes v1.13.0 | **PARTIAL — REVIEW REGEX BACKEND / MODULE GRAPH** |
-
-
-
-
 
 **Critical boundary:** Go toolchain updates do **not** automatically upgrade dependencies in `go.mod` or `go.sum`. The fork's `master` still pins `klauspost/compress v1.18.0`, `go-re2 v1.9.0`, `cobra v1.9.1`, `viper v1.19.0`, and other older modules. A new Go builder does not prove these PRs are redundant.
 
 ### Verified RNC supersession — moved out of this active register
 
-- [PR #1960](closed.md) and [PR #1991](closed.md) targeted older Go and/or Alpine Docker bases. The **separate** RNC `fix/docker-security-bases` Dockerfile now builds with `golang:1.27.3` and runs on `alpine:3.24`; both targets are surpassed. Their Docker changes are not yet on fork `master`.
-- [PR #1959](closed.md) requested `go 1.24.9`; fork `master/go.mod` already specifies `go 1.24.11`. This supersedes the exact requested minimum version, independently of Docker.
-- [PR #1103](closed.md) requested `yaml.v3 v3.0.0`; fork `master/go.mod` already requires `v3.0.1`.
-- [PR #2103](closed.md) aimed to keep CVE-2025-68121 out of **future Docker-built binaries** by raising the minimum Go version. The RNC hardened Docker builder uses Go 1.27.3, superseding that *image-build remediation*. The exact `go.mod` directive change was **not** adopted; non-Docker binaries and source-build minimums require separate verification.
+- [PR #1960](exclusions.md) and [PR #1991](exclusions.md) targeted older Go and/or Alpine Docker bases. The **separate** RNC `fix/docker-security-bases` Dockerfile now builds with `golang:1.27.3` and runs on `alpine:3.24`; both targets are surpassed. Their Docker changes are not yet on fork `master`.
+- [PR #1959](exclusions.md) requested `go 1.24.9`; fork `master/go.mod` already specifies `go 1.24.11`. This supersedes the exact requested minimum version, independently of Docker.
+- [PR #1103](exclusions.md) requested `yaml.v3 v3.0.0`; fork `master/go.mod` already requires `v3.0.1`.
+- [PR #2103](exclusions.md) aimed to keep CVE-2025-68121 out of **future Docker-built binaries** by raising the minimum Go version. The RNC hardened Docker builder uses Go 1.27.3, superseding that *image-build remediation*. The exact `go.mod` directive change was **not** adopted; non-Docker binaries and source-build minimums require separate verification.
 - [PR #2115](https://github.com/gitleaks/gitleaks/pull/2115) remains active because its CI Go version and `go.mod` minimum are not mirrored; [PR #2035](https://github.com/gitleaks/gitleaks/pull/2035) remains active because its Go-RE2 and module-graph changes are not fully matched.
 - **Evidence:** [`master/go.mod`](https://github.com/RNC-Solutions-Group/gitleaks/blob/master/go.mod) · [`fix/docker-security-bases/Dockerfile`](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/docker-security-bases/Dockerfile) · [`master/.github/workflows/test.yml`](https://github.com/RNC-Solutions-Group/gitleaks/blob/master/.github/workflows/test.yml) · original upstream PR patches (reviewed 2026-11-08). No image SBOM or runtime regression was newly generated for this routing decision.
 
@@ -53,14 +48,16 @@ These came from the open-issue inventory plus targeted build and dependency sear
 
 | Issue | Description | Routing |
 | --- | --- | --- |
-| [#1120](https://github.com/gitleaks/gitleaks/issues/1120) | Please bump golang.org/x/sys dependency | Check x/sys platform compatibility against the fork’s pinned version |
-| [#2031](https://github.com/gitleaks/gitleaks/issues/2031) | Rename in the go.mod file? | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
-| [#1839](https://github.com/gitleaks/gitleaks/issues/1839) | Module path discrepancy after repository migration | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
-| [#1305](https://github.com/gitleaks/gitleaks/issues/1305) | git version 1.8.3.1 does not support git -C which the latest version of gitleaks uses. date(2023-11-30).   | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
-| [#1226](https://github.com/gitleaks/gitleaks/issues/1226) | `go run ...` module declares its path as: github.com/zricethezav/gitleaks | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
-| [#1209](https://github.com/gitleaks/gitleaks/issues/1209) | Cannot build from source: incorrect go.mod | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
-| [#833](https://github.com/gitleaks/gitleaks/issues/833) | Undocumented golang and git version requirements | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
-| [#1944](https://github.com/gitleaks/gitleaks/issues/1944) | Build release binary in GitHub Actions | Release reproducibility / build pipeline |
+| [#1120](https://github.com/gitleaks/gitleaks/issues/1120) | Update `golang.org/x/sys` to support FreeBSD/RISC-V. | **PENDING — PLATFORM MATRIX.** Master pins `x/sys v0.30.0` (not the 2023 version). No FreeBSD/RISC-V build, supported-architecture matrix, or target-specific proof. Do not close based only on the version being newer. |
+| [#1839](https://github.com/gitleaks/gitleaks/issues/1839) | Canonical module-path discrepancy after repository migration. | **ACTIVE — REPRO SUPPLIED.** Master `go.mod` still declares `github.com/zricethezav/gitleaks/v8`; report demonstrates `go get github.com/gitleaks/gitleaks/v8@...` fails. [#2031](exclusions.md) repeats the same rename request and is excluded as a separate review slot. Assess compatibility consequences before proposing a rename. |
+| [#1305](https://github.com/gitleaks/gitleaks/issues/1305) | Git 1.8.3.1 rejects `git -C`. | **PENDING — SUPPORT POLICY.** `master/sources/git.go` still invokes `git -C` in scan paths. Historic Git 1.8 is not proof of support, but the precise incompatibility remains; do not claim corrected until minimum Git support is documented or tested. Related #833. |
+| [#1226](https://github.com/gitleaks/gitleaks/issues/1226) | 2023 `go run github.com/gitleaks/gitleaks@latest` failure. | **PENDING — VERSIONED COMMAND.** Shares repository/module naming root with #1839, but uses **unversioned** `/gitleaks@latest` and resolves legacy `v1.25.1`; changing a `/v8` module path alone would not validate that exact command. Keep a distinct install/migration test case. |
+| [#1209](https://github.com/gitleaks/gitleaks/issues/1209) | 2023 `go install github.com/gitleaks/gitleaks@latest` failure. | **PENDING — VERSIONED COMMAND.** Same historical unversioned-module problem as #1226, with a different command; assess current `/v8` installation advice. Do not misrepresent a module rename as proof the old command is supported. |
+| [#833](https://github.com/gitleaks/gitleaks/issues/833) | Publish minimum Git and Go build prerequisites. | **ACTIVE — DOC REQUIREMENT.** `master/go.mod` explicitly requires Go 1.24.11, but root README build instructions only say “make sure go is installed” and do not state the Git floor. 2022 RHEL/Go1.16 case is historical; documentation gap survives. |
+| [#1944](https://github.com/gitleaks/gitleaks/issues/1944) | Reproducible release binaries built by GitHub Actions. | **ACTIVE — SEPARATE PIPELINE GAP.** Reporter supplies a `SIGILL` on old x86 and observations indicating a different binary build environment than Docker. Current `.github/workflows/release.yml` publishes **containers only**, not standalone release binaries. Do not treat a Docker build as a fix. |
+| [#1588](https://github.com/gitleaks/gitleaks/issues/1588) | Normalize source builds and installation, reduce ad-hoc linker flags. | **RECLASSIFIED — PENDING REVIEW.** This broader build request mentions module rename like #1839, **plus** simplifying ldflags and `go install`. Keep the distinct normalization scope here; it is not wholly superseded by the module-path defect. |
+
+**Issue consolidation decision:** #2031 is the only new defensible exclusion in this dependency issue set; it duplicates the more actionable #1839. #1226/#1209 are related historical installation cases, but their missing `/v8` suffix leaves a distinct documentation/compatibility question. The 2023-era platform/toolchain issues have not been blanket-closed.
 
 ### Title-search exclusions, not dependency remediation
 
@@ -72,6 +69,6 @@ The search also returned issues about `--version` output, config rule versioning
 2. **Exact pin:** current `go.mod/go.sum`, Dockerfile, pinned Actions SHA, and binary `go version -m`.
 3. **Actual image:** digest, platform, SBOM/package version, Trivy/Scout database timestamp, and any CVEs still detected.
 4. **Behavior:** Go tests and Docker acceptance, including archive/chunking regressions for compression libraries.
-5. **Disposition:** move into `closed.md` **only after an explicit RNC closure decision**, preserving the upstream issue/PR as a link; do not auto-close GitHub issues.
+5. **Disposition:** move into `exclusions.md` **only after an explicit RNC closure decision**, preserving the upstream issue/PR as a link; do not auto-close GitHub issues.
 
 The dependency closure rate should be calculated from verified package and image evidence, not inferred from the Go builder version alone.

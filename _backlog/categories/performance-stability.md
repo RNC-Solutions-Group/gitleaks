@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**3 active upstream issues · 1 upstream PR · 3 work packages.** Historic v8.2.1 crash #752 is [obsolete](closed.md). The README-only #2212 patch moved to [documentation](documentation.md); issue #2019 remains here for its actual memory/OOM behavior. Existing upstream state is unchanged.
+**3 active upstream issues · 2 upstream PRs · 4 work packages.** Historic v8.2.1 crash #752 is [obsolete](exclusions.md). The README-only #2212 patch moved to [documentation](documentation.md); issue #2019 remains here for its actual memory/OOM behavior. Profiling-script PR #1900 moved here from documentation because it changes script execution. Existing upstream state is unchanged.
 
 Memory, hangs, race-prone parsers, decoding cost, and crashes. First establish a measurable reproduction and a bounded test workload.
 
@@ -14,6 +14,7 @@ Memory, hangs, race-prone parsers, decoding cost, and crashes. First establish a
 | --- | --- | --- | --- | --- | --- |
 | [#1338](https://github.com/gitleaks/gitleaks/issues/1338) | [#2246](https://github.com/gitleaks/gitleaks/pull/2246) (@aron-intframe) | gitdiff report "parser" can cause an infinite wait on parser error; proposal: fix(sources): stop a failed diff parse from hanging or silently truncating a scan | **SOURCE-CHECKED — TEST PENDING** | Patch inspected: `master/sources/git.go` still uses the unguarded diff-parser flow; needs hang tests. | — |
 | [#2019](https://github.com/gitleaks/gitleaks/issues/2019) | — | Large GitLab scan uses up to 24 GB and OOMs with default decode depth 5; disabling decoding avoids it. | **ISSUE — REPRO PENDING** | Current `cmd/root.go` defaults to 5. The PR #2212 only corrects stale README text, so it does not resolve memory behavior; keep independent. | — |
+| — | [#1900](https://github.com/gitleaks/gitleaks/pull/1900) (@vignesh1507) | Update `scripts/profile.sh`: shell formatting, benchmark/report generation, diagnostics invocation, and profiling output. | **RECLASSIFIED — SCRIPT REVIEW PENDING** | Diff modifies the actual profiling command construction, error propagation, `find`, optional `yq`, and output paths; it is **not** just documentation. Compare output equivalence and run shellcheck/profile smoke tests before any integration. | — |
 | [#1437](https://github.com/gitleaks/gitleaks/issues/1437) | — | hang on futex | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 
 ## Decision gate

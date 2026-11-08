@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**2 active upstream issues · 0 upstream PRs · 2 work packages.** Issue #2322 (empty template) and the external licensing email complaint #1624 have been excluded in [closed.md](closed.md); no upstream state was changed.
+**2 active upstream issues · 0 upstream PRs · 2 work packages.** Issue #2322 (empty template) and the external licensing email complaint #1624 have been excluded in [exclusions.md](exclusions.md); no upstream state was changed.
 
 Ambiguous, insufficiently evidenced, or out-of-domain reports. These are parked for clarification; none is presumed bogus or resolved.
 
@@ -12,8 +12,10 @@ Ambiguous, insufficiently evidenced, or out-of-domain reports. These are parked 
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
-| [#1864](https://github.com/gitleaks/gitleaks/issues/1864) | — | Sample AKIA credentials cause SAST/Security Scanners to false flag | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
-| [#1127](https://github.com/gitleaks/gitleaks/issues/1127) | — | Gitleaks 8.14.1 Strange bug!? | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+| [#1864](https://github.com/gitleaks/gitleaks/issues/1864) | — | Vendored AWS SDK sample AKIA credentials repeatedly trigger configured SAST/secret-scanning exclusions. | **SOURCE-READ — SCOPE UNCLEAR, RETAINED** | Reporter links [AWS SDK upstream #3087](https://github.com/aws/aws-sdk-go-v2/issues/3087) but gives no Gitleaks version, exact finding/rule, or controlled reproduction. Might be a third-party scanner or legitimate fixture detection. Keep parked; only move to detection accuracy if proven to involve this scanner's matching rules. | — |
+| [#1127](https://github.com/gitleaks/gitleaks/issues/1127) | — | Unexplained PowerShell/Azure DevOps error after an apparently successful Gitleaks 8.14.1 scan. | **SOURCE-READ — HISTORICAL REPRO, RETAINED** | Script uses old `detect --no-git` command and `Start-Process`; exact error is embedded in screenshots, not transcribed. Current `dir` mode differs, but a newer command alone does not explain whether the observed output was scanner or CI-host generated. Keep until the screenshot/error text and a current reproduction are assessed. | — |
+
+**Focused disposition:** no exclusion is justified for these two from the issue bodies alone. Both stay parked rather than inferring that old version numbers automatically resolve the reported symptoms.
 
 ## Decision gate
 

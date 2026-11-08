@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**30 active upstream issues · 15 upstream PRs · 41 work packages.** Legacy archive PR #1841 and three historical/environment issues (#1041, #1438, #1329) are excluded in [closed.md](closed.md); #1557/#1630 moved to configuration, #955 to provider rules, and #1992 came from reporting. Existing upstream state is unchanged.
+**31 active upstream issues · 15 upstream PRs · 42 work packages.** Legacy archive PR #1841 and three historical/environment issues (#1041, #1438, #1329) are excluded in [exclusions.md](exclusions.md); #1557/#1630 moved to configuration, #955 to provider rules, and #1992 came from reporting. Cross-platform baseline issue #1893 moved here from integrations because it concerns CRLF-sensitive scan findings. Existing upstream state is unchanged.
 
 Files, archives, chunk boundaries, source-reader dispatch, and silent skips. Prioritize complete-scan semantics: a clean result must reflect a complete scan.
 
@@ -28,6 +28,7 @@ Files, archives, chunk boundaries, source-reader dispatch, and silent skips. Pri
 | [#1821](https://github.com/gitleaks/gitleaks/issues/1821) | — | Idiosyncrasy with `gitleaks dir` and allowlist paths | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1727](https://github.com/gitleaks/gitleaks/issues/1727) | — | Passing multiple arguments to `dir` causes a fill scan of the current directory | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1641](https://github.com/gitleaks/gitleaks/issues/1641) | — | Normalize line-endings | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+| [#1893](https://github.com/gitleaks/gitleaks/issues/1893) | — | Baseline created on Linux fails to suppress identical Windows findings after Git CRLF checkout. | **RECLASSIFIED — REPRO PENDING** | Reporter supplies Gitleaks 8.27.2 report differences: Windows `Match` has an extra `\r` and `EndColumn` increments. Related [#1641](https://github.com/gitleaks/gitleaks/issues/1641) proposes line-ending normalization generally; do not collapse their scopes until baseline fingerprint/report semantics are compared on current master. | — |
 | [#1638](https://github.com/gitleaks/gitleaks/issues/1638) | [#1639](https://github.com/gitleaks/gitleaks/pull/1639) (@elchocarrero) | Duplicate Path Only Rule Findings When Scanning Directory; proposal: Fix duplicate findings when scanning directory with path only rules | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1539](https://github.com/gitleaks/gitleaks/pull/1539) (@rgmz) | Warn when a file cannot be scanned due to Git LFS | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1525](https://github.com/gitleaks/gitleaks/issues/1525) | — | Scanning for popular password manager export formats | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
