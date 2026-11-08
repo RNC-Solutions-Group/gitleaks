@@ -1,31 +1,35 @@
 # Features — Gitleaks candidate register
 
-This is the **single active category** for feature and developer-experience proposals selected for RNC evaluation. Issues and PRs for the same work package belong together here, even when one has a different title-only classification in the original snapshot. The [closed ledger](exclusions.md) remains a separate exclusion register.
+This is the **single active category** for feature and developer-experience proposals selected for RNC evaluation. Issues and PRs for the same work package belong together here, even when one has a different title-only classification in the original snapshot. The [exclusions ledger](exclusions.md) remains a separate exclusion register.
 
-## Completed exclusions
+## Focused Optional Features scrub — 2026-11-08
 
-The legacy v7/Go 1.16 [PR #652](exclusions.md) is **OBSOLETE_RNC** after direct patch comparison with v8 `master`. Its exact build-tag change is not an active candidate. The functional proposals below remain pending.
+**Source baseline:** RNC fork `master` at [`5f6ec56c`](https://github.com/RNC-Solutions-Group/gitleaks/tree/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c). Seven upstream issue bodies, two active upstream PR patches, and the issue-linked closed PR #2018 were compared with current fork source. This is **source review only**, not a fresh build, runtime reproduction, adoption, or independent patch correctness certification.
+
+**Disposition:** two issue-only review slots excluded; five issues and two associated open PRs remain in five active work packages. The older v7/Go 1.16 [PR #652](exclusions.md) was already excluded as obsolete; it is **not** a new elimination in this pass.
+
+- [Issue #1246](exclusions.md): **CLOSED_RNC — already covered by master**. The `--ignore-gitleaks-allow` flag disables inline suppression in the detector when enabled.
+- [Issue #829](exclusions.md): **CLOSED_RNC — scope exception / existing workflow**. Users can include the complete matched line using `--report-format=template` and `.Line`; master includes a tested full-line JSON template example. This is **not** a native `-add_full_row` switch or an added field in ordinary JSON/CSV reports. Full-line export may disclose more secrets and remains an explicit template choice.
+
+These decisions, links to supporting source/tests, and reopen conditions are canonical in [exclusions.md](exclusions.md). All upstream issue/PR states and original JSON/CSV exports remain unchanged.
 
 ## Evaluation gate
 
-1. Check relevance to the current fork's module path, Go toolchain requirements, supported install commands, and release artifacts.
-2. Reproduce with an appropriate old-toolchain test environment only if still supported and safe; record error quality separately from actual minimum-version enforcement.
-3. If adopted, retain contributor attribution and record the RNC implementation branch, PR, commit, and regression evidence.
-4. If superseded or obsolete, record the reason in [exclusions.md](exclusions.md); no upstream state changes.
+1. Confirm the actual gap on current `master`, with a safe reproducer; **PENDING REVIEW** does not mean the proposal is endorsed.
+2. Keep issue #2017's release-binary build tags separate from ordinary source builds, and treat PR #2018 as closed **without merge**, not as a shipped correction.
+3. Compare surviving proposals with the current scanner behavior, security implications, and tests before any future adoption decision.
+4. Preserve original contributor attribution and separate RNC implementation/verification records if adoption occurs in another branch.
 
-The original snapshot entry remains struck through in the [open PR Markdown report](../02-open-pull-requests.md), indicating category assignment—not upstream closure. JSON and CSV exports remain untouched.
+## Remaining Optional Features — pending independent review
 
-
-## Additional functional proposals — pending review
-
-These are candidates, not RNC-adopted changes. They are linked to the same category as any PR proposing the same work.
+These candidates have not been adopted or corrected by RNC.
 
 | Upstream issue(s) | Upstream PR(s) / contributor(s) | Scope | RNC disposition | Gate |
 | --- | --- | --- | --- | --- |
-| [#1869](https://github.com/gitleaks/gitleaks/issues/1869) | [#2056](https://github.com/gitleaks/gitleaks/pull/2056) (@raajheshkannaa) | Programmatic agent integration: new `cmd/mcp.go` MCP-server command with dependencies. | **RECLASSIFIED — PENDING REVIEW** | Patch is an executable integration surface, not a provider secret-detection rule. No MCP command exists on current master; assess independently. |
-| [#2017](https://github.com/gitleaks/gitleaks/issues/2017) | — | Request: Switch released builds to use stdlib for RE? | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| [#1511](https://github.com/gitleaks/gitleaks/issues/1511) | — | Possibility to use a custom replacement string | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| [#1397](https://github.com/gitleaks/gitleaks/issues/1397) | [#2216](https://github.com/gitleaks/gitleaks/pull/2216) (@hantaee22) | Enhance gitleaks:allow to be usable outside the same line | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| [#1246](https://github.com/gitleaks/gitleaks/issues/1246) | — | Suppress "gitleaks:allow" inline annotation | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| [#1054](https://github.com/gitleaks/gitleaks/issues/1054) | — | Feature request: findings deduplication | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| [#829](https://github.com/gitleaks/gitleaks/issues/829) | — | Flag -add_full_row | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| [#1869](https://github.com/gitleaks/gitleaks/issues/1869) | [#2056](https://github.com/gitleaks/gitleaks/pull/2056) (@raajheshkannaa) | MCP-server command for coding-agent initiated local scans. | **PENDING REVIEW** — distinct active feature | PR adds `cmd/mcp.go` plus `go.mod`/`go.sum`; no `cmd/mcp.go` on master. Requires separate MCP access, output-handling, and dependency review. |
+| [#2017](https://github.com/gitleaks/gitleaks/issues/2017) | [#2018](https://github.com/gitleaks/gitleaks/pull/2018) (@prashanthpai), **closed unmerged** — contextual, not active PR | Prefer standard Go regex for **published binaries** under constrained address-space limits. | **PENDING REVIEW** — release build remains distinct | Current `.goreleaser.yml` explicitly uses `gore2regex`, unlike default untagged stdlib builds; linked one-line removal PR #2018 was closed unmerged. Reassess build/release ownership later without changing another category in this pass. |
+| [#1511](https://github.com/gitleaks/gitleaks/issues/1511) | — | Configurable secret replacement token (Drupal/YAML-safe output). | **PENDING REVIEW** — no equivalent CLI option | `cmd/root.go` exposes percentage `--redact`; `report/finding.go` hardcodes `REDACTED` at 100%. This does not implement a selectable replacement string. |
+| [#1397](https://github.com/gitleaks/gitleaks/issues/1397) | [#2216](https://github.com/gitleaks/gitleaks/pull/2216) (@hantaee22) | Signed line-offset `gitleaks:allow` directives. | **PENDING REVIEW** — unique open PR | Current `detect/detect.go` only checks the finding's own line; #2216 changes detection, adds offset parsing/tests, and documents semantics. Nothing equivalent on master. |
+| [#1054](https://github.com/gitleaks/gitleaks/issues/1054) | — | Deduplicate identical secrets across Git commits and optionally share ignore fingerprints. | **PENDING REVIEW** — distinct behavior | Current `detect/baseline.go` compares commit metadata; default fingerprints are commit-scoped. Existing per-commit processing is not the requested cross-commit secret deduplication. |
+
+
