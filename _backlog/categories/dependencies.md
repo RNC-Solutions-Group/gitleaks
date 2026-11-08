@@ -2,24 +2,21 @@
 
 Snapshot source: [Open PR inventory](../02-open-pull-requests.md), [issue inventory](../01-issue-backlog.md) (2026-11-08). This is a **title/search-based first pass**, enriched with pinned version checks from the fork. It is not an SBOM comparison against every image.
 
-**Ownership rule:** [closed.md](closed.md) is the canonical RNC exclusion list. Items recorded there are omitted from active tables here. Security PRs and their linked issues remain visible as references below, but their active review and test disposition is owned by [security-hardening.md](security-hardening.md).
+**Ownership rule:** [closed.md](closed.md) is the canonical RNC exclusion list. Items recorded there are omitted from active tables here. Security CVE PRs and their linked issues are **excluded from this register** and tracked exclusively in [security-hardening.md](security-hardening.md).
 
 ## Summary
 
 | PR disposition | Count | Basis |
 | --- | ---: | --- |
-| Reviewed — testing in security-hardening | 2 | [#2308](https://github.com/gitleaks/gitleaks/pull/2308), [#2336](https://github.com/gitleaks/gitleaks/pull/2336) |
 | Locally superseded candidate | 6 | RNC builder / current pinned module already newer than the proposal; **not equivalent to an upstream merge** |
 | Unreviewed / relevance check | 13 | Candidate changes still require diff, version, safety, and test review |
-| **Total title-based dependency/build PR candidates** | **21** | Excludes [#2326](https://github.com/gitleaks/gitleaks/pull/2326) (documentation mentioning a report option dependency, not package updates) |
+| **Total active dependency/build PR candidates** | **19** | Excludes #2326 (documentation mentioning a report option dependency, not package updates) |
 
 ## Open PRs to review
 
 | Upstream PR | Title | Pinned version or preliminary difference | RNC disposition |
 | --- | --- | --- | --- |
-| [#2336](https://github.com/gitleaks/gitleaks/pull/2336) | build(deps): bump klauspost/compress to v1.18.7 | master: klauspost/compress v1.18.0 → proposed v1.18.7 | REVIEWED — TESTING · security-hardening |
 | [#2323](https://github.com/gitleaks/gitleaks/pull/2323) | build(deps): bump docker/login-action from 4.6.0 to 4.7.0 in the actions group | Docker login action 4.6.0 → 4.7.0 | UNREVIEWED / RELEVANCE CHECK |
-| [#2308](https://github.com/gitleaks/gitleaks/pull/2308) | build(deps): update dependencies to resolve CVEs (#2305, #2291) | master: x/crypto v0.35.0, x/sys v0.30.0, x/text v0.29.0; PR raises Go minimum | REVIEWED — TESTING · security-hardening |
 | [#2289](https://github.com/gitleaks/gitleaks/pull/2289) | build(deps): bump github.com/wasilibs/go-re2 from 1.9.0 to 1.13.0 | go-re2 v1.9.0 → v1.13.0 | UNREVIEWED / RELEVANCE CHECK |
 | [#2250](https://github.com/gitleaks/gitleaks/pull/2250) | build(deps): bump github.com/stretchr/testify from 1.10.0 to 1.12.1 | testify v1.10.0 → v1.12.1 | UNREVIEWED / RELEVANCE CHECK |
 | [#2149](https://github.com/gitleaks/gitleaks/pull/2149) | build(deps): bump github.com/spf13/cobra from 1.9.1 to 1.10.2 | cobra v1.9.1 → v1.10.2 | UNREVIEWED / RELEVANCE CHECK |
@@ -51,14 +48,11 @@ Snapshot source: [Open PR inventory](../02-open-pull-requests.md), [issue invent
 
 ## Open issues requiring dependency/build triage
 
-These came from the open-issue inventory plus targeted searches for CVE and build terms. The first three are owned by [security-hardening](security-hardening.md), not separately evaluated here.
+These came from the open-issue inventory plus targeted build and dependency searches. CVE work owned by [security-hardening](security-hardening.md) is excluded from this table.
 
 | Issue | Description | Routing |
 | --- | --- | --- |
-| [#2305](https://github.com/gitleaks/gitleaks/issues/2305) | Please Resolve CVEs in 8.30.1 | REVIEWED — TESTING via security-hardening |
-| [#2291](https://github.com/gitleaks/gitleaks/issues/2291) | Go CVE Vulnerabilities | REVIEWED — TESTING via security-hardening |
-| [#2330](https://github.com/gitleaks/gitleaks/issues/2330) | fix below CVEs | REVIEWED — TESTING via security-hardening |
-| [#1120](https://github.com/gitleaks/gitleaks/issues/1120) | Please bump golang.org/x/sys dependency | Check x/sys platform compatibility against #2308 |
+| [#1120](https://github.com/gitleaks/gitleaks/issues/1120) | Please bump golang.org/x/sys dependency | Check x/sys platform compatibility against the fork’s pinned version |
 | [#2031](https://github.com/gitleaks/gitleaks/issues/2031) | Rename in the go.mod file? | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
 | [#1839](https://github.com/gitleaks/gitleaks/issues/1839) | Module path discrepancy after repository migration | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
 | [#1544](https://github.com/gitleaks/gitleaks/issues/1544) | invalid go version '1.22.0': must match format 1.23 | Build, module-path, compatibility, or documentation; not established as an outstanding CVE |
@@ -72,7 +66,7 @@ These came from the open-issue inventory plus targeted searches for CVE and buil
 
 ### Title-search exclusions, not dependency remediation
 
-The search also returned issues about `--version` output, config rule versioning, `useDefault`, and JSON reporting, plus [#2326](https://github.com/gitleaks/gitleaks/pull/2326). These are not package-upgrade tasks; leave them for feature/CLI categories rather than inflate a dependency closure rate.
+The search also returned issues about `--version` output, config rule versioning, `useDefault`, and JSON reporting, plus #2326. These are not package-upgrade tasks; leave them for feature/CLI categories rather than inflate a dependency closure rate.
 
 ## Recommended filter before closing anything else
 
