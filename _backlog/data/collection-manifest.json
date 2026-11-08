@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "collected_at_utc": "2026-11-08T07:14:05.557Z",
+  "source_repository": "gitleaks/gitleaks",
+  "destination_repository": "RNC-Solutions-Group/gitleaks",
+  "destination_branch": "feat/issues-and-pr",
+  "destination_base_ref": "master",
+  "destination_base_sha_at_preparation": "5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c",
+  "search_approach": "GitHub issue and PR search partitioned by creation date (all open states), plus individual issue/PR metadata retrieval for every number",
+  "issue_search_windows": [
+    "repo:gitleaks/gitleaks is:issue is:open created:>=2026-09-01",
+    "repo:gitleaks/gitleaks is:issue is:open created:2026-06-01..2026-08-31",
+    "repo:gitleaks/gitleaks is:issue is:open created:2026-01-01..2026-05-31",
+    "repo:gitleaks/gitleaks is:issue is:open created:2025-01-01..2025-12-31",
+    "repo:gitleaks/gitleaks is:issue is:open created:2024-01-01..2024-12-31",
+    "repo:gitleaks/gitleaks is:issue is:open created:2023-01-01..2023-12-31",
+    "repo:gitleaks/gitleaks is:issue is:open created:2022-01-01..2022-12-31",
+    "repo:gitleaks/gitleaks is:issue is:open created:<2022-01-01"
+  ],
+  "pr_search_windows": [
+    "repo:gitleaks/gitleaks is:pr is:open created:>=2026-09-01",
+    "repo:gitleaks/gitleaks is:pr is:open created:2026-06-01..2026-08-31",
+    "repo:gitleaks/gitleaks is:pr is:open created:2026-01-01..2026-05-31",
+    "repo:gitleaks/gitleaks is:pr is:open created:<2026-01-01"
+  ],
+  "issues_count": 285,
+  "open_prs_count": 252,
+  "pr_formally_issue_linked_count": 112,
+  "candidate_links_count": 174,
+  "issues_without_detected_open_pr": 171,
+  "prs_without_detected_issue_reference": 108,
+  "metadata_coverage": {
+    "issues_enriched": 285,
+    "prs_enriched": 252
+  },
+  "exclusions": {
+    "body_text": "Omitted from committed JSON/CSV/Markdown to avoid republishing possible credentials or sensitive logs; inspected in memory for relationships",
+    "pull_request_diffs": "Not fetched",
+    "review_comments": "Not fetched",
+    "closed_issues": "Not enumerated",
+    "exact_graphql_link_nodes": "Not fetched",
+    "automated_category_validation": "Not performed",
+    "tests_or_image_execution": "Not performed"
+  },
+  "counting_notes": [
+    "Open issue and PR snapshots are dynamic; counts may change after collection.",
+    "A `linked:issue` search result is not interchangeable with a parsed issue reference.",
+    "Every title-only category suggestion requires human review.",
+    "CSV literal fields beginning with spreadsheet formula trigger characters are prefixed with an apostrophe."
+  ],
+  "status": "collection_only_unreviewed"
+}
