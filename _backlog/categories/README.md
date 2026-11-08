@@ -7,7 +7,7 @@ Current reviews:
 - [Crosswalk duplicates](crosswalk-duplicates.md): competing PRs for the same issue, overlapping issue reports, and references that should **not** be treated as duplicates. Candidate matches are not implementations.
 - [Dependencies](dependencies.md): Go modules, compiler/builder versions, Docker and CI dependency candidates, including local supersession checks.
 - [Features](features.md): functional and developer-experience changes, starting with legacy Go-install compatibility PR #652.
-- [Closed](closed.md): the authoritative **RNC-only exclusion register**, currently #1939; upstream remains open.
+- [Closed](closed.md): the authoritative **RNC-only exclusion register**: issue #1939 (RNC-closed) and PR #1435 (superseded by merged upstream work). Both upstream items remain open.
 - [Security hardening](security-hardening.md): PRs #2308 and #2336 with their linked issues; **reviewed — testing**, not yet integrated.
 
 ## Single-owner category routing
@@ -20,8 +20,8 @@ Each upstream issue or PR has **exactly one canonical RNC category** at a time. 
 | [Dependencies](dependencies.md) | 11 | 18 | Build/toolchain, pinned modules, CI and related issues |
 | [Features](features.md) | 0 | 1 | Legacy installation and developer experience; pending review |
 | [Security hardening](security-hardening.md) | 3 | 2 | Two reviewed security PRs and their directly linked issues; testing |
-| [Closed](closed.md) | 1 | 0 | No more current RNC work; upstream may remain open |
-| **Unique assigned IDs** | **48** | **69** | Two duplicate-category issues fall outside the open-issue snapshot |
+| [Closed](closed.md) | 1 | 1 | No more current RNC work; upstream may remain open |
+| **Unique assigned IDs** | **48** | **70** | Two duplicate-category issues fall outside the open-issue snapshot |
 
 The three top-level Markdown reports ([issues](../01-issue-backlog.md), [PRs](../02-open-pull-requests.md), and [crosswalk](../03-pr-issue-crosswalk.md)) ~~strike through~~ items once assigned to a category. Strikethrough is **routing**, not upstream closure or implemented code. Their original counts remain historical snapshot counts. JSON and CSV source exports remain unchanged.
 

@@ -211,7 +211,7 @@ Snapshot: 2026-11-08T07:14:05.557Z | Full filterable register: [data/crosswalk.c
 
 ### Issue references outside the open-issue snapshot (5 pairs)
 
-- ~~[PR #1435](https://github.com/gitleaks/gitleaks/pull/1435)~~ references ~~[issue #1432](https://github.com/gitleaks/gitleaks/issues/1432)~~; issue not in the **open** backlog snapshot; status not verified.
+- ~~[PR #1435](https://github.com/gitleaks/gitleaks/pull/1435)~~ references ~~[issue #1432](https://github.com/gitleaks/gitleaks/issues/1432)~~; issue closed upstream 2025-01-13 following merged #1676. PR remains open upstream but is **SUPERSEDED_RNC** in [closed ledger](categories/closed.md).
 - [PR #1566](https://github.com/gitleaks/gitleaks/pull/1566) references [issue #1274](https://github.com/gitleaks/gitleaks/issues/1274); issue not in the **open** backlog snapshot; status not verified.
 - ~~[PR #2035](https://github.com/gitleaks/gitleaks/pull/2035)~~ references [issue #1949](https://github.com/gitleaks/gitleaks/issues/1949); issue not in the **open** backlog snapshot; status not verified.
 - ~~[PR #2082](https://github.com/gitleaks/gitleaks/pull/2082)~~ references ~~[issue #1846](https://github.com/gitleaks/gitleaks/issues/1846)~~; issue not in the **open** backlog snapshot; status not verified.
