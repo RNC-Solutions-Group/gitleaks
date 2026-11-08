@@ -9,8 +9,8 @@ Snapshot source: [Open PR inventory](../02-open-pull-requests.md), [issue invent
 | PR disposition | Count | Basis |
 | --- | ---: | --- |
 | Locally superseded candidate | 6 | RNC builder / current pinned module already newer than the proposal; **not equivalent to an upstream merge** |
-| Unreviewed / relevance check | 13 | Candidate changes still require diff, version, safety, and test review |
-| **Total active dependency/build PR candidates** | **19** | Excludes #2326 (documentation mentioning a report option dependency, not package updates) |
+| Unreviewed / relevance check | 12 | Candidate changes still require diff, version, safety, and test review |
+| **Total active dependency/build PR candidates** | **18** | Excludes #2326 (documentation mentioning a report option dependency, not package updates) |
 
 ## Open PRs to review
 
@@ -34,7 +34,6 @@ Snapshot source: [Open PR inventory](../02-open-pull-requests.md), [issue invent
 | [#1959](https://github.com/gitleaks/gitleaks/pull/1959) | Update go to 1.24.9 in go.mod | master go.mod already 1.24.11, newer than proposed 1.24.9 | LOCAL SUPERSEDED — verify scope |
 | [#1103](https://github.com/gitleaks/gitleaks/pull/1103) | fix(sec): upgrade gopkg.in/yaml.v3 to 3.0.0 | master yaml.v3 already v3.0.1, newer than proposed v3.0.0 | LOCAL SUPERSEDED — verify scope |
 | [#1099](https://github.com/gitleaks/gitleaks/pull/1099) | Fix: go.mod version changed back to 1.18 | Version-compatibility change, not a vulnerability dependency upgrade | UNREVIEWED / RELEVANCE CHECK |
-| [#652](https://github.com/gitleaks/gitleaks/pull/652) | Minimum go version should be enforced when installing gitleaks with go get command | Installation Go-version enforcement, not a module upgrade | UNREVIEWED / RELEVANCE CHECK |
 
 **Critical boundary:** Go toolchain updates do **not** automatically upgrade dependencies in `go.mod` or `go.sum`. The fork's `master` still pins `klauspost/compress v1.18.0`, `go-re2 v1.9.0`, `cobra v1.9.1`, `viper v1.19.0`, and other older modules. A new Go builder does not prove these PRs are redundant.
 
@@ -76,4 +75,4 @@ The search also returned issues about `--version` output, config rule versioning
 4. **Behavior:** Go tests and Docker acceptance, including archive/chunking regressions for compression libraries.
 5. **Disposition:** move into `closed.md` **only after an explicit RNC closure decision**, preserving the upstream issue/PR as a link; do not auto-close GitHub issues.
 
-This is where the easy wins should emerge. It would be premature to claim 90% of these PRs are closed from a newer Go version alone.
+The dependency closure rate should be calculated from verified package and image evidence, not inferred from the Go builder version alone.
