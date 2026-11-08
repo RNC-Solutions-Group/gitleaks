@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**4 active upstream issues · 8 active upstream PRs · 9 work packages.** [PR #1296](exclusions.md) was superseded by the current README/release configuration; behavioral profiling-script [PR #1900](performance-stability.md) moved to performance. Earlier exclusions and detection-affecting #1745 remain recorded in [exclusions.md](exclusions.md) and [detection-accuracy.md](detection-accuracy.md). Existing upstream state is unchanged.
+**5 active upstream issues · 9 active upstream PRs · 10 work packages.** [PR #1296](exclusions.md) was superseded by the current README/release configuration; behavioral profiling-script [PR #1900](performance-stability.md) moved to performance. Earlier exclusions and detection-affecting #1745 remain recorded in [exclusions.md](exclusions.md) and [detection-accuracy.md](detection-accuracy.md). Pre-receive documentation issue #2218 and PR #2236 were reclassified from Git & Hooks based on the README-only patch. Existing upstream state is unchanged.
 
 Documentation, setup notes, labels, and explanatory examples. Older PRs require line-by-line comparison; a modern README does not prove every old doc fix is present.
 
@@ -12,6 +12,7 @@ Documentation, setup notes, labels, and explanatory examples. Older PRs require 
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
+| [#2218](https://github.com/gitleaks/gitleaks/issues/2218) | [#2236](https://github.com/gitleaks/gitleaks/pull/2236) (@RajeshRajendiran) | Clarify that range-restricted Git scans only inspect added diff lines; pre-existing unchanged secrets are outside the scan scope. | **DOCS BUNDLE — EXACT-PATCH CANDIDATE** | `sources/git.go` consumes added fragments from `git log -p`, and the current README does not explain pre-receive range limitations. PR adds documentation only; it does not fix pre-receive hook revision selection (#821), nor does it implement rescanning unchanged content. | — |
 | — | [#2212](https://github.com/gitleaks/gitleaks/pull/2212) (@RajeshRajendiran) | Correct documented `--max-decode-depth` default from 0/disabled to 5/enabled. | **DOCS BUNDLE — EXACT-PATCH CANDIDATE** | `master/cmd/root.go:91` sets default 5; README still contradicts it twice. Patch fixes both references. No memory/OOM remediation: issue #2019 remains in [performance](performance-stability.md). | — |
 | [#1862](https://github.com/gitleaks/gitleaks/issues/1862) | [#2298](https://github.com/gitleaks/gitleaks/pull/2298) (@bharathvemula) | Update baseline prose to `git` command and fix the article/grammar. | **DOCS BUNDLE — EXACT-PATCH CANDIDATE** | Master still says `Once as baseline` and refers to retired `detect`; PR changes the two prose locations. Supersedes old PR #2202 (already in exclusions). | — |
 | — | [#2287](https://github.com/gitleaks/gitleaks/pull/2287) (@ump45nose) | Fix pre-commit Docker-image section link. | **DOCS BUNDLE — ADAPT REQUIRED** | `#docker` is broken, but PR replaces it with `#docker-ghcrio`, which is only a Bash comment inside a code fence in current README, **not** a heading. Use a real heading/anchor or direct URL; credit #2287 without copying the broken anchor. | — |
@@ -24,7 +25,7 @@ Documentation, setup notes, labels, and explanatory examples. Older PRs require 
 
 ## Documentation consolidation recommendation — separate owner branch, no adoption here
 
-**Bundle A — seven PRs / seven credited authors:** [#2298](https://github.com/gitleaks/gitleaks/pull/2298) @bharathvemula, [#2282](https://github.com/gitleaks/gitleaks/pull/2282) @haimingZZ, [#2258](https://github.com/gitleaks/gitleaks/pull/2258) @jankesec, [#2212](https://github.com/gitleaks/gitleaks/pull/2212) @RajeshRajendiran, [#2008](https://github.com/gitleaks/gitleaks/pull/2008) @jylenhof, [#2287](https://github.com/gitleaks/gitleaks/pull/2287) @ump45nose, and [#2247](https://github.com/gitleaks/gitleaks/pull/2247) @CAOShurong.
+**Bundle A — eight PRs / seven credited authors:** [#2298](https://github.com/gitleaks/gitleaks/pull/2298) @bharathvemula, [#2282](https://github.com/gitleaks/gitleaks/pull/2282) @haimingZZ, [#2258](https://github.com/gitleaks/gitleaks/pull/2258) @jankesec, [#2212](https://github.com/gitleaks/gitleaks/pull/2212) @RajeshRajendiran, [#2236](https://github.com/gitleaks/gitleaks/pull/2236) @RajeshRajendiran, [#2008](https://github.com/gitleaks/gitleaks/pull/2008) @jylenhof, [#2287](https://github.com/gitleaks/gitleaks/pull/2287) @ump45nose, and [#2247](https://github.com/gitleaks/gitleaks/pull/2247) @CAOShurong.
 
 | Upstream PR | Proposed head commit (pinned 2026-11-08) | Integration approach |
 | --- | --- | --- |
@@ -32,11 +33,12 @@ Documentation, setup notes, labels, and explanatory examples. Older PRs require 
 | [#2282](https://github.com/gitleaks/gitleaks/pull/2282) | `4c25e35e24483e2ebe5da1dba14e64ed6912eb0c` | Preserve both README and CONTRIBUTING corrections |
 | [#2258](https://github.com/gitleaks/gitleaks/pull/2258) | `f5b3892e7d30cb5ecdcfc47b12a3ac7a30fc6856` | Preserve exact typo fix |
 | [#2212](https://github.com/gitleaks/gitleaks/pull/2212) | `2380e927f3961b686b7194dd3a59f36c94e95bdf` | Preserve exact default/decoding descriptions |
+| [#2236](https://github.com/gitleaks/gitleaks/pull/2236) | `0ef7c0a02c81bf794039c4fe09153a2904cf399e` | Preserve explanatory Git/pre-receive limitations |
 | [#2247](https://github.com/gitleaks/gitleaks/pull/2247) | `718896a43f42cdce3e0733ccf8f67dab815a6a24` | Preserve replacement link; verify at merge time |
 | [#2008](https://github.com/gitleaks/gitleaks/pull/2008) | `f4ff4532d350cf36e923ad36384e88898882a131` | Preserve snippet only after mise registry smoke check |
 | [#2287](https://github.com/gitleaks/gitleaks/pull/2287) | `298f58e8320e09a7325ccde723ecfac6d42502c8` | Adapt target anchor; credit original intent |
 
-- **Copy only the exact documentation corrections after applying them to a fresh branch from `master`:** #2298, #2282, #2258, #2212, and #2247 (replacement Medium article source independently checked). #2008 is a one-line additive candidate, conditional on verifying the current mise installation source. None of these needs scanner-code changes.
+- **Copy only the exact documentation corrections after applying them to a fresh branch from `master`:** #2298, #2282, #2258, #2212, #2236, and #2247 (replacement Medium article source independently checked). #2008 is a one-line additive candidate, conditional on verifying the current mise installation source. None of these needs scanner-code changes.
 - **Adapt with explicit credit:** #2287 needs a real navigable anchor, not `#docker-ghcrio` pointing into a code fence. Reconfirm #2247's external destination at merge time; a current link check cannot guarantee future availability.
 - **Keep independent:** #2084 is an executable integration recipe containing incorrect claims/unsafe copy-paste behavior. [#1900](performance-stability.md) edits behavior of `scripts/profile.sh`; it belongs in scripting/performance review, not this docs PR. [#1296](exclusions.md) is already superseded by current master and release metadata.
 - **History and attribution:** preserve each author's upstream PR URL and source commit SHA in the owner consolidation PR. Prefer retaining original commits where they apply cleanly; adapted fixes should be a distinct owner-authored commit that explicitly credits the originating contributor (`Co-authored-by` when appropriate). Never claim that this triage branch adopted, tested, or merged any source PR.

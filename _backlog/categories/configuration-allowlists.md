@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**35 upstream issues · 27 upstream PRs · 48 work packages.** Remote-config #1557/#1630 moved here; the NuGet rule PR #1071 is superseded on master, while Putty detection PR #1373 moved to [provider rules](detection-rules.md). Existing upstream state is unchanged.
+**36 upstream issues · 27 upstream PRs · 49 work packages.** Remote-config #1557/#1630 moved here; the NuGet rule PR #1071 is superseded on master, while Putty detection PR #1373 moved to [provider rules](detection-rules.md). Git-refs config request #1923 moved here from Git & Hooks. Existing upstream state is unchanged.
 
 Config loading, ignore files, allowlist conditions, baselines, inline suppression, and configuration ergonomics. A narrow change can accidentally disable detection: use negative tests.
 
@@ -12,6 +12,7 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
+| [#1923](https://github.com/gitleaks/gitleaks/issues/1923) | — | Load `.gitleaks.toml` and `.gitleaksignore` from `refs/gitleaks/*` blobs with defined precedence. | **RECLASSIFIED — FEATURE REVIEW PENDING** | Proposal changes configuration discovery and precedence, not Git diff/history parsing. Master config loader reads filesystem paths; alternate ref-backed configuration needs explicit validation, trust/branch model, and security review. | — |
 | [#1557](https://github.com/gitleaks/gitleaks/issues/1557) | [#1630](https://github.com/gitleaks/gitleaks/pull/1630) (@cduggn) | Remote configuration URL, fetch/config commands and loading. | **RECLASSIFIED — PENDING REVIEW** | Patch adds `cmd/config.go`, `config/remote_config.go`, tests and module changes; this is configuration acquisition, not source-file scan integrity. | — |
 | [#2320](https://github.com/gitleaks/gitleaks/issues/2320) | [#2346](https://github.com/gitleaks/gitleaks/pull/2346) (@delaysystem) | regexTarget = "line" allowlists see the previous line's newline, so ^-anchored regexes never match after the first line; proposal: fix(detect): exclude the previous line's newline from Finding.Line | **SOURCE-CHECKED — TEST PENDING** | Patch inspected: adjusts `detect/codec/segment.go` and location tests; check line/column effects. | — |
 | [#2295](https://github.com/gitleaks/gitleaks/issues/2295) | [#2306](https://github.com/gitleaks/gitleaks/pull/2306) (@rotirotirafa) | Preserve Firebase example-key provenance in the generated gcp-api-key allowlist; proposal: docs: preserve Firebase example key provenance in generated config | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |

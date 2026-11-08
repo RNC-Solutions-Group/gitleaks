@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**25 upstream issues · 8 upstream PRs · 26 work packages.** CSV PR #2205 was routed here by its diff; URL/JSON **source** PR #1992 moved to scan integrity, and detection-rule PRs #1265/#1043 moved to detection accuracy. Existing upstream state is unchanged.
+**26 upstream issues · 8 upstream PRs · 27 work packages.** CSV PR #2205 was routed here by its diff; URL/JSON **source** PR #1992 moved to scan integrity, and detection-rule PRs #1265/#1043 moved to detection accuracy. Output-context issue #1626 moved here from Git & Hooks after reading its actual output-only request. Existing upstream state is unchanged.
 
 SARIF/CSV/JSON/XML output, finding coordinates, reporting data preservation, and redaction. Tests should cover file permissions, escaping, error paths, and stable output contracts.
 
@@ -12,6 +12,7 @@ SARIF/CSV/JSON/XML output, finding coordinates, reporting data preservation, and
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
+| [#1626](https://github.com/gitleaks/gitleaks/issues/1626) | — | Include a copyable `git show <commit> -L ...:<path>` context command or equivalent historic-line link alongside findings. | **RECLASSIFIED — FEATURE REVIEW PENDING** | Reporter asks for additional finding output to inspect deleted/moved source lines, not a Git scanning fix. Current report has commit/file/line fields; choose between optional CLI decoration and short README example. No PR or implementation verified. | — |
 | — | [#2205](https://github.com/gitleaks/gitleaks/pull/2205) (@trinathone) | Normalize multiline commit messages in CSV output, with a new CSV fixture. | **RECLASSIFIED — PENDING REVIEW** | Diff edits only `report/csv.go`, its tests, and an expected CSV; it does **not** touch `--log-opts` parsing for issue #2003. Assess CSV output semantics separately. | — |
 | [#1866](https://github.com/gitleaks/gitleaks/issues/1866) | [#2326](https://github.com/gitleaks/gitleaks/pull/2326) (@bharathvemula) | Reporting: Include explicitly example for writing output as JSON to stdout; proposal: docs: document JSON report to stdout and report-format/report-path dependency | **LINKED — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#2304](https://github.com/gitleaks/gitleaks/issues/2304) | [#2307](https://github.com/gitleaks/gitleaks/pull/2307) (@jdotc1) | Existing report is removed before invalid report format is rejected; proposal: fix: preserve existing reports during report validation | **SOURCE-CHECKED — TEST PENDING** | Patch inspected: `cmd/root.go` on `master` creates the destination during report-option validation. | — |
