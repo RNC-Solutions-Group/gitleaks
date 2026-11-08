@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**36 upstream issues · 27 upstream PRs · 49 work packages.** Remote-config #1557/#1630 moved here; the NuGet rule PR #1071 is superseded on master, while Putty detection PR #1373 moved to [provider rules](detection-rules.md). Git-refs config request #1923 moved here from Git & Hooks. Existing upstream state is unchanged.
+**37 upstream issues · 27 upstream PRs · 50 work packages.** Remote-config #1557/#1630 moved here; the NuGet rule PR #1071 is superseded on master, while Putty detection PR #1373 moved to [provider rules](detection-rules.md). Git-refs config request #1923 moved here from Git & Hooks; minimum-scanner-version request #1754 moved from Integrations & Releases. Existing upstream state is unchanged.
 
 Config loading, ignore files, allowlist conditions, baselines, inline suppression, and configuration ergonomics. A narrow change can accidentally disable detection: use negative tests.
 
@@ -32,6 +32,7 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 | — | [#2030](https://github.com/gitleaks/gitleaks/pull/2030) (@max-wittig) | refactor(config): adjust to new glpat routable token | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#2024](https://github.com/gitleaks/gitleaks/pull/2024) (@tralph3) | fix RequiredRules and SkipReport not properly applied when extending configuration | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#2001](https://github.com/gitleaks/gitleaks/pull/2001) (@LloydCoder) | feat(config): add Nigerian fintech & betting secret rules by @Lloydcoder | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+| [#1754](https://github.com/gitleaks/gitleaks/issues/1754) | — | Require a minimum Gitleaks version when `[extend] useDefault = true` is used in pre-commit/configuration. | **RECLASSIFIED — CONFIG POLICY, REVIEW PENDING** | Master `config/config.go` parses top-level `MinVersion` and calls `validateMinVersion`, but a scanner version below the threshold merely triggers a warning (lines 307–313); it does not reject the scan. This is not the requested enforcement. Compare with #1998/#764 later without assuming they are duplicates. | — |
 | [#1998](https://github.com/gitleaks/gitleaks/issues/1998) | — | Rule version in the gitleaks.toml | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1997](https://github.com/gitleaks/gitleaks/issues/1997) | — | Rules priority | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1919](https://github.com/gitleaks/gitleaks/issues/1919) | — | targetRules field in [[allowLists]] is ignored | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
