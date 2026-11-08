@@ -102,3 +102,25 @@ All candidates remain **UNREVIEWED / NOT IMPLEMENTED** in this register. For eac
 The tracking field design was deliberately **not added to the source JSON/CSV/Markdown inventories yet**. That is a separate follow-up decision so source snapshots and human adoption decisions stay distinguishable.
 
 No upstream PR was cherry-picked, no RNC security branch was modified, and no merge was performed for this assessment.
+
+
+## C. Additional links and competing proposals — full-routing pass
+
+These items were not fully assigned during the earlier duplicate review. The 174 original crosswalk relationships and its confidence figures are a **historical snapshot**; newer semantic associations are explicitly **tentative**. All records remain active, with one category owner.
+
+| Issue(s) | PR(s) and contributor(s) | Candidate overlap | RNC status | Next gate |
+| --- | --- | --- | --- | --- |
+| [#2337](https://github.com/gitleaks/gitleaks/issues/2337) | [#2338](https://github.com/gitleaks/gitleaks/pull/2338) (@VISHNU0906) | `gitleaks git --pre-commit --staged` silently skips staged text files that git treats as binary (`core.bigFileThreshold`, `-diff` attribute) | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+| [#2328](https://github.com/gitleaks/gitleaks/issues/2328) | [#2329](https://github.com/gitleaks/gitleaks/pull/2329) (@cardene777) | Secrets are missed when a chunk of a long first line starts with a binary signature | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+| [#2316](https://github.com/gitleaks/gitleaks/issues/2316) | [#2317](https://github.com/gitleaks/gitleaks/pull/2317) (@Varshith-Kali) | A plain-text file is silently skipped ("scanned ~0 bytes", exit 0) when its name contains an archive extension such as .7z, .xz, .zip or .br | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+| [#2302](https://github.com/gitleaks/gitleaks/issues/2302) | [#2319](https://github.com/gitleaks/gitleaks/pull/2319) (@abhinavrastogi2627) | gitleaks-system pre-commit hook missing pass_filenames: false | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+| [#2214](https://github.com/gitleaks/gitleaks/issues/2214) | [#2224](https://github.com/gitleaks/gitleaks/pull/2224) (@rylena) | http Basic-Auth secret not detected | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+| — | [#2324](https://github.com/gitleaks/gitleaks/pull/2324) (@cardene777) | fix(sources): finish the current line when no blank line is found at a chunk boundary | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+| — | [#2292](https://github.com/gitleaks/gitleaks/pull/2292) (@Saadanjum0) | fix(git): return an error when the git command fails | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+| — | [#2280](https://github.com/gitleaks/gitleaks/pull/2280) (@MohamedQiqa) | add supabase-service-role-key and database-connection-string rules | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+| — | [#2204](https://github.com/gitleaks/gitleaks/pull/2204) (@rayair250-droid) | perf(detect): reuse regex matches instead of scanning the fragment twice | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+| — | [#2150](https://github.com/gitleaks/gitleaks/pull/2150) (@AlbusZhuo) | Fix composite withinColumns cross-line matching | **PENDING REVIEW** — not implemented | Validate overlap and choose best functional implementation, with tests. |
+
+**Master code checks:** #2329 addresses the current first-chunk heuristic; #2317 addresses archive content validation. #2338 concerns staged files classified as binary. #2324 proposes a new safe-boundary line-completion helper absent from `master/sources/common.go`. These are distinct failure modes even if they share the scanner's fail-open symptoms. **Do not mark any of them fixed or adopted until tests demonstrate it.**
+
+**Weak crosswalk rule:** PR #2324 mentions #1651, #2292 mentions #1981, and #2280 mentions #2225; these are potential competing implementation paths, not verified `Fixes` relationships. The upstream PR #1435 is already RNC-superseded and remains exclusively in [closed.md](closed.md).

@@ -36,3 +36,19 @@ The [closed ledger](closed.md) is authoritative: excluded RNC-closed items are n
 4. Compare to independent expected findings—not blindly to release-image behavior—and report all fixture exclusions.
 5. Record the user-approved RNC branch/PR/commit receiving each contribution. Until then, status remains **REVIEWED — TESTING**.
 6. Only after evidence and owner approval promote security changes downstream according to the established branch policy; do not merge community PRs or alter upstream state from these docs.
+
+
+## Additional security and supply-chain candidates — pending review
+
+The initial #2308/#2336 CVE test work above is unchanged. The following **newly routed** items were not tested or integrated; they are held here to assess real security impact, compatibility, and current-image relevance.
+
+| Upstream issue(s) | Upstream PR(s) / contributor(s) | Scope | RNC disposition | Gate |
+| --- | --- | --- | --- | --- |
+| [#2176](https://github.com/gitleaks/gitleaks/issues/2176) | [#2206](https://github.com/gitleaks/gitleaks/pull/2206) (@trinathone) | Run as a non-root user in Docker | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| [#2074](https://github.com/gitleaks/gitleaks/issues/2074) | — | Untrusted impersonation of the project at gitleaks.org | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| [#1572](https://github.com/gitleaks/gitleaks/issues/1572) | — | .gitleaksignore should be treated as untrusted input | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| [#1277](https://github.com/gitleaks/gitleaks/issues/1277) | — | [Security] Vulnerabilities reported in docker image | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| — | [#2237](https://github.com/gitleaks/gitleaks/pull/2237) (@bunlongheng) | fix: prevent CSV formula injection in csv report output | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| — | [#637](https://github.com/gitleaks/gitleaks/pull/637) (@varunsh-coder) | Add specific permissions to workflows under .github/workflows | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+
+**Priority checks:** #2237 addresses spreadsheet formula injection in CSV exports; #2176/#2206 concerns non-root execution; #1572 concerns trust of .gitleaksignore; #1277 is an older image-vulnerability report needing the actual release/image digest. A current Docker builder or Alpine tag does not automatically resolve these unrelated behaviors. No adoption has occurred.
