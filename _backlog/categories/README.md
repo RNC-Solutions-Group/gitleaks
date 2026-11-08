@@ -1,12 +1,15 @@
 # Category review notes
 
-This directory is reserved for human-reviewed analyses split from the [crosswalk](../03-pr-issue-crosswalk.md). No candidate has been accepted, rejected, tested, or promoted by this initial inventory.
+This directory is reserved for human-reviewed analyses split from the [crosswalk](../03-pr-issue-crosswalk.md). The original upstream snapshot was unreviewed; the category documents below record subsequent **RNC-specific** dispositions. Those assessments do not change upstream issue or PR state.
 
 Current reviews:
 
-- [Crosswalk duplicates](crosswalk-duplicates.md): competing PRs for the same issue, overlapping issue reports, and references that should **not** be treated as duplicates. All candidates remain unimplemented.
+- [Crosswalk duplicates](crosswalk-duplicates.md): competing PRs for the same issue, overlapping issue reports, and references that should **not** be treated as duplicates. Candidate matches are not implementations.
+- [Dependencies](dependencies.md): Go modules, compiler/builder versions, Docker and CI dependency candidates, including local supersession checks.
+- [Closed](closed.md): the authoritative **RNC-only exclusion register**, currently #1939; upstream remains open.
+- [Security hardening](security-hardening.md): PRs #2308 and #2336 with their linked issues; **reviewed — testing**, not yet integrated.
 
-Use one Markdown file per meaningful topic (for example `security-hardening.md`, `scanner-correctness.md`, `dependency-updates.md`, or `output-safety.md`). Record for each considered issue/PR:
+Use one Markdown file per meaningful topic (for example `scanner-correctness.md` or `output-safety.md`). Record for each considered issue/PR:
 
 | Field | Required evidence |
 | --- | --- |
