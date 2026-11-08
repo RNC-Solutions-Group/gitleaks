@@ -2,6 +2,10 @@
 
 This directory is reserved for human-reviewed analyses split from the [crosswalk](../03-pr-issue-crosswalk.md). No candidate has been accepted, rejected, tested, or promoted by this initial inventory.
 
+Current reviews:
+
+- [Crosswalk duplicates](crosswalk-duplicates.md): competing PRs for the same issue, overlapping issue reports, and references that should **not** be treated as duplicates. All candidates remain unimplemented.
+
 Use one Markdown file per meaningful topic (for example `security-hardening.md`, `scanner-correctness.md`, `dependency-updates.md`, or `output-safety.md`). Record for each considered issue/PR:
 
 | Field | Required evidence |
