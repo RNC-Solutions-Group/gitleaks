@@ -48,7 +48,7 @@ Every upstream issue and PR has exactly **one primary category**. Verified relat
 3. **Adopted:** only after upstream code is actually integrated; record upstream PR/commit, RNC integration commit, RNC PR, branch, and verification. **Corrected:** reserved for an RNC-origin fix, with RNC commit/PR and tests.
 4. **Superseded:** record the known replacement PR/commit or concrete current code; an open replacement does not close the underlying defect. **Closed:** presently a nonissue or RNC scope exception with precise reason. **Obsolete:** a validated outdated/inapplicable approach, with evidence. Do not use any of these merely to reduce counts.
 5. Keep only one canonical category for a work package; move all tied IDs together. Once categorized, strike each source link in the three Markdown inventories. Leave `_backlog/data/` (JSON and CSV) immutable.
-6. Only the user promotes or merges code between security PR, shared-security branch, experiment branch, and fork `main`.
+6. Only the user promotes or merges code between security PR, shared-security branch, experiment branch, and fork `master`.
 
 ## Review evidence checklist
 

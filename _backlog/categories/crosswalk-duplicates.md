@@ -106,7 +106,7 @@ The tracking field design was deliberately **not added to the source JSON/CSV/Ma
 No upstream PR was cherry-picked, no RNC security branch was modified, and no merge was performed for this assessment.
 
 
-## C. Additional links and competing proposals — full-routing pass
+## G. Additional links and competing proposals — full-routing pass
 
 These items were not fully assigned during the earlier duplicate review. The 174 original crosswalk relationships and its confidence figures are a **historical snapshot**; newer semantic associations are explicitly **tentative**. Entries stay active only unless specifically excluded by [exclusions.md](exclusions.md), with one category owner.
 
