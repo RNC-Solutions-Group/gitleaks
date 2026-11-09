@@ -1,13 +1,17 @@
-# RNC Gitleaks — issue and PR review workspace
+# RNC Gitleaks — assessment and issue/PR review workspace
 
 > [!IMPORTANT]
-> **This is the `feat/issues-and-pr` triage branch, not the published Gitleaks project README, a feature release, or an implementation branch.** Its root README is intentionally branch-specific. The normal Gitleaks README remains on RNC [`master`](https://github.com/RNC-Solutions-Group/gitleaks/blob/master/README.md) and [upstream](https://github.com/gitleaks/gitleaks/blob/master/README.md).
+> **This is the `feat/issues-and-pr` assessment branch, not the published Gitleaks project README, a feature release, or an implementation branch.** Its root README is intentionally branch-specific. The normal Gitleaks README remains on RNC [`master`](https://github.com/RNC-Solutions-Group/gitleaks/blob/master/README.md) and [upstream](https://github.com/gitleaks/gitleaks/blob/master/README.md).
 
 ## What is happening here?
 
-RNC Solutions Group forked Gitleaks to maintain its own security-scanning workflow and evaluate existing community contributions. This branch is the **review desk** for the upstream GitHub issue and pull-request backlog: a place to identify duplicate work, compare proposed changes with the fork's existing code, and decide what deserves a separate technical assessment.
+RNC Solutions Group forked Gitleaks to maintain its own security-scanning workflow and evaluate existing community contributions. This branch is an **evidence and assessment workspace** with three related purposes:
 
-We are cleaning out the backlog before committing engineering time. That means identifying:
+1. Curate the upstream GitHub issue/PR backlog and preserve the original contributor references and disposition reasoning.
+2. Establish an executable, source-grounded **current-state technical baseline** for the fork: architecture, capabilities, correctness, regression coverage, performance, stability, security, and build/integration behavior.
+3. Later, compare external PR implementations against that verified baseline to determine applicability, compatibility, benefits, regressions, and unresolved questions. A mismatch is not proof that the external implementation is wrong.
+
+We are organizing the backlog and characterizing the code before committing engineering time. Backlog triage identifies:
 
 - **Obsolete:** the proposed code, API, platform, or execution path no longer applies.
 - **Superseded:** another identified PR, issue, or implemented code path already covers the same work. An open replacement PR remains **pending**; it is not an adopted fix.
@@ -32,15 +36,39 @@ Start with [`_backlog/README.md`](_backlog/README.md), then use:
 
 The initial snapshot on **2026-11-08** contained **285 open upstream issues and 252 upstream PRs**. Dispositions are evaluated against fork `master` at [`5f6ec56c`](https://github.com/RNC-Solutions-Group/gitleaks/commit/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c), with the separately hardened Docker branch tracked as a different implementation baseline. These counts and comparisons are a dated snapshot, not a claim about today's upstream state.
 
-Current RNC triage ownership: **235 active issues / 204 active PRs**, with **50 issues / 48 PRs excluded** from independent review. The [category index](_backlog/categories/README.md) contains only working queues; the [historical duplicate crosswalk](_backlog/crosswalk-duplicates.md) and [exclusions](_backlog/categories/exclusions.md) preserve the reasoning behind retired review slots.
+Current triage counts and dispositions are maintained in the canonical [_backlog register](_backlog/README.md) and [category index](_backlog/categories/README.md), rather than duplicated in this overview. The [historical duplicate crosswalk](_backlog/crosswalk-duplicates.md) and [exclusions](_backlog/categories/exclusions.md) preserve the reasoning behind retired review slots.
+
+## Current-state technical assessment
+
+The [assessment workspace](_assessment/README.md) defines the directory map, evidence requirements, templates, and shared definition of done. Its [roadmap](_assessment/current-state/assessment-roadmap.md) organizes six individually authorized checkpoints, CP0–CP5. The initial [CP0 reconnaissance assignment](_assessment/current-state/CP0-reconnaissance/assignment-CP0.md) is ready but is not executed by the existence of its file.
+
+- **CP0:** repository, Git lineage, environment, dependencies, test infrastructure, and safe command inventory.
+- **CP1:** architecture, interfaces, execution paths, and component relationships.
+- **CP2:** functional capabilities, correctness, failure modes, and regression-test coverage.
+- **CP3:** reproducible performance, resource use, and stability measurements.
+- **CP4:** security, configuration, integrations, developer tooling, Makefile side effects, and build/release reproducibility.
+- **CP5:** reconcile findings into a dated baseline and a prioritized investigation roadmap.
+
+The current-state checkpoints are stored under `_assessment/current-state/CPX-*/`. Later cross-repository PR comparisons will be documented separately under `_assessment/` after the baseline is accepted. External PRs and issues in `_backlog/` are leads to investigate, not evidence that a defect exists in this fork.
+
+**Execution boundary:** source, tests, Makefiles, dependencies, configuration, and CI are read-only on this branch. Authorized agents may inspect the code, run safe Go diagnostics, and exercise the sibling `../gitleaks-test-repo` read-only when available. `_assessment/` is the agent's documentation workspace; `_backlog/` is managed by Dave and GPT and is read-only to other agents absent explicit authorization. The [root agent instructions](AGENTS.md) and [assessment instructions](_assessment/AGENTS.md) govern these boundaries. Existing Makefile targets with implicit formatting, dependency changes, regeneration, cleanup, or network fetches are not authorized diagnostic entry points.
+
+A baseline report must pin the **assessed code SHA** separately from subsequent documentation commits, preserve failed/unavailable test outcomes, and distinguish verified facts, measured results, inferred risks, and unverified hypotheses. The assessment is meant to characterize the application, not fix every discovered issue or declare a PR suitable for adoption.
 
 ## Branch boundaries and contributor credit
 
-1. **No upstream PR is adopted merely because it was reviewed here.** This branch contains reports and dispositions, not cherry-picked scanner changes.
-2. Every retained PR keeps its upstream link and original contributor. A future consolidation must identify the source PR(s), source commits, RNC integration commit, and any adaptation made.
-3. A contributor's original commit can be preserved in an authorized implementation branch, but any integration, correction, or merge requires independent review and owner approval.
-4. **Do not merge this triage README as the product README.** If the review branch is ever merged, the root README is intentionally disposable; keep the normal upstream-derived README from the destination branch.
-5. Original issue and PR exports remain unmodified. Strikethrough in the Markdown inventories indicates *routed to a category*, not closed upstream.
+1. **No scanner source changes or upstream PR integrations are authorized on this branch.** Source is examined and executed for assessment, not modified; PR review is not adoption.
+2. Only `_backlog/` (Dave/GPT-managed) and `_assessment/` (authorized assessment work) are designated in-repository documentation write areas. General agents may write only within their explicitly assigned assessment scope.
+3. Every retained PR keeps its upstream link and original contributor. A future consolidation must identify the source PR(s), source commits, RNC integration commit, and any adaptation made.
+4. A contributor's original commit can be preserved in an authorized implementation branch, but any integration, correction, or merge requires independent review and owner approval.
+5. **Do not merge this branch-specific README as the product README.** If the assessment branch is ever merged, retain the normal upstream-derived README from the destination branch.
+6. Original issue and PR exports remain unmodified. Strikethrough in the Markdown inventories indicates *routed to a category*, not closed upstream.
+
+## AI-assisted assessment and owner-directed development
+
+RNC uses AI-assisted and AI-managed workflows to organize backlog evidence, examine source code, run authorized diagnostics, compare upstream proposals, and prepare technical documentation. ChatGPT, OpenCode, DeepSeek-based agents, and other tools may contribute within explicitly assigned scopes. **Dave defines the objectives, controls acceptance and integration decisions, and authorizes any source modifications on separate implementation branches.**
+
+AI-produced findings and recommendations are **working analysis, not automatic proof**. Claims must be checked against pinned source code, reproducible tests, measurements, and original PR discussions; uncertainty and failed verification must remain visible. Agent instructions and checkpoint assignments constrain work on this branch. No use of AI here implies that upstream code, external PRs, or original Gitleaks contributions were authored by RNC or endorsed by upstream maintainers.
 
 ## Upstream project attribution
 

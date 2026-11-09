@@ -20,9 +20,21 @@ This is **not** a mandate to fix defects, refactor, adopt PRs, change scanner ru
 | **CP1** | Architecture: entry points, component ownership, data flow, Git/dir/stdin sources, decoding, detector, config, rule evaluation, concurrency, outputs | Source-linked architecture and execution maps; coupling and risk hypotheses | Stop for review before CP2 |
 | **CP2** | Capabilities/correctness: CLI behavior, feature matrix, expected vs observed behavior, failure modes, test/fixture coverage | Capability register, tested behavior, known defects and regression gaps | Stop for review before CP3 |
 | **CP3** | Performance/stability: reproducible workloads, benchmarks, CPU/memory/allocations, concurrency and large-input behavior | Measurement conditions and baseline metrics; ranked, evidence-backed optimization hypotheses | Stop for review before CP4 |
-| **CP4** | Security/integrations: sensitive-data exposure, config/allowlists, dependencies, Git/hooks, reports, release/integration boundaries | Threat/compatibility assessment with evidence and test limitations | Stop for review before CP5 |
+| **CP4** | Security/integrations and developer tooling: sensitive-data exposure, config/allowlists, dependencies, Git/hooks, reports, Makefile/script side effects, build/release behavior and reproducibility | Security, integration, and build-tooling assessment with verified behaviors, risks, and reproducibility limitations | Stop for review before CP5 |
 | **CP5** | Baseline consolidation: reconcile CP0–CP4, cross-check contradictions, index living architecture documentation | Dated baseline, findings register, verification matrix, prioritized investigation roadmap | Owner accepts baseline before PR comparisons |
 | **Later** | External upstream/third-party PR comparison | Applicability, correctness, compatibility, risks, benefits, and disposition **relative to this fork** | Separately authorized per PR/package |
+
+## CP4 emphasis — developer tooling and build reproducibility
+
+In addition to the security and integration scope above, explicitly inspect the existing `Makefile`, related scripts, Go module/toolchain configuration, CI workflows, and release tooling **without modifying them**. CP4 must establish:
+
+- Which targets perform purely observational testing versus formatting, code generation, dependency edits, cleanup, or other persistent writes. Trace prerequisite targets and shell expansion rather than assuming a target name describes all side effects.
+- Which commands implicitly access external systems (for example, tag fetching in version resolution), require network or cached dependencies, or depend on remote services.
+- Whether clean build/test procedures can run reproducibly from a pinned SHA with `-mod=readonly`, defined tool versions, build tags, and external output locations.
+- Differences between local development, CI, supported operating systems, and release/version workflows; characterize failures and constraints without claiming untested platforms work.
+- A proposed separation between **non-mutating diagnostics** and **explicitly mutating maintenance/release targets**, with tradeoffs and migration risks. Recommendations are future implementation candidates, not authority to edit source or build tooling on this branch.
+
+Preserve the distinction between a demonstrable command side effect, a suspected reproducibility risk, and a measured defect. CP4 should assess the existing Makefile, **not remove, disable, or neutralize it** during the baseline investigation.
 
 ## Questions this assessment must answer
 
@@ -32,6 +44,7 @@ This is **not** a mandate to fix defects, refactor, adopt PRs, change scanner ru
 4. Which defects or bottlenecks are observed, which are only suspected, and under what conditions?
 5. Which architectural constraints and invariants should an external PR comparison respect?
 6. What evidence would prove that a proposed external fix improves, regresses, or simply does not apply to this baseline?
+7. Which development, build, test, and release operations are reproducible and which have implicit writes or external dependencies?
 
 ## Evidence and baseline discipline
 
