@@ -16,11 +16,11 @@ This branch contains a dated, reproducible review snapshot of **upstream `gitlea
 
 | Disposition | Issues | PRs |
 | --- | ---: | ---: |
-| Active technical-category review | **235** | **204** |
-| [RNC exclusions](categories/exclusions.md) | **50** | **48** |
+| Active technical-category review | **235** | **203** |
+| [RNC exclusions](categories/exclusions.md) | **50** | **49** |
 | **Original snapshot assigned** | **285** | **252** |
 
-All upstream snapshot items have one disposition in the [active category index](categories/README.md), with **0 unassigned**. The register records 408 work-package accounting slots, which are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
+All upstream snapshot items have one disposition in the [active category index](categories/README.md), with **0 unassigned**. The register records 404 work-package accounting slots, which are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
 
 ## Historical evidence (outside active categories)
 

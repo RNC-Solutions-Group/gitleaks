@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**50 issues · 34 PRs · 66 work packages.**
+**52 issues · 34 PRs · 68 work packages.**
 
 Config loading, ignore files, allowlist conditions, baselines, inline suppression, and configuration ergonomics. Test that a proposed change does not suppress legitimate detection.
 
@@ -80,6 +80,8 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 | [#1567](https://github.com/gitleaks/gitleaks/issues/1567) | — | Rule-specific allowlisting can expose a fallback `generic-api-key` finding, requiring duplicate suppression. | **ISSUE — REPRO PENDING** | Finding precedence and allowlist/filter ordering intersect; test a specific-rule hit, allowlisted hit, generic fallback and legitimate unsuppressed credentials. Do not silently broaden global suppression. | — |
 | — | [#1499](https://github.com/gitleaks/gitleaks/pull/1499) (@rgmz) | Experimental property-based validation of rule true/false positives as generated tests. | **PATCH-REVIEWED — TOOLING GATE** | Adds `rapid` dependency and rule test harness, with detector helper changes. Rule-authoring/test infrastructure, not a shipped accuracy correction; confirm deterministic fixtures, runtime cost and compatibility. | — |
 | — | [#1500](https://github.com/gitleaks/gitleaks/pull/1500) (@rgmz) | Static validation of incorrect regex word-boundary (`\b`) placement while authoring rules. | **PATCH-REVIEWED — VALIDATOR GATE** | Adds config checks and tests; PR notes unresolved scope and fail-versus-warn behavior, including Kubernetes special cases. Validate false warnings and generator/runtime integration. | — |
+| [#1261](https://github.com/gitleaks/gitleaks/issues/1261) | — | Custom rules without IDs collide in the rule-ID map, yielding missing findings in the historical report. | **SOURCE-CHECKED — CONFIG REPRO PENDING** | Pinned `config/config.go` inserts each rule as `rulesMap[cr.RuleID]` before validation, so duplicate empty IDs collide; current `config/rule.go` rejects empty IDs during validation. Verify CLI now rejects the config instead of silently reporting one finding; decide whether clearer duplicate-ID diagnostics are warranted. | — |
+| [#1303](https://github.com/gitleaks/gitleaks/issues/1303) | — | Question whether a provider rule's allowlist stopword (e.g. `facebook`) conflicts with a regex requiring the provider name. | **SOURCE-CHECKED — EXPECTATION/TEST PENDING** | On master, `checkFindingAllowed` calls `ContainsStopWord(finding.Secret)`; matching a `facebook` label does not itself trigger that stopword. Test secret values containing the term, casing and rule-specific target before calling this a detection defect. | — |
 
 ## Decision gate
 
