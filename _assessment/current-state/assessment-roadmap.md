@@ -1,6 +1,6 @@
 # Architecture, capabilities, and technical baseline — assessment roadmap
 
-**Status:** CP0 executed 2026-11-09; report awaiting owner review; CP1 not started  
+**Status:** CP0 executed 2026-11-09; report awaiting owner review; CP1 assignment prepared, not executed  
 **Repository:** `RNC-Solutions-Group/gitleaks`  
 **Working branch:** `feat/issues-and-pr`  
 **Starting branch SHA (pre-documentation):** `6cd8c033512ba0de86f895cbced6a8f13b7cc531`  
@@ -18,7 +18,7 @@ This is **not** a mandate to fix defects, refactor, adopt PRs, change scanner ru
 | CP | Investigation | Required outcome | Gate |
 | --- | --- | --- | --- |
 | **[CP0](CP0-reconnaissance/assignment-CP0.md)** | Reconnaissance: identity, Git lineage, package/test/tooling inventory, safe command matrix, sibling test repo | Reproducible starting manifest and evidence report | Stop for review before CP1 |
-| **CP1** | Architecture: entry points, component ownership, data flow, Git/dir/stdin sources, decoding, detector, config, rule evaluation, concurrency, outputs | Source-linked architecture and execution maps; coupling and risk hypotheses | Stop for review before CP2 |
+| **[CP1](CP1-architecture/assignment-CP1.md)** | Architecture: entry points, component ownership, data flow, Git/dir/stdin sources, decoding, detector, config, rule evaluation, concurrency, outputs | Source-linked architecture and execution maps; coupling and risk hypotheses | Assignment ready; execute only upon explicit authorization; stop before CP2 |
 | **CP2** | Capabilities/correctness: CLI behavior, feature matrix, expected vs observed behavior, failure modes, test/fixture coverage | Capability register, tested behavior, known defects and regression gaps | Stop for review before CP3 |
 | **CP3** | Performance/stability: reproducible workloads, benchmarks, CPU/memory/allocations, concurrency and large-input behavior | Measurement conditions and baseline metrics; ranked, evidence-backed optimization hypotheses | Stop for review before CP4 |
 | **CP4** | Security/integrations and developer tooling: sensitive-data exposure, config/allowlists, dependencies, Git/hooks, reports, Makefile/script side effects, build/release behavior and reproducibility | Security, integration, and build-tooling assessment with verified behaviors, risks, and reproducibility limitations | Stop for review before CP5 |
@@ -60,4 +60,4 @@ Preserve the distinction between a demonstrable command side effect, a suspected
 
 Each checkpoint uses [`../templates/checkpoint-assignment.md`](../templates/checkpoint-assignment.md) and the common [definition of done](../README.md#shared-definition-of-done). Create its report using [`../templates/assessment-report.md`](../templates/assessment-report.md), summarize the evidence, identify unresolved questions, then stop. The next checkpoint requires explicit authorization.
 
-**First authorized activity on a cold start:** none. Report your understanding and wait for `Execute CP0`.
+**First authorized activity on a cold start:** none. Report your understanding and wait for a specific checkpoint instruction (e.g., `Execute CP1`).
