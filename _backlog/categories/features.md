@@ -2,6 +2,8 @@
 
 This is the **single active category** for feature and developer-experience proposals selected for RNC evaluation. Issues and PRs for the same work package belong together here, even when one has a different title-only classification in the original snapshot. The [exclusions ledger](exclusions.md) remains a separate exclusion register.
 
+**Duplicate-category scrub (2026-11-08):** Issues #2152 and #2153 plus PR #2154 were added as one SDK package. These two issues request different capabilities; neither was excluded as a duplicate.
+
 ## Focused Optional Features scrub — 2026-11-08
 
 **Source baseline:** RNC fork `master` at [`5f6ec56c`](https://github.com/RNC-Solutions-Group/gitleaks/tree/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c). Seven upstream issue bodies, two active upstream PR patches, and the issue-linked closed PR #2018 were compared with current fork source. This is **source review only**, not a fresh build, runtime reproduction, adoption, or independent patch correctness certification.
@@ -26,6 +28,7 @@ These candidates have not been adopted or corrected by RNC.
 
 | Upstream issue(s) | Upstream PR(s) / contributor(s) | Scope | RNC disposition | Gate |
 | --- | --- | --- | --- | --- |
+| [#2152](https://github.com/gitleaks/gitleaks/issues/2152), [#2153](https://github.com/gitleaks/gitleaks/issues/2153) | [#2154](https://github.com/gitleaks/gitleaks/pull/2154) (@MChorfa) | Embeddable scanner SDK plus canary exemptions and vector state. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | One SDK PR addresses two **distinct** feature requests; neither issue is a duplicate. Review API stability, side effects, serialization and security model as one implementation package. |
 | [#1869](https://github.com/gitleaks/gitleaks/issues/1869) | [#2056](https://github.com/gitleaks/gitleaks/pull/2056) (@raajheshkannaa) | MCP-server command for coding-agent initiated local scans. | **PENDING REVIEW** — distinct active feature | PR adds `cmd/mcp.go` plus `go.mod`/`go.sum`; no `cmd/mcp.go` on master. Requires separate MCP access, output-handling, and dependency review. |
 | [#2017](https://github.com/gitleaks/gitleaks/issues/2017) | [#2018](https://github.com/gitleaks/gitleaks/pull/2018) (@prashanthpai), **closed unmerged** — contextual, not active PR | Prefer standard Go regex for **published binaries** under constrained address-space limits. | **PENDING REVIEW** — release build remains distinct | Current `.goreleaser.yml` explicitly uses `gore2regex`, unlike default untagged stdlib builds; linked one-line removal PR #2018 was closed unmerged. Reassess build/release ownership later without changing another category in this pass. |
 | [#1511](https://github.com/gitleaks/gitleaks/issues/1511) | — | Configurable secret replacement token (Drupal/YAML-safe output). | **PENDING REVIEW** — no equivalent CLI option | `cmd/root.go` exposes percentage `--redact`; `report/finding.go` hardcodes `REDACTED` at 100%. This does not implement a selectable replacement string. |

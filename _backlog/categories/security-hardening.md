@@ -2,6 +2,8 @@
 
 Primary active category for upstream dependency-security PRs [#2308](https://github.com/gitleaks/gitleaks/pull/2308) and [#2336](https://github.com/gitleaks/gitleaks/pull/2336) and associated upstream issues. The records below reflect *review and testing*, **not** integrated or released fixes.
 
+**Duplicate-category scrub (2026-11-08):** 12 active issues, 6 active PRs, 14 packages. Four issues and PR #2312 were routed here from duplicate review. The three similarly titled token-exposure reports concern *distinct* Slack credential types; no secret contents are reproduced here. The older CVE-focused test work is unchanged.
+
 The [closed ledger](exclusions.md) is authoritative: excluded RNC-closed items are not duplicated in this active table. The two PRs and three linked issues below belong **only** to this category, not dependencies or duplicates.
 
 **Additional-linkage check:** the crosswalk's extra apparent CVE-issue relationship is a third-party Cobra release-note reference, not a Gitleaks security fix. No additional first-party PR/issue relationships were confirmed from this pass, so there are no new `PENDING REVIEW` candidates yet.
@@ -44,6 +46,10 @@ The initial #2308/#2336 CVE test work above is unchanged. The following **newly 
 
 | Upstream issue(s) | Upstream PR(s) / contributor(s) | Scope | RNC disposition | Gate |
 | --- | --- | --- | --- | --- |
+| [#2299](https://github.com/gitleaks/gitleaks/issues/2299) | [#2312](https://github.com/gitleaks/gitleaks/pull/2312) (@Varshith-Kali) | Secret-bearing report files created with permissions inherited from umask. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | PR #2312 covers **both** report file-creation paths and tightens pre-existing files to `0600`. The narrower #2300 is excluded as an independent review. Verify modes, report failure handling, Windows behavior, and symlinks. |
+| [#2110](https://github.com/gitleaks/gitleaks/issues/2110) | — | Possible Slack bot token exposure reported against upstream repository. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | Distinct token type from #2111/#2112; do not copy values into triage. Maintainer verification, revocation/rotation, and history remediation are security incident actions, not scanner-rule adoption. |
+| [#2111](https://github.com/gitleaks/gitleaks/issues/2111) | — | Possible Slack user token exposure reported against upstream repository. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | Not equivalent to bot or app-level token report. Keep candidate confidential in operational handoff; confirm identity and validity without publishing samples. |
+| [#2112](https://github.com/gitleaks/gitleaks/issues/2112) | — | Possible Slack app-level token exposure reported against upstream repository. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | Third distinct credential type; no evidence that identical titles mean duplicate leaked values. Maintainer-only verification and mitigation required. |
 | [#2176](https://github.com/gitleaks/gitleaks/issues/2176) | [#2206](https://github.com/gitleaks/gitleaks/pull/2206) (@trinathone) | Run as a non-root user in Docker | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
 | [#2074](https://github.com/gitleaks/gitleaks/issues/2074) | — | Untrusted impersonation of the project at gitleaks.org | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
 | [#1572](https://github.com/gitleaks/gitleaks/issues/1572) | — | .gitleaksignore should be treated as untrusted input | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |

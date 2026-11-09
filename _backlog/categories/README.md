@@ -6,31 +6,31 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 
 | Canonical category | Issues | PRs | Work packages |
 | --- | ---: | ---: | ---: |
-| [Security and hardening](security-hardening.md) | 8 | 5 | 10 |
-| [Scan integrity and file readers](scan-integrity.md) | 15 | 12 | 23 |
-| [Detection accuracy](detection-accuracy.md) | 48 | 31 | 71 |
-| [Provider rules](detection-rules.md) | 39 | 47 | 74 |
-| [Configuration and allowlists](configuration-allowlists.md) | 44 | 27 | 57 |
-| [Git and hooks](git-hooks-sources.md) | 16 | 8 | 18 |
+| [Security and hardening](security-hardening.md) | 12 | 6 | 14 |
+| [Scan integrity and file readers](scan-integrity.md) | 22 | 21 | 31 |
+| [Detection accuracy](detection-accuracy.md) | 52 | 37 | 75 |
+| [Provider rules](detection-rules.md) | 43 | 55 | 78 |
+| [Configuration and allowlists](configuration-allowlists.md) | 46 | 30 | 60 |
+| [Git and hooks](git-hooks-sources.md) | 18 | 12 | 20 |
 | [Reporting and output](reporting-output.md) | 14 | 7 | 15 |
-| [Performance and stability](performance-stability.md) | 3 | 2 | 4 |
+| [Performance and stability](performance-stability.md) | 4 | 3 | 5 |
 | [Dependency and build pins](dependencies.md) | 8 | 12 | 20 |
 | [Integrations and releases](integrations-release.md) | 3 | 6 | 8 |
-| [Optional features](features.md) | 5 | 2 | 5 |
-| [Candidate duplicates / competing fixes](crosswalk-duplicates.md) | 27 | 46 | 32 |
-| [Documentation](documentation.md) | 5 | 9 | 10 |
-| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 50 | 38 | 77 |
-| **Total assigned from open snapshot** | **285** | **252** | **424** |
+| [Optional features](features.md) | 7 | 3 | 6 |
+| [Candidate duplicates / competing fixes](crosswalk-duplicates.md) | 0 | 0 | 0 |
+| [Documentation](documentation.md) | 6 | 12 | 11 |
+| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 50 | 48 | 87 |
+| **Total assigned from open snapshot** | **285** | **252** | **430** |
 
 **Unassigned from snapshot: 0 issues, 0 PRs.** The former `Needs Review` catch-all was retired: #1864 is excluded by documented third-party scope and #1127 is owned by Integrations and Releases, with its uncertainty retained. This is **100% routing coverage**, not 100% technical review or remediation. A routed candidate remains active unless documented otherwise. The original three inventories and raw API exports keep their historical totals. A struck-through link in the three Markdown inventories means *categorized*, never *closed on GitHub*.
 
-**Focused elimination tally (2026-11-08):** 50 of 285 upstream issues and 38 of 252 upstream PRs are excluded from independent RNC review as obsolete, superseded, or closed by exception. **235 issues / 214 PRs remain active across all categories.** The 77 exclusion-column work-package slots are not a claim of 77 unique root causes or fixes. Issue #2063 was separated from workflow PR #2209 (different repositories), whereas issue #1316 was paired with PR #2311 after Git-source review. In this Scan Integrity pass, legacy PR #1639 was separated from still-active issue #1638 and issue #1888 was paired with PR #1936; those package-count adjustments also offset each other. The Reporting & Output scrub later separated obsolete PR #1232 from still-active feature issue #1048; this adds one ledger package slot without adding an upstream item. The register now has 424 package slots, with improved ownership and evidence.
+**Focused elimination tally (2026-11-08):** 50 of 285 upstream issues and 48 of 252 upstream PRs are excluded from independent RNC review as obsolete, superseded, or closed by exception. **235 issues / 204 PRs remain active across all categories.** The 87 exclusion-column work-package slots are not a claim of 87 unique root causes or fixes. Issue #2063 was separated from workflow PR #2209 (different repositories), whereas issue #1316 was paired with PR #2311 after Git-source review. In this Scan Integrity pass, legacy PR #1639 was separated from still-active issue #1638 and issue #1888 was paired with PR #1936; those package-count adjustments also offset each other. The Reporting & Output scrub later separated obsolete PR #1232 from still-active feature issue #1048; this adds one ledger package slot without adding an upstream item. The duplicate-focused pass then added six accounting slots: 32 mixed duplicate packages became 28 domain-specific active packages plus 10 individually documented excluded-PR slots. The register now has 430 package slots, with improved ownership and evidence.
 
-Two duplicate-category issue targets may be referenced outside the current open-issue snapshot; those historical references are not included in the 285 count. The original duplicate report's 174 candidate-link tally is unchanged. Counts in this table use **unique open-snapshot IDs**, so historic counts and a document's incidental hyperlinks must not be summed.
+The candidate-duplicates register now owns **0 active issues / 0 active PRs**; its historical source links and contributor attributions remain as a crosswalk. Two historical duplicate-category issue targets may be referenced outside the current open-issue snapshot; those links are not included in the 285 count. The original duplicate report's 174 candidate-link tally is unchanged. Counts in this table use **unique open-snapshot IDs**, so historic counts and a document's incidental hyperlinks must not be summed.
 
 The Scan Integrity scrub source-checked the current reader/CLI architecture against 15 upstream PR patches: six issues and three obsolete PRs were excluded, ten issue-only packages were moved to configuration/detection/Git ownership, and issue #1888 was paired with PR #1936. This did not implement or merge scanner changes.
 
-The Reporting & Output scrub excluded eight issue-only slots and outdated PR #1232, rerouted four requests to configuration/detection/provider/security ownership, and retained seven live reporting PRs pending independent review. Scanner behavior and upstream state were not modified.
+The Reporting & Output scrub excluded eight issue-only slots and outdated PR #1232, rerouted four requests to configuration/detection/provider/security ownership, and retained seven live reporting PRs pending independent review. The duplicate-focused pass then checked all 27 issues / 46 PRs assigned there, excluded ten redundant PR review implementations, and routed all survivors to their actual technical owners. **The duplicate category is now historical evidence only.** Scanner behavior and upstream state were not modified.
 
 ## Triage confidence
 
