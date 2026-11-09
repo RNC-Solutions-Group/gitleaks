@@ -7,11 +7,11 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | Canonical category | Issues | PRs | Work packages |
 | --- | ---: | ---: | ---: |
 | [Security and hardening](security-hardening.md) | 7 | 5 | 9 |
-| [Scan integrity and file readers](scan-integrity.md) | 31 | 15 | 42 |
-| [Detection accuracy](detection-accuracy.md) | 46 | 31 | 69 |
+| [Scan integrity and file readers](scan-integrity.md) | 15 | 12 | 23 |
+| [Detection accuracy](detection-accuracy.md) | 47 | 31 | 70 |
 | [Provider rules](detection-rules.md) | 38 | 47 | 73 |
-| [Configuration and allowlists](configuration-allowlists.md) | 37 | 27 | 50 |
-| [Git and hooks](git-hooks-sources.md) | 13 | 8 | 15 |
+| [Configuration and allowlists](configuration-allowlists.md) | 43 | 27 | 56 |
+| [Git and hooks](git-hooks-sources.md) | 16 | 8 | 18 |
 | [Reporting and output](reporting-output.md) | 26 | 8 | 27 |
 | [Performance and stability](performance-stability.md) | 3 | 2 | 4 |
 | [Dependency and build pins](dependencies.md) | 8 | 12 | 20 |
@@ -19,14 +19,16 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | [Optional features](features.md) | 5 | 2 | 5 |
 | [Candidate duplicates / competing fixes](crosswalk-duplicates.md) | 27 | 46 | 32 |
 | [Documentation](documentation.md) | 5 | 9 | 10 |
-| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 36 | 34 | 59 |
+| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 42 | 37 | 68 |
 | **Total assigned from open snapshot** | **285** | **252** | **423** |
 
 **Unassigned from snapshot: 0 issues, 0 PRs.** The former `Needs Review` catch-all was retired: #1864 is excluded by documented third-party scope and #1127 is owned by Integrations and Releases, with its uncertainty retained. This is **100% routing coverage**, not 100% technical review or remediation. A routed candidate remains active unless documented otherwise. The original three inventories and raw API exports keep their historical totals. A struck-through link in the three Markdown inventories means *categorized*, never *closed on GitHub*.
 
-**Focused elimination tally (2026-11-08):** 36 of 285 upstream issues and 34 of 252 upstream PRs are excluded from independent RNC review as obsolete, superseded, or closed by exception. **249 issues / 218 PRs remain active across all categories.** The 59 exclusion-column work-package slots are not a claim of 59 unique root causes or fixes. Issue #2063 was separated from workflow PR #2209 (different repositories), whereas issue #1316 was paired with PR #2311 after Git-source review; those two package-count adjustments offset each other, restoring the first-pass total of 423 even though ownership and evidence improved.
+**Focused elimination tally (2026-11-08):** 42 of 285 upstream issues and 37 of 252 upstream PRs are excluded from independent RNC review as obsolete, superseded, or closed by exception. **243 issues / 215 PRs remain active across all categories.** The 68 exclusion-column work-package slots are not a claim of 59 unique root causes or fixes. Issue #2063 was separated from workflow PR #2209 (different repositories), whereas issue #1316 was paired with PR #2311 after Git-source review. In this Scan Integrity pass, legacy PR #1639 was separated from still-active issue #1638 and issue #1888 was paired with PR #1936; those package-count adjustments also offset each other. The register therefore remains at 423 package slots, with improved ownership and evidence.
 
 Two duplicate-category issue targets may be referenced outside the current open-issue snapshot; those historical references are not included in the 285 count. The original duplicate report's 174 candidate-link tally is unchanged. Counts in this table use **unique open-snapshot IDs**, so historic counts and a document's incidental hyperlinks must not be summed.
+
+The Scan Integrity scrub source-checked the current reader/CLI architecture against 15 upstream PR patches: six issues and three obsolete PRs were excluded, ten issue-only packages were moved to configuration/detection/Git ownership, and issue #1888 was paired with PR #1936. This did not implement or merge scanner changes.
 
 ## Triage confidence
 

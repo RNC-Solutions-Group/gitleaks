@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**37 upstream issues · 27 upstream PRs · 50 work packages.** Remote-config #1557/#1630 moved here; the NuGet rule PR #1071 is superseded on master, while Putty detection PR #1373 moved to [provider rules](detection-rules.md). Git-refs config request #1923 moved here from Git & Hooks; minimum-scanner-version request #1754 moved from Integrations & Releases. Existing upstream state is unchanged.
+**43 upstream issues · 27 upstream PRs · 56 work packages.** Remote-config #1557/#1630 moved here; the NuGet rule PR #1071 is superseded on master, while Putty detection PR #1373 moved to [provider rules](detection-rules.md). Git-refs config request #1923 moved here from Git & Hooks; minimum-scanner-version request #1754 moved from Integrations & Releases. Scan Integrity scrub on 2026-11-08 rerouted 6 pending issue-only work packages here without adopting, resolving, or closing any of them. Existing upstream state is unchanged.
 
 Config loading, ignore files, allowlist conditions, baselines, inline suppression, and configuration ergonomics. A narrow change can accidentally disable detection: use negative tests.
 
@@ -62,6 +62,13 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 | [#764](https://github.com/gitleaks/gitleaks/issues/764) | — | configuration version and verification | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#739](https://github.com/gitleaks/gitleaks/issues/739) | — | Include rules for browser cookie databases in default config | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#1940](https://github.com/gitleaks/gitleaks/pull/1940) (@moamlrh) | create composite rule error | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+
+| [#1344](https://github.com/gitleaks/gitleaks/issues/1344) | — | Update the use of allowlist and add ignorelist for gitleaks.toml files | **RECLASSIFIED — REVIEW PENDING** | Proposal changes the meaning of `allowlist` and adds `ignorelist` TOML tables; this is a configuration-schema/policy decision, not a file-reader defect. | — |
+| [#1311](https://github.com/gitleaks/gitleaks/issues/1311) | — | FTL unable to load gitleaks config, err: Config File ".gitleaks" Not Found in "[/repo]" | **RECLASSIFIED — REVIEW PENDING** | Reports automatic `.gitleaks.toml` resolution / Viper loading failure in a Docker mount. Current `initConfig` still owns this path; reproduce with the supplied mount. | — |
+| [#1251](https://github.com/gitleaks/gitleaks/issues/1251) | — | Support for Separate Files for Rules and Allowlist in gitleaks | **RECLASSIFIED — REVIEW PENDING** | Requests rules and allowlists maintained in separate configuration files; review the existing `[extend]` mechanism for fit. | — |
+| [#1181](https://github.com/gitleaks/gitleaks/issues/1181) | — | Feature - Ability to ignore files for rule | **RECLASSIFIED — REVIEW PENDING** | Requests a per-rule path-exclusion expression (`pathExclude`) to avoid globally suppressing other rules; configuration semantics. | — |
+| [#1078](https://github.com/gitleaks/gitleaks/issues/1078) | — | How to create custom rules to scan secerts in .yaml or .properties file | **RECLASSIFIED — REVIEW PENDING** | Troubleshooting a custom YAML/properties regex and rule `path`; no evidence yet that the source reader skips these files. | — |
+| [#947](https://github.com/gitleaks/gitleaks/issues/947) | — | Problems with current implementation - adding the ability to extend configuration files | **RECLASSIFIED — REVIEW PENDING** | Challenges `[extend]` precedence/merge semantics; current README documents precedence and depth limits; verify desired behavior separately. | — |
 
 ## Decision gate
 

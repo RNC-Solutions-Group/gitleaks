@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**13 active upstream issues · 8 active upstream PRs · 15 work packages.** This focused pass excluded four non-scanner support/action reports and two superseded/obsolete PRs in [exclusions.md](exclusions.md), rerouted five work packages by actual changed files, and paired issue #1316 with #2311 for one combined review. Previous exclusions (#2025/#2039, v7 #555) and PR #643's provider-rule routing remain unchanged. No upstream state or scanner code changed.
+**16 active upstream issues · 8 active upstream PRs · 18 work packages.** This focused pass excluded four non-scanner support/action reports and two superseded/obsolete PRs in [exclusions.md](exclusions.md), rerouted five work packages by actual changed files, and paired issue #1316 with #2311 for one combined review. Previous exclusions (#2025/#2039, v7 #555) and PR #643's provider-rule routing remain unchanged. No upstream state or scanner code changed.
 
 Git history, pre-commit/pre-receive, staged changes, git diff/log behavior, and Git source integration. Reproduce independently of generic directory scanning.
 
@@ -28,10 +28,15 @@ Git history, pre-commit/pre-receive, staged changes, git diff/log behavior, and 
 | [#1022](https://github.com/gitleaks/gitleaks/issues/1022) | — | Docker-image pre-commit hook reports `unknown option staged` in v8.15.0. | **ISSUE — REPRO PENDING** | Same Git error signature as #1364, but custom `docker_image`/system command overrides differ. Retain as related historical case until the exact container working directory and mount behavior is compared. | — |
 | [#821](https://github.com/gitleaks/gitleaks/issues/821) | — | Incoming commits missed in GitLab pre-receive hook. | **ISSUE — REPRO PENDING** | Historical v8.5.3 use of `detect --source=.` may not include quarantine incoming refs. Pre-receive context and current `git --log-opts` integration require a dedicated test; PR #2236 documents diff-only limits but does not fix hook revision selection. | — |
 
+| [#1293](https://github.com/gitleaks/gitleaks/issues/1293) | — | can gitleaks understand .gitleaksignore while scanning a bare git repo? | **RECLASSIFIED — REVIEW PENDING** | Bare Git-repository `.gitleaksignore` discovery is tied to `git` source/working-tree semantics; belongs with Git-source behavior. | — |
+| [#1163](https://github.com/gitleaks/gitleaks/issues/1163) | — | detect --source folder is not honored as a folder in git mode | **RECLASSIFIED — REVIEW PENDING** | Hidden legacy `detect --source=<subdir>` calls Git history and scans outside the requested subfolder; investigate with current `git`/`--log-opts` interface. | — |
+| [#800](https://github.com/gitleaks/gitleaks/issues/800) | — | Add a flag to enable scanning both the git commit message as well as the commit content | **RECLASSIFIED — REVIEW PENDING** | Adds optional scanning of Git commit messages rather than only changed file content; Git history-source feature. | — |
+
 ## Individual scrub findings
 
 - **Exclusions:** #1448 (`/bin/bash` missing in the pre-commit environment), #1381 (general `git commit --amend` question), #949 (Git global-hook template configuration question), #1306 (separate JavaScript Action's invalid revision range), plus superseded context PR #1824 and obsolete legacy Git-ignore implementation PR #1249. Reasons and reopen conditions live in [exclusions.md](exclusions.md).
 - **Moves:** #2218/#2236 to [documentation](documentation.md); #1984/#2081 and #2086 to [integrations/release](integrations-release.md); #1923 to [configuration](configuration-allowlists.md); #1626 to [reporting](reporting-output.md). Original authors and links stay intact.
+- **Scan Integrity ownership addendum:** #1293, #1163 and #800 moved here on 2026-11-08 for Git-source semantics; all remain pending, and this does not reopen the prior Git & Hooks scrub.
 - **Review consolidation, not exclusion:** issue #1316 is now paired with #2311. #2311 and #2284 overlap in Git-log color handling but are not interchangeable: one also normalizes pretty formatting; the other protects the staged-diff path.
 - **Preserved by evidence:** #2318, #2301, #2284, #2203, #2128, and #1918 propose distinct current-source behavioral changes; historical pre-commit cases #1364/#1022 remain related but unproven duplicates. No PR was adopted, corrected, or cherry-picked.
 
