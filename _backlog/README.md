@@ -2,7 +2,7 @@
 
 Collection timestamp: 2026-11-08T07:14:05.557Z
 
-This branch contains a dated, reproducible review snapshot of **upstream `gitleaks/gitleaks`**, not changes to the scanner. Active categories identify what remains to assess; separate records retain exclusion decisions and duplicate-history evidence.
+This branch contains a dated, reproducible review snapshot of **upstream `gitleaks/gitleaks`**, not changes to the scanner. Active categories identify what remains to assess; separate records retain exclusion decisions and duplicate-history evidence. Linked false-positive/false-negative reports and competing patches share a review package only when their overlap is established, with separate fixtures retained where behavior differs.
 
 ## Contents
 
@@ -20,7 +20,7 @@ This branch contains a dated, reproducible review snapshot of **upstream `gitlea
 | [RNC exclusions](categories/exclusions.md) | **50** | **48** |
 | **Original snapshot assigned** | **285** | **252** |
 
-All upstream snapshot items have one disposition in the [active category index](categories/README.md), with **0 unassigned**. The register records 420 work-package accounting slots, which are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
+All upstream snapshot items have one disposition in the [active category index](categories/README.md), with **0 unassigned**. The register records 408 work-package accounting slots, which are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
 
 ## Historical evidence (outside active categories)
 

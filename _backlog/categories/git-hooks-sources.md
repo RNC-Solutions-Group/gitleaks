@@ -2,11 +2,11 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**19 issues · 13 PRs · 22 work packages.**
+**20 issues · 13 PRs · 23 work packages.**
 
 Git history, hooks, staged changes, diff/log parsing, and source integration. Reproduce Git-specific behavior independently of directory scans.
 
-**Review states:** `SOURCE-CHECKED` records a targeted source/patch comparison, **not** a built or tested correction. `PENDING` records an unresolved issue or competing proposal. No PR is adopted or upstream item closed by categorization. See [RNC exclusions](exclusions.md) for retired review slots.
+**Review states:** `SOURCE-CHECKED` includes a targeted fork-source comparison; `PATCH-REVIEWED` means an upstream diff was inspected, **not** that the patch was built or tested against the fork. `PENDING` records unresolved issues or competing proposals. No PR is adopted or upstream item closed by categorization. See [RNC exclusions](exclusions.md) for retired review slots.
 
 ## Candidates
 
@@ -35,6 +35,7 @@ Git history, hooks, staged changes, diff/log parsing, and source integration. Re
 | [#800](https://github.com/gitleaks/gitleaks/issues/800) | — | Add a flag to enable scanning both the git commit message as well as the commit content | **REVIEW PENDING** | Adds optional scanning of Git commit messages rather than only changed file content; Git history-source feature. | — |
 | [#1128](https://github.com/gitleaks/gitleaks/issues/1128) | — | Deleted Git diff lines still treated as new secret findings in pre-receive hooks. | **ISSUE — REPRO PENDING** | Reproduce add → delete → push on pinned master. Inspect Git diff insertion/deletion filtering independently of provider regexes; do not infer fixed from historical v5 behavior. | — |
 | — | [#1809](https://github.com/gitleaks/gitleaks/pull/1809) (@JoostVoskuil) | Azure DevOps SSH remote platform identification during Git scanning. | **SOURCE-CHECKED — TEST PENDING** | PR changes cmd/detect.go and detect/git.go, not provider rules. Test Azure HTTPS/SSH, GitHub/GitLab, explicit --platform, and host spoofing. | — |
+| [#1206](https://github.com/gitleaks/gitleaks/issues/1206) | — | Global `diff.external` configuration (e.g. difftastic) interferes with `gitleaks protect` Git diff parsing and can yield a clean result. | **ISSUE — REPRO PENDING** | Git subprocess configuration, not regex coverage. Reproduce staged/uncommitted changes with and without `diff.external`, force native diff where appropriate, and fail visibly on unexpected output. | — |
 
 ## Decision gate
 

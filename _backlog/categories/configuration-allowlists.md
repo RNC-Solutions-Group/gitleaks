@@ -2,11 +2,11 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**47 issues · 31 PRs · 61 work packages.**
+**50 issues · 34 PRs · 66 work packages.**
 
 Config loading, ignore files, allowlist conditions, baselines, inline suppression, and configuration ergonomics. Test that a proposed change does not suppress legitimate detection.
 
-**Review states:** `SOURCE-CHECKED` records a targeted source/patch comparison, **not** a built or tested correction. `PENDING` records an unresolved issue or competing proposal. No PR is adopted or upstream item closed by categorization. See [RNC exclusions](exclusions.md) for retired review slots.
+**Review states:** `SOURCE-CHECKED` includes a targeted fork-source comparison; `PATCH-REVIEWED` means an upstream diff was inspected, **not** that the patch was built or tested against the fork. `PENDING` records unresolved issues or competing proposals. No PR is adopted or upstream item closed by categorization. See [RNC exclusions](exclusions.md) for retired review slots.
 
 ## Candidates
 
@@ -75,6 +75,11 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 
 | [#983](https://github.com/gitleaks/gitleaks/issues/983) | — | print resulting configuration for debug purpose if extend directive is used | **REVIEW PENDING** | The request is for a resolved/dumped configuration after `[extend]` merges rules and allowlists. Its ownership is config introspection and merge semantics, not reporting scan findings. | — |
 | [#1675](https://github.com/gitleaks/gitleaks/issues/1675) | [#1683](https://github.com/gitleaks/gitleaks/pull/1683) (@vk-NEU7) | Rule-authoring validation: warn when a generated/configured rule has no keywords. | **SOURCE-CHECKED — TEST PENDING** | PR changes cmd/generate/config/utils/validate.go only; compare generator and runtime config loading, warning severity, and legitimate keyword-free rules. Does not fix vendor token detection. | — |
+| [#2293](https://github.com/gitleaks/gitleaks/issues/2293) | [#2294](https://github.com/gitleaks/gitleaks/pull/2294) (@i-am-paradox) | Global boolean/null allowlist incorrectly matches substrings (`^true&#124;false&#124;null$`) and suppresses custom-rule findings. | **SOURCE-CHECKED — TEST PENDING** | Patch groups the alternatives to anchor the whole value. Fork `master` generator still contains the ungrouped expression; verify legitimate `true`, `false`, `null` exclusions and retained real matches. | — |
+| [#1323](https://github.com/gitleaks/gitleaks/issues/1323) | — | Centrally managed per-repository allowlists from v7 no longer map cleanly to v8 `--additional-config` workflow. | **ISSUE — REQUIREMENTS PENDING** | Configuration loading and extension/merge semantics; establish the current CLI equivalence, precedence and intended central-repo model before proposing compatibility changes. | — |
+| [#1567](https://github.com/gitleaks/gitleaks/issues/1567) | — | Rule-specific allowlisting can expose a fallback `generic-api-key` finding, requiring duplicate suppression. | **ISSUE — REPRO PENDING** | Finding precedence and allowlist/filter ordering intersect; test a specific-rule hit, allowlisted hit, generic fallback and legitimate unsuppressed credentials. Do not silently broaden global suppression. | — |
+| — | [#1499](https://github.com/gitleaks/gitleaks/pull/1499) (@rgmz) | Experimental property-based validation of rule true/false positives as generated tests. | **PATCH-REVIEWED — TOOLING GATE** | Adds `rapid` dependency and rule test harness, with detector helper changes. Rule-authoring/test infrastructure, not a shipped accuracy correction; confirm deterministic fixtures, runtime cost and compatibility. | — |
+| — | [#1500](https://github.com/gitleaks/gitleaks/pull/1500) (@rgmz) | Static validation of incorrect regex word-boundary (`\b`) placement while authoring rules. | **PATCH-REVIEWED — VALIDATOR GATE** | Adds config checks and tests; PR notes unresolved scope and fail-versus-warn behavior, including Kubernetes special cases. Validate false warnings and generator/runtime integration. | — |
 
 ## Decision gate
 

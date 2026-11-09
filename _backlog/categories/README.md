@@ -8,20 +8,20 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | --- | ---: | ---: | ---: |
 | [Security and hardening](security-hardening.md) | 12 | 6 | 14 |
 | [Scan integrity and file readers](scan-integrity.md) | 23 | 21 | 32 |
-| [Detection accuracy](detection-accuracy.md) | 56 | 37 | 79 |
-| [Provider rules](detection-rules.md) | 33 | 52 | 56 |
-| [Configuration and allowlists](configuration-allowlists.md) | 47 | 31 | 61 |
-| [Git and hooks](git-hooks-sources.md) | 19 | 13 | 22 |
+| [Detection accuracy](detection-accuracy.md) | 50 | 27 | 57 |
+| [Provider rules](detection-rules.md) | 35 | 58 | 59 |
+| [Configuration and allowlists](configuration-allowlists.md) | 50 | 34 | 66 |
+| [Git and hooks](git-hooks-sources.md) | 20 | 13 | 23 |
 | [Reporting and output](reporting-output.md) | 15 | 8 | 17 |
-| [Performance and stability](performance-stability.md) | 4 | 3 | 5 |
+| [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
 | [Dependency and build pins](dependencies.md) | 8 | 12 | 20 |
 | [Integrations and releases](integrations-release.md) | 3 | 6 | 8 |
 | [Optional features](features.md) | 9 | 3 | 8 |
 | [Documentation](documentation.md) | 6 | 12 | 11 |
 | [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 50 | 48 | 87 |
-| **Total assigned from open snapshot** | **285** | **252** | **420** |
+| **Total assigned from open snapshot** | **285** | **252** | **408** |
 
-**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **235 active issues / 204 active PRs** in the technical categories, and **50 excluded issues / 48 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 420 work-package slots are accounting groups, not 420 distinct bugs or fixes.
+**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **235 active issues / 204 active PRs** in the technical categories, and **50 excluded issues / 48 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 408 work-package slots are accounting groups, not 408 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
 The inventories and `_backlog/data/` remain the original dated snapshot. Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 
@@ -29,7 +29,7 @@ The inventories and `_backlog/data/` remain the original dated snapshot. Striket
 
 - **RNC CLOSED / SUPERSEDED:** only when a known replacement or a verified nonissue has supporting evidence, with [exclusions.md](exclusions.md) as the exclusion ledger. No upstream issue or PR is closed by these documents.
 - **REVIEWED — TESTING:** existing CVE PRs #2308/#2336 and their linked issues; not yet adopted.
-- **SOURCE-CHECKED — TEST PENDING:** select open PR patches compared directly to fork `master`. No build/run proof is implied.
+- **SOURCE-CHECKED — TEST PENDING:** select open PR patches compared directly to fork `master`. **PATCH-REVIEWED** marks upstream diffs inspected without a complete baseline comparison. Neither state implies a build/run result.
 - **RNC EXCLUDED:** the [exclusion ledger](exclusions.md) records patch/version evidence, replacement PR or issue when known, and reopen conditions. A PR superseded by another **open** PR is a duplicate review slot, not a proven fix. Nonidentical provider and scanner proposals remain pending.
 - **PENDING REVIEW:** remaining records were routed by issue/PR titles and direct crosswalk references. The right category helps evaluate them; it does not establish root cause, patch correctness, priority, or obsolescence.
 

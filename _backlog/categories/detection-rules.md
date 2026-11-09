@@ -2,11 +2,11 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**33 issues · 52 PRs · 56 work packages.**
+**35 issues · 58 PRs · 59 work packages.**
 
 Provider tokens and credential-detection rules. Competing PRs are one comparison package when their generated rule IDs or formats collide; independent provider acceptance tests remain separate.
 
-**Review states:** `SOURCE-CHECKED` records a targeted source/patch comparison, **not** a built or tested correction. `PENDING` records an unresolved issue or competing proposal. No PR is adopted or upstream item closed by categorization. See [RNC exclusions](exclusions.md) for retired review slots.
+**Review states:** `SOURCE-CHECKED` includes a targeted fork-source comparison; `PATCH-REVIEWED` means an upstream diff was inspected, **not** that the patch was built or tested against the fork. `PENDING` records unresolved issues or competing proposals. No PR is adopted or upstream item closed by categorization. See [RNC exclusions](exclusions.md) for retired review slots.
 
 ## Candidates
 
@@ -68,6 +68,9 @@ Provider tokens and credential-detection rules. Competing PRs are one comparison
 | — | [#774](https://github.com/gitleaks/gitleaks/pull/774) (@salolivares) | Segment public API token rule (`sgp_` family). | **SOURCE-CHECKED — SENSITIVITY GATE** | PR explicitly calls this a *public* API token. Confirm that disclosure of this particular token type is a secret exposure, not normal client-side usage; ensure format discrimination from Sourcegraph `sgp_` tokens. Patch uses legacy helper calls and no negative fixtures. | — |
 | [#1513](https://github.com/gitleaks/gitleaks/issues/1513) | — | Additional Kubernetes Secret Detections | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1348](https://github.com/gitleaks/gitleaks/issues/1348) | — | Alibaba secret in CSV format | **REVIEW PENDING** | Requests detecting Alibaba Cloud credentials in CSV *source files* with comma separators and improved keyword matching; not CSV report output. | — |
+| [#1324](https://github.com/gitleaks/gitleaks/issues/1324) | [#1356](https://github.com/gitleaks/gitleaks/pull/1356) (@baruchiro) | Constrain AWS access-key formats to valid base32 suffixes and propose separate AWS secret-key detection. | **PATCH-REVIEWED — COMPATIBILITY GATE** | PR explicitly cites #1324; changes generator and TOML, renames `aws-access-token` to `aws-access-key`, adds a secret-key rule. Evaluate matching, existing rule-ID compatibility, regeneration and negatives independently. | — |
+| — | [#1046](https://github.com/gitleaks/gitleaks/pull/1046) (@karankohli-cf) | Add Zapier webhook token detection. | **PATCH-REVIEWED — GENERATOR GATE** | Diff edits historical `config/gitleaks.toml` only; no generator registration or positive/negative fixtures in patch. Check current provider coverage and protect against loss on regeneration. | — |
+| [#539](https://github.com/gitleaks/gitleaks/issues/539) | [#1291](https://github.com/gitleaks/gitleaks/pull/1291) (@StephenHogg), [#2072](https://github.com/gitleaks/gitleaks/pull/2072) (@lumir-sliva), [#2106](https://github.com/gitleaks/gitleaks/pull/2106) (@54ry), [#2254](https://github.com/gitleaks/gitleaks/pull/2254) (@AARUSHGAUR) | Azure/Microsoft provider rule coverage: broad CredScan ports, Azure Storage account keys, storage connection strings, and other Microsoft secret families. | **PATCHES COMPARED — PROVIDER MATRIX PENDING** | The issue is an umbrella, not proof that four PRs implement the same rule. #1291 broad legacy Azure port; #2072 account-key format; #2106 *patch* adds Storage connection-string rule despite a mismatched APIM-themed PR description; #2254 explicitly complements Storage PRs. Build an ID/pattern/format matrix and independent positives/negatives before selecting or combining. | — |
 
 ## Decision gate
 
