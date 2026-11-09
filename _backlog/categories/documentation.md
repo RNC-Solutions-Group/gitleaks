@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**6 issues · 12 PRs · 11 work packages.**
+**7 issues · 13 PRs · 12 work packages.**
 
 Documentation, setup guidance, labels, and examples. Compare proposed text with current code and README behavior before consolidating patches.
 
@@ -44,6 +44,8 @@ Documentation, setup guidance, labels, and examples. Compare proposed text with 
 - **Keep separate:** #2084 is an executable integration recipe with inaccurate baseline instructions; it is **not safe to copy** into the documentation bundle without a functional audit.
 - **History and attribution:** preserve each author's upstream PR URL and source commit SHA in the owner consolidation PR. Prefer retaining original commits where they apply cleanly; adapted fixes should be a distinct owner-authored commit that explicitly credits the originating contributor (`Co-authored-by` when appropriate). Never claim that this triage branch adopted, tested, or merged any source PR.
 - **Integration boundary:** the **owner's second development branch** may incorporate this bundle, run a Markdown-link and command/usage check, and open one RNC PR. The upstream-submission branch and this triage branch receive only explanatory README/PR attribution notes as required; no unreviewed docs source changes are cherry-picked there.
+
+| [#2295](https://github.com/gitleaks/gitleaks/issues/2295) | [#2306](https://github.com/gitleaks/gitleaks/pull/2306) (@rotirotirafa) | Document Firebase example-key provenance in generated GCP API-key allowlist. | **PATCH-REVIEWED — DOC/GENERATOR GATE** | PR #2306 adds explanatory comments in GCP rule generator/bundled output; verify both remain synchronized when regenerated. No claim that detection or allowlisting semantics change. | — |
 
 ## Decision gate
 

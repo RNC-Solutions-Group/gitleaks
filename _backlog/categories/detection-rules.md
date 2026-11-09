@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**35 issues · 58 PRs · 59 work packages.**
+**35 issues · 60 PRs · 61 work packages.**
 
 Provider tokens and credential-detection rules. Competing PRs are one comparison package when their generated rule IDs or formats collide; independent provider acceptance tests remain separate.
 
@@ -71,6 +71,9 @@ Provider tokens and credential-detection rules. Competing PRs are one comparison
 | [#1324](https://github.com/gitleaks/gitleaks/issues/1324) | [#1356](https://github.com/gitleaks/gitleaks/pull/1356) (@baruchiro) | Constrain AWS access-key formats to valid base32 suffixes and propose separate AWS secret-key detection. | **PATCH-REVIEWED — COMPATIBILITY GATE** | PR explicitly cites #1324; changes generator and TOML, renames `aws-access-token` to `aws-access-key`, adds a secret-key rule. Evaluate matching, existing rule-ID compatibility, regeneration and negatives independently. | — |
 | — | [#1046](https://github.com/gitleaks/gitleaks/pull/1046) (@karankohli-cf) | Add Zapier webhook token detection. | **PATCH-REVIEWED — GENERATOR GATE** | Diff edits historical `config/gitleaks.toml` only; no generator registration or positive/negative fixtures in patch. Check current provider coverage and protect against loss on regeneration. | — |
 | [#539](https://github.com/gitleaks/gitleaks/issues/539) | [#1291](https://github.com/gitleaks/gitleaks/pull/1291) (@StephenHogg), [#2072](https://github.com/gitleaks/gitleaks/pull/2072) (@lumir-sliva), [#2106](https://github.com/gitleaks/gitleaks/pull/2106) (@54ry), [#2254](https://github.com/gitleaks/gitleaks/pull/2254) (@AARUSHGAUR) | Azure/Microsoft provider rule coverage: broad CredScan ports, Azure Storage account keys, storage connection strings, and other Microsoft secret families. | **PATCHES COMPARED — PROVIDER MATRIX PENDING** | The issue is an umbrella, not proof that four PRs implement the same rule. #1291 broad legacy Azure port; #2072 account-key format; #2106 *patch* adds Storage connection-string rule despite a mismatched APIM-themed PR description; #2254 explicitly complements Storage PRs. Build an ID/pattern/format matrix and independent positives/negatives before selecting or combining. | — |
+
+| — | [#2030](https://github.com/gitleaks/gitleaks/pull/2030) (@max-wittig) | Support newly routable/versioned GitLab `glpat` token forms. | **SOURCE-CHECKED — PROVIDER-FORMAT GATE** | Patch changes GitLab generator and bundled TOML; pinned master uses older single-dot form. Test new/legacy positive tokens, public strings, boundaries and generator output consistency. | — |
+| — | [#2001](https://github.com/gitleaks/gitleaks/pull/2001) (@LloydCoder) | Add Nigerian fintech/payment/betting provider token rules (Paystack, Flutterwave and related families). | **PATCH-REVIEWED — MIXED-SCOPE SECURITY GATE** | Only provider-rule generator/TOML additions belong in this acceptance package. PR also edits workflows, Dockerfile, dependencies, report template, codec and security docs; audit each unrelated mutation independently rather than cherry-picking the full 18-file diff. Require real-format positive and negative fixtures. | — |
 
 ## Decision gate
 

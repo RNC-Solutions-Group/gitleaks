@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**48 issues · 26 PRs · 50 work packages.**
+**49 issues · 26 PRs · 51 work packages.**
 
 False negatives and positives, generic rules, regex matching, private-key handling, and finding correctness. Use explicit fixtures and negative controls.
 
@@ -62,6 +62,8 @@ False negatives and positives, generic rules, regex matching, private-key handli
 | [#1942](https://github.com/gitleaks/gitleaks/issues/1942) | [#1954](https://github.com/gitleaks/gitleaks/pull/1954) (@skj-skj) | GCP API keys in Google Chat URL query parameters can be missed when followed by `&token=...`; #1954 proposes recognizing `&` as a credential suffix boundary. | **SOURCE-CHECKED — TEST PENDING** | PR explicitly cites #1942 and changes shared `secretSuffix` plus unit cases. Current `GCPAPIKey` uses `GenerateUniqueTokenRegex`, which consumes that suffix. Verify generated GCP regex, exact token format/entropy, multiple query parameters and no overmatching; patch is not adopted. | — |
 | [#1239](https://github.com/gitleaks/gitleaks/issues/1239), [#1436](https://github.com/gitleaks/gitleaks/issues/1436), [#1958](https://github.com/gitleaks/gitleaks/issues/1958) | — | Default `generic-api-key` filtering of letters-only/underscore values leads to missed passwords; reported examples include `.pypirc` and short literal values. | **SOURCE-CHECKED — POLICY/REPRO PENDING** | Pinned generator has `^[a-zA-Z_.-]+$` secret allowlist and a minimum 10-character token regex; #1958's long underscore password fits the allowlist, while #1436's `testkey` is also too short. Keep distinct length, alphabet-only, entropy and false-positive controls; removing one guard does not guarantee all are detected. | — |
 | [#1052](https://github.com/gitleaks/gitleaks/issues/1052), [#1073](https://github.com/gitleaks/gitleaks/issues/1073), [#1053](https://github.com/gitleaks/gitleaks/issues/1053) | — | Generic keyword matching flags public-key/property names and algorithm identifiers (`PublicKeyToken`, XML `Key`/`Token`, `key_algorithm`) as credentials. | **ISSUES LINKED — NEGATIVE FIXTURES PENDING** | Related nonsecret-keyword overreach, not identical formats. Preserve separate .NET/XML/property and Terraform/HCL fixtures, plus real-secret controls. Validate the proposed exclusion syntax against the runtime regex engine; a blanket `key` suppression would lose positives. | — |
+
+| [#1997](https://github.com/gitleaks/gitleaks/issues/1997) | — | Prefer provider-specific `sonar-api-token` to generic API-key matches when both could recognize the same secret. | **SOURCE-CHECKED — DETECTION REPRO PENDING** | Current `detect/utils.go` suppresses generic findings only for certain same-line overlapping specific findings. Reproduce the reported Sonar case before adding priority or reordering; ensure specific-rule detection and allowlist fallback are not broken. | — |
 
 ## Decision gate
 

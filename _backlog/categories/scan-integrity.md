@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**23 issues · 21 PRs · 32 work packages.**
+**24 issues · 22 PRs · 33 work packages.**
 
 File/archive readers, chunk boundaries, binary detection, and silent skips. A clean result must imply a complete scan.
 
@@ -44,6 +44,8 @@ File/archive readers, chunk boundaries, binary detection, and silent skips. A cl
 | [#1058](https://github.com/gitleaks/gitleaks/issues/1058) | — | Ignoring embedded images in Jupyter notebooks. | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#2252](https://github.com/gitleaks/gitleaks/pull/2252) (@CAOShurong) | fix: propagate git-scan errors so a failed scan exits non-zero (gitleaks#1464) | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#914](https://github.com/gitleaks/gitleaks/issues/914) | — | Generic API token detected in `.py` but missed in equivalent escaped Jupyter `.ipynb` JSON. | **ISSUE — REPRO PENDING** | Compare identical synthetic token in Python vs notebook source and raw/Git scan modes; locate extraction/escaping boundary before touching rule patterns. | — |
+
+| [#2107](https://github.com/gitleaks/gitleaks/issues/2107) | [#2114](https://github.com/gitleaks/gitleaks/pull/2114) (@obchain) | Normalize file path and fingerprint origin consistently between Git and directory sources. | **PATCH-REVIEWED — SOURCE-PATH GATE** | PR #2114 adds `--source-relative-paths`; confirm `git`/`dir` path parity, nested roots, Windows separators, and effects on existing ignore fingerprints. This primarily changes source path identity, not the allowlist parser. | — |
 
 ## Decision gate
 
