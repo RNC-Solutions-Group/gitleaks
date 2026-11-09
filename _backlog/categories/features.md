@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**7 issues · 3 active PRs · 6 work packages.** Optional interfaces and developer-experience capabilities not required for core scan correctness.
+**9 issues · 3 active PRs · 8 work packages.** Optional interfaces and developer-experience capabilities not required for core scan correctness.
 
 **Review states:** All proposals remain unadopted. Issue #2017 links a **closed, unmerged** PR #2018 for context, not as an active PR. [RNC exclusions](exclusions.md) are recorded separately.
 
@@ -18,6 +18,8 @@ These candidates have not been adopted or corrected by RNC.
 | [#1511](https://github.com/gitleaks/gitleaks/issues/1511) | — | Configurable secret replacement token (Drupal/YAML-safe output). | **PENDING REVIEW** — no equivalent CLI option | `cmd/root.go` exposes percentage `--redact`; `report/finding.go` hardcodes `REDACTED` at 100%. This does not implement a selectable replacement string. |
 | [#1397](https://github.com/gitleaks/gitleaks/issues/1397) | [#2216](https://github.com/gitleaks/gitleaks/pull/2216) (@hantaee22) | Signed line-offset `gitleaks:allow` directives. | **PENDING REVIEW** — unique open PR | Current `detect/detect.go` only checks the finding's own line; #2216 changes detection, adds offset parsing/tests, and documents semantics. Nothing equivalent on master. |
 | [#1054](https://github.com/gitleaks/gitleaks/issues/1054) | — | Deduplicate identical secrets across Git commits and optionally share ignore fingerprints. | **PENDING REVIEW** — distinct behavior | Current `detect/baseline.go` compares commit metadata; default fingerprints are commit-scoped. Existing per-commit processing is not the requested cross-commit secret deduplication. |
+| [#1013](https://github.com/gitleaks/gitleaks/issues/1013) | — | Optional validation of discovered credentials against their issuing services. | **ISSUE — DESIGN/SECURITY REVIEW PENDING** | Requires explicit opt-in, network isolation, rate limits, credential-handling policy and no unexpected verification egress; not a vendor regex request. |
+| [#1456](https://github.com/gitleaks/gitleaks/issues/1456) | — | Checksum-aware declarative rules for provider tokens (e.g. Adler-32 suffix validation). | **ISSUE — DESIGN/TEST PENDING** | Extends TOML rule schema/evaluator, not a single provider rule. Validate checksum groups, false positives, performance, and backward compatibility. |
 
 ## Evaluation gate
 

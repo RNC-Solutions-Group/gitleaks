@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**52 issues · 37 PRs · 75 work packages.**
+**56 issues · 37 PRs · 79 work packages.**
 
 False negatives and positives, generic rules, regex matching, private-key handling, and finding correctness. Use explicit fixtures and negative controls.
 
@@ -89,6 +89,10 @@ False negatives and positives, generic rules, regex matching, private-key handli
 | [#1361](https://github.com/gitleaks/gitleaks/issues/1361) | — | Consider yaml/yml files in scan by default | **REVIEW PENDING** | The current `sources.Files` walker does not filter `.yaml`/`.yml` files as a class. This is a claimed rule-coverage miss, not an established source-reader skip; test specific YAML fixtures. | — |
 
 | [#908](https://github.com/gitleaks/gitleaks/issues/908) | — | Default Generic API rule - does not scan secrets in XML tags | **REVIEW PENDING** | Generic API key false negative in XML element content; this concerns the generic detection rule and fixtures, not the report formatter. Compare later with existing XML-rule PR #1265, without assuming equivalence. | — |
+| [#1261](https://github.com/gitleaks/gitleaks/issues/1261) | — | Two matching custom rules without IDs produce only one reported finding. | **ISSUE — REPRO PENDING** | Minimal two-rule PHP/config example; test duplicate/empty IDs and finding aggregation to distinguish configuration validation from lost detection. | — |
+| [#1073](https://github.com/gitleaks/gitleaks/issues/1073) | — | Generic matching treats .NET public-key/property names as secret values. | **ISSUE — REPRO PENDING** | Use `Key`, `Token`, `PublicKey`, and `PublicKeyToken` controls from report; assess generic rule false-positive semantics independently of provider-specific formats. | — |
+| [#1785](https://github.com/gitleaks/gitleaks/issues/1785) | — | Generic semi-keyword regex misses Python type hints, wrappers and multiline assignments. | **ISSUE — REPRO PENDING** | Use dataclass/SecretStr/newline fixtures; shared `GenerateSemiGenericRegex` behavior affects many rules, not one provider. | — |
+| [#1036](https://github.com/gitleaks/gitleaks/issues/1036) | — | Broad request to improve generic API-token detection beyond individual vendors. | **ISSUE — REQUIREMENTS PENDING** | Define concrete positive and negative samples before changes to generic regex/entropy; no vendor-specific rule is identified. | — |
 
 ## Decision gate
 

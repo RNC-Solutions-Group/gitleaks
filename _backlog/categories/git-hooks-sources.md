@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**18 issues · 12 PRs · 20 work packages.**
+**19 issues · 13 PRs · 22 work packages.**
 
 Git history, hooks, staged changes, diff/log parsing, and source integration. Reproduce Git-specific behavior independently of directory scans.
 
@@ -33,6 +33,8 @@ Git history, hooks, staged changes, diff/log parsing, and source integration. Re
 | [#1293](https://github.com/gitleaks/gitleaks/issues/1293) | — | can gitleaks understand .gitleaksignore while scanning a bare git repo? | **REVIEW PENDING** | Bare Git-repository `.gitleaksignore` discovery is tied to `git` source/working-tree semantics; belongs with Git-source behavior. | — |
 | [#1163](https://github.com/gitleaks/gitleaks/issues/1163) | — | detect --source folder is not honored as a folder in git mode | **REVIEW PENDING** | Hidden legacy `detect --source=<subdir>` calls Git history and scans outside the requested subfolder; investigate with current `git`/`--log-opts` interface. | — |
 | [#800](https://github.com/gitleaks/gitleaks/issues/800) | — | Add a flag to enable scanning both the git commit message as well as the commit content | **REVIEW PENDING** | Adds optional scanning of Git commit messages rather than only changed file content; Git history-source feature. | — |
+| [#1128](https://github.com/gitleaks/gitleaks/issues/1128) | — | Deleted Git diff lines still treated as new secret findings in pre-receive hooks. | **ISSUE — REPRO PENDING** | Reproduce add → delete → push on pinned master. Inspect Git diff insertion/deletion filtering independently of provider regexes; do not infer fixed from historical v5 behavior. | — |
+| — | [#1809](https://github.com/gitleaks/gitleaks/pull/1809) (@JoostVoskuil) | Azure DevOps SSH remote platform identification during Git scanning. | **SOURCE-CHECKED — TEST PENDING** | PR changes cmd/detect.go and detect/git.go, not provider rules. Test Azure HTTPS/SSH, GitHub/GitLab, explicit --platform, and host spoofing. | — |
 
 ## Decision gate
 

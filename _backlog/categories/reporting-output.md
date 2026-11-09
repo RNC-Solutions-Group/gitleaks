@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**14 issues · 7 PRs · 15 work packages.**
+**15 issues · 8 PRs · 17 work packages.**
 
 SARIF/CSV/JSON/XML output, finding coordinates, report content, redaction, and output contracts. Verify escaping, permissions, and error paths.
 
@@ -27,6 +27,8 @@ SARIF/CSV/JSON/XML output, finding coordinates, report content, redaction, and o
 | [#1357](https://github.com/gitleaks/gitleaks/issues/1357) | — | Incorrect Start and End Column Values in Gitleaks Report for Findings | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1048](https://github.com/gitleaks/gitleaks/issues/1048) | — | Generate multiple report formats (e.g. JSON and JUnit) from one scan. | **ISSUE — FEATURE REVIEW PENDING** | The **multi-format requirement remains open**; design against current `report.Reporter` semantics and test writer lifecycle and exit behavior. | — |
 | [#988](https://github.com/gitleaks/gitleaks/issues/988) | — | No json report file generated in docker version v8.13.0 | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+| [#1074](https://github.com/gitleaks/gitleaks/issues/1074) | — | Expose full source line/context in machine-readable report alongside Match/Secret. | **ISSUE — REVIEW PENDING** | JSON finding excerpt drops surrounding `Public` in `PublicKeyToken`; verify current `Line` behavior and redaction before adding output fields. | — |
+| — | [#1162](https://github.com/gitleaks/gitleaks/pull/1162) (@mn3m0nic) | Optional hashed-secret identifier (`SecretSHA`) across detector and CSV/JSON reports. | **SOURCE-CHECKED — TEST PENDING** | Diff changes detect + report/finding/csv and fixtures (not a provider rule). Verify no raw secret output, redaction contract, stable dedup, and risks of unsalted SHA-256 for low-entropy secrets. | — |
 
 ## Decision gate
 

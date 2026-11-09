@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**22 issues · 21 PRs · 31 work packages.**
+**23 issues · 21 PRs · 32 work packages.**
 
 File/archive readers, chunk boundaries, binary detection, and silent skips. A clean result must imply a complete scan.
 
@@ -43,6 +43,7 @@ File/archive readers, chunk boundaries, binary detection, and silent skips. A cl
 | [#1059](https://github.com/gitleaks/gitleaks/issues/1059) | — | gitleaksignore fingerprint doesn't support relative paths | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1058](https://github.com/gitleaks/gitleaks/issues/1058) | — | Ignoring embedded images in Jupyter notebooks. | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#2252](https://github.com/gitleaks/gitleaks/pull/2252) (@CAOShurong) | fix: propagate git-scan errors so a failed scan exits non-zero (gitleaks#1464) | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+| [#914](https://github.com/gitleaks/gitleaks/issues/914) | — | Generic API token detected in `.py` but missed in equivalent escaped Jupyter `.ipynb` JSON. | **ISSUE — REPRO PENDING** | Compare identical synthetic token in Python vs notebook source and raw/Git scan modes; locate extraction/escaping boundary before touching rule patterns. | — |
 
 ## Decision gate
 

@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**46 issues · 30 PRs · 60 work packages.**
+**47 issues · 31 PRs · 61 work packages.**
 
 Config loading, ignore files, allowlist conditions, baselines, inline suppression, and configuration ergonomics. Test that a proposed change does not suppress legitimate detection.
 
@@ -74,6 +74,7 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 | [#947](https://github.com/gitleaks/gitleaks/issues/947) | — | Problems with current implementation - adding the ability to extend configuration files | **REVIEW PENDING** | Challenges `[extend]` precedence/merge semantics; current README documents precedence and depth limits; verify desired behavior separately. | — |
 
 | [#983](https://github.com/gitleaks/gitleaks/issues/983) | — | print resulting configuration for debug purpose if extend directive is used | **REVIEW PENDING** | The request is for a resolved/dumped configuration after `[extend]` merges rules and allowlists. Its ownership is config introspection and merge semantics, not reporting scan findings. | — |
+| [#1675](https://github.com/gitleaks/gitleaks/issues/1675) | [#1683](https://github.com/gitleaks/gitleaks/pull/1683) (@vk-NEU7) | Rule-authoring validation: warn when a generated/configured rule has no keywords. | **SOURCE-CHECKED — TEST PENDING** | PR changes cmd/generate/config/utils/validate.go only; compare generator and runtime config loading, warning severity, and legitimate keyword-free rules. Does not fix vendor token detection. | — |
 
 ## Decision gate
 
