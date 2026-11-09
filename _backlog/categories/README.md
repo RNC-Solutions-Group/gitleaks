@@ -11,17 +11,17 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
 | [Configuration and allowlists](configuration-allowlists.md) | 42 | 28 | 41 |
-| [Git and hooks](git-hooks-sources.md) | 20 | 13 | 23 |
+| [Git and hooks](git-hooks-sources.md) | 17 | 12 | 19 |
 | [Reporting and output](reporting-output.md) | 13 | 7 | 14 |
 | [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
 | [Dependency and build pins](dependencies.md) | 7 | 11 | 18 |
 | [Integrations and releases](integrations-release.md) | 3 | 6 | 8 |
 | [Optional features](features.md) | 9 | 3 | 8 |
 | [Documentation](documentation.md) | 8 | 13 | 13 |
-| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 60 | 52 | 101 |
+| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 63 | 53 | 105 |
 | **Total assigned from open snapshot** | **285** | **252** | **391** |
 
-**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **225 active issues / 200 active PRs** in the technical categories, and **60 excluded issues / 52 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 391 work-package slots are accounting groups, not 391 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
+**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **222 active issues / 199 active PRs** in the technical categories, and **63 excluded issues / 53 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 391 work-package slots are accounting groups, not 391 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
 The inventories and `_backlog/data/` remain the original dated snapshot. Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 
