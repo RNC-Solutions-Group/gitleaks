@@ -16,13 +16,15 @@ This branch contains a dated, reproducible review snapshot of **upstream `gitlea
 
 | Disposition | Issues | PRs |
 | --- | ---: | ---: |
-| Active technical-category review | **222** | **199** |
-| [RNC exclusions](categories/exclusions.md) | **63** | **53** |
+| Active technical-category review | **221** | **199** |
+| [RNC exclusions](categories/exclusions.md) | **64** | **53** |
 | **Original snapshot assigned** | **285** | **252** |
 
 All upstream snapshot items have one disposition in the [active category index](categories/README.md), with **0 unassigned**. The register records 388 work-package accounting slots, which are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
 
 **Scan Integrity second pass (2026-11-09):** all 25 originally routed issues and 22 PRs rechecked against pinned fork source/diffs. Git error-handling issue #1464 and two competing fixes now share an existing Git/Hooks work package; URL/JSON PR #1992 is owned by Optional Features; #1651 and partial boundary patch #2324 share one package. These category/work-package consolidations leave **all 285 issues and 252 open PRs assigned**, with exclusions unchanged. No scanner source or test files were altered.
+
+**Optional Features final-pass reconciliation (2026-11-09):** #1397/PR #2216 moved to Configuration & Allowlists, #2017 (closed, unmerged PR #2018 for context) moved to Integrations & Release, and #1511 moved to the RNC exclusions ledger with a report-only reopen condition. Optional Features now owns six issues, three open PRs and six packages. The global **285 issue / 252 open PR / 388 package** accounting is unchanged; no code, snapshot export, upstream item or test was modified.
 
 ## Historical evidence (outside active categories)
 

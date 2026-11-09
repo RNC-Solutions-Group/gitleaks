@@ -10,24 +10,32 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | [Scan integrity and file readers](scan-integrity.md) | 24 | 19 | 30 |
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
-| [Configuration and allowlists](configuration-allowlists.md) | 42 | 28 | 41 |
+| [Configuration and allowlists](configuration-allowlists.md) | 43 | 29 | 42 |
 | [Git and hooks](git-hooks-sources.md) | 18 | 14 | 19 |
 | [Reporting and output](reporting-output.md) | 13 | 7 | 14 |
 | [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
 | [Dependency and build pins](dependencies.md) | 7 | 11 | 18 |
-| [Integrations and releases](integrations-release.md) | 3 | 6 | 8 |
-| [Optional features](features.md) | 9 | 4 | 9 |
+| [Integrations and releases](integrations-release.md) | 4 | 6 | 9 |
+| [Optional features](features.md) | 6 | 3 | 6 |
 | [Documentation](documentation.md) | 8 | 13 | 13 |
-| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 63 | 53 | 105 |
+| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 64 | 53 | 106 |
 | **Total assigned from open snapshot** | **285** | **252** | **388** |
 
-**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **222 active issues / 199 active PRs** in the technical categories, and **63 excluded issues / 53 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
+**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **221 active issues / 199 active PRs** in the technical categories, and **64 excluded issues / 53 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
 The inventories and `_backlog/data/` remain the original dated snapshot. Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 
 ### Scan-integrity second-pass reconciliation (2026-11-09)
 
 One issue (#1464) and two PRs (#2253/#2252) moved from Scan Integrity to the existing Git/Hooks #1981 **same-root-cause** package; no proposal was excluded. PR #1992 moved from Scan Integrity to Optional Features as a new URL/JSON reader. Issue #1651 and PR #2324 now share a package because the PR explicitly describes a partial correction for that issue. Together these reassignments reduce accounting packages from 391 to **388**, without adding or losing an upstream issue or open PR. The prior exclusions ledger remains unchanged.
+
+### Optional Features final-pass reconciliation (2026-11-09)
+
+- **Issue #1397 + open PR #2216** now belong to [Configuration and allowlists](configuration-allowlists.md): signed inline suppression changes finding eligibility, not scanner interface capability.
+- **Issue #2017** now belongs to [Integrations and releases](integrations-release.md): the `gore2regex` virtual-address-space failure is tied to **published binary build flags**, not a generic optional feature. Its **closed unmerged PR #2018** is context only and adds no open PR.
+- **Issue #1511** now belongs to [RNC exclusions](exclusions.md): source-file rewriting is outside current Gitleaks scan/report semantics; a separate report-only masking request can reopen review.
+
+Optional Features is now **6 issues / 3 open PRs / 6 packages**. The 285 issues, 252 open PRs, and 388 accounting packages remain complete and unchanged in total. Source/PR inspection was performed, but **no new runtime or regression tests** were run; no implementation or upstream disposition was changed.
 
 ## Triage confidence
 

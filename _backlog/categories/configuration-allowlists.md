@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**42 issues · 28 PRs · 41 work packages.**
+**43 issues · 29 PRs · 42 work packages.**
 
 Config loading, ignore files, allowlist conditions, baselines, inline suppression, and configuration ergonomics. Test that a proposed change does not suppress legitimate detection.
 
@@ -12,6 +12,7 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
+| [#1397](https://github.com/gitleaks/gitleaks/issues/1397) | [#2216](https://github.com/gitleaks/gitleaks/pull/2216) (@hantaee22) | Signed `gitleaks:allow_line:+N/-N` offsets from directive comments. | **PATCH-REVIEWED — SEMANTICS/TEST GATE; NOT ADOPTED** | Existing pinned detector handles same-line directives only. PR parses offset directives in `fragment.Raw` and unit-tests `Detect(fragment)`, but Git added-line fragments can be concatenated and differ from physical file line numbers. Test positive/negative offsets across hunks, context, line boundaries, `--ignore-gitleaks-allow`, required rules and alternate `gitleaks:allow:+N` syntax before accepting suppression semantics. Re-homed from Optional Features 2026-11-09. | — |
 | [#2120](https://github.com/gitleaks/gitleaks/issues/2120) | [#2343](https://github.com/gitleaks/gitleaks/pull/2343) (@delaysystem) | Bundled and generated config use deprecated `[allowlist]` syntax. | **SOURCE-CHECKED — TEST PENDING** | PR changes generator template and checked-in `gitleaks.toml`; validate the generated output and parsing. | — |
 | [#2165](https://github.com/gitleaks/gitleaks/issues/2165) | [#2166](https://github.com/gitleaks/gitleaks/pull/2166) (@ashvinctrl) | Global commit allowlist `continue` is scoped to inner loop. | **SOURCE-CHECKED — TEST PENDING** | PR #2166 moves commit-match decision outside the allowlist loop and includes regression tests. PR #2200 has the same intended behavior without tests and is excluded as a standalone review. | — |
 | — | [#2241](https://github.com/gitleaks/gitleaks/pull/2241) (@harriiinnii) | Invalid user-supplied regex triggers parser panic. | **SOURCE-CHECKED — TEST PENDING** | Full error-return patch covers rule and allowlist regexes and multiple invalid-config fixtures; test all invalid-regex branches and ensure actionable errors. | — |
@@ -56,6 +57,10 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 | [#1754](https://github.com/gitleaks/gitleaks/issues/1754), [#764](https://github.com/gitleaks/gitleaks/issues/764) | — | Config-to-scanner compatibility enforcement and diagnostic config verification. | **ISSUES LINKED — POLICY GATE** | Both request minimum compatible Gitleaks version; #764 also asks syntax/value verification. Pinned `config/config.go` parses `MinVersion` but warns rather than fails below the threshold. Test fail-closed opt-in behavior and keep #764's independent validation requirement in acceptance. | — |
 | [#827](https://github.com/gitleaks/gitleaks/issues/827), [#811](https://github.com/gitleaks/gitleaks/issues/811), [#1279](https://github.com/gitleaks/gitleaks/issues/1279) | — | Strict config validation: malformed syntax, silently ignored unknown fields, and mis-scoped allowlist tables. | **ISSUES LINKED — VALIDATION/USAGE REPRO PENDING** | #827 asks for invalid-character/unterminated-value diagnostics; #811 requests unknown-field rejection. #1279's example declares `[rules.allowlist]` without a parent `[[rules]]`, so it is **not** a top-level allowlist; current documentation uses `[[allowlists]]`. Test parser errors, configuration precedence, valid nested/global syntax, and the claimed real-secret suppression before attributing #1279 to the detector. | — |
 | [#2239](https://github.com/gitleaks/gitleaks/issues/2239) | [#2286](https://github.com/gitleaks/gitleaks/pull/2286) (@breken-ai), [#1566](https://github.com/gitleaks/gitleaks/pull/1566) (@rgmz) | Content-sensitive ignore fingerprints to avoid suppressing a different secret at the same path/rule/line. | **PATCHES COMPARED — BACKWARD-COMPATIBILITY GATE** | #2286 adds an opt-in content fingerprint and report-format changes; older WIP #1566 hashes secret material via a different scheme/default. Compare generated baselines, cross-run stability, sensitive-value exposure, existing `.gitleaksignore` compatibility, migrated entries and both authors' test cases. | — |
+
+## Inline suppression acceptance condition
+
+Issue #1397 / PR #2216 is a **configuration/allowlist** change, not a generic optional interface. Offset interpretation must be based on physically meaningful source lines in both Git and directory scanning, with no ability to suppress unrelated secrets through assembled fragment numbering. Do not adopt the proposed syntax without settling its competing form and testing cross-hunk/missing-context behavior. Source and patch inspected; no end-to-end reproduction or merge performed in this routing pass.
 
 ## Decision gate
 
