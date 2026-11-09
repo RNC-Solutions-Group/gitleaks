@@ -1,9 +1,10 @@
 # Architecture, capabilities, and technical baseline — assessment roadmap
 
-**Status:** Planned; CP0 ready for explicit authorization  
+**Status:** CP0 executed 2026-11-09; report awaiting owner review; CP1 not started  
 **Repository:** `RNC-Solutions-Group/gitleaks`  
 **Working branch:** `feat/issues-and-pr`  
 **Starting branch SHA (pre-documentation):** `6cd8c033512ba0de86f895cbced6a8f13b7cc531`  
+**Canonical code baseline:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` (fork `master`; application source identical at `6cd8c03` and at the branch HEAD assessed in CP0)  
 **Purpose:** Characterize the fork as it exists, then provide evidence for external PR-to-baseline compatibility assessments.
 
 ## Mission and non-goals
