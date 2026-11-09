@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**43 upstream issues · 27 upstream PRs · 56 work packages.** Remote-config #1557/#1630 moved here; the NuGet rule PR #1071 is superseded on master, while Putty detection PR #1373 moved to [provider rules](detection-rules.md). Git-refs config request #1923 moved here from Git & Hooks; minimum-scanner-version request #1754 moved from Integrations & Releases. Scan Integrity scrub on 2026-11-08 rerouted 6 pending issue-only work packages here without adopting, resolving, or closing any of them. Existing upstream state is unchanged.
+**44 upstream issues · 27 upstream PRs · 57 work packages.** Remote-config #1557/#1630 moved here; the NuGet rule PR #1071 is superseded on master, while Putty detection PR #1373 moved to [provider rules](detection-rules.md). Git-refs config request #1923 moved here from Git & Hooks; minimum-scanner-version request #1754 moved from Integrations & Releases. Scan Integrity scrub on 2026-11-08 rerouted 6 pending issue-only work packages here without adopting, resolving, or closing any of them. Reporting & Output scrub on 2026-11-08 rerouted one pending issue-only work package here without adjudicating its underlying behavior. Existing upstream state is unchanged.
 
 Config loading, ignore files, allowlist conditions, baselines, inline suppression, and configuration ergonomics. A narrow change can accidentally disable detection: use negative tests.
 
@@ -69,6 +69,8 @@ Config loading, ignore files, allowlist conditions, baselines, inline suppressio
 | [#1181](https://github.com/gitleaks/gitleaks/issues/1181) | — | Feature - Ability to ignore files for rule | **RECLASSIFIED — REVIEW PENDING** | Requests a per-rule path-exclusion expression (`pathExclude`) to avoid globally suppressing other rules; configuration semantics. | — |
 | [#1078](https://github.com/gitleaks/gitleaks/issues/1078) | — | How to create custom rules to scan secerts in .yaml or .properties file | **RECLASSIFIED — REVIEW PENDING** | Troubleshooting a custom YAML/properties regex and rule `path`; no evidence yet that the source reader skips these files. | — |
 | [#947](https://github.com/gitleaks/gitleaks/issues/947) | — | Problems with current implementation - adding the ability to extend configuration files | **RECLASSIFIED — REVIEW PENDING** | Challenges `[extend]` precedence/merge semantics; current README documents precedence and depth limits; verify desired behavior separately. | — |
+
+| [#983](https://github.com/gitleaks/gitleaks/issues/983) | — | print resulting configuration for debug purpose if extend directive is used | **RECLASSIFIED — REVIEW PENDING** | The request is for a resolved/dumped configuration after `[extend]` merges rules and allowlists. Its ownership is config introspection and merge semantics, not reporting scan findings. | — |
 
 ## Decision gate
 

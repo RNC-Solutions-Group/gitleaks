@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**38 upstream issues · 47 active upstream PRs · 73 work packages.** MSSQL-only PR #1394 is superseded by pending #2347 in [exclusions.md](exclusions.md). MCP feature #1869/#2056 moved to [features](features.md); rule PRs #955, #643, #1373 and #2280 were moved here by diff. Existing upstream state is unchanged.
+**39 upstream issues · 47 active upstream PRs · 74 work packages.** MSSQL-only PR #1394 is superseded by pending #2347 in [exclusions.md](exclusions.md). MCP feature #1869/#2056 moved to [features](features.md); rule PRs #955, #643, #1373 and #2280 were moved here by diff. Reporting & Output scrub on 2026-11-08 rerouted one pending issue-only work package here without adjudicating its underlying behavior. Existing upstream state is unchanged.
 
 New provider secrets, credentials, and token detection proposals. Test true positives, false positives, keyword prefilters, and default-rule impact.
 
@@ -85,6 +85,8 @@ New provider secrets, credentials, and token detection proposals. Test true posi
 | [#914](https://github.com/gitleaks/gitleaks/issues/914) | — | gitleaks fails to detect generic API token in Juypter notebook | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | — | [#774](https://github.com/gitleaks/gitleaks/pull/774) (@salolivares) | Add segment public api token rule | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 | [#1513](https://github.com/gitleaks/gitleaks/issues/1513) | — | Additional Kubernetes Secret Detections | **ISSUE — REPRO PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
+
+| [#1348](https://github.com/gitleaks/gitleaks/issues/1348) | — | Alibaba secret in CSV format | **RECLASSIFIED — REVIEW PENDING** | Requests detecting Alibaba Cloud credentials in CSV *source files* with comma separators and improved keyword matching; not CSV report output. | — |
 
 ## Decision gate
 

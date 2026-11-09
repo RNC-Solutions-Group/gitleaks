@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**47 upstream issues · 31 upstream PRs · 70 work packages.** PRs #1745 (semantic stopword edits), #1265 (XML rule), and #1043 (private-key rule) moved here by diff evidence; each ID has one owner. Scan Integrity scrub on 2026-11-08 rerouted 1 pending issue-only work package here without adopting, resolving, or closing any of them. Existing upstream state is unchanged.
+**48 upstream issues · 31 upstream PRs · 71 work packages.** PRs #1745 (semantic stopword edits), #1265 (XML rule), and #1043 (private-key rule) moved here by diff evidence; each ID has one owner. Scan Integrity scrub on 2026-11-08 rerouted 1 pending issue-only work package here without adopting, resolving, or closing any of them. Reporting & Output scrub on 2026-11-08 rerouted one pending issue-only work package here without adjudicating its underlying behavior. Existing upstream state is unchanged.
 
 Rule false negatives/positives, regex behavior, private-key handling, and finding accuracy. This includes correctness work that needs fixtures, not just additional patterns.
 
@@ -83,6 +83,8 @@ Rule false negatives/positives, regex behavior, private-key handling, and findin
 | — | [#2254](https://github.com/gitleaks/gitleaks/pull/2254) (@AARUSHGAUR) | feat(rules): add Microsoft/Azure secret detection rules (#539) | **PR — REVIEW PENDING** | Title/crosswalk metadata only; master equivalence and runtime behavior **not verified**. | — |
 
 | [#1361](https://github.com/gitleaks/gitleaks/issues/1361) | — | Consider yaml/yml files in scan by default | **RECLASSIFIED — REVIEW PENDING** | The current `sources.Files` walker does not filter `.yaml`/`.yml` files as a class. This is a claimed rule-coverage miss, not an established source-reader skip; test specific YAML fixtures. | — |
+
+| [#908](https://github.com/gitleaks/gitleaks/issues/908) | — | Default Generic API rule - does not scan secrets in XML tags | **RECLASSIFIED — REVIEW PENDING** | Generic API key false negative in XML element content; this concerns the generic detection rule and fixtures, not the report formatter. Compare later with existing XML-rule PR #1265, without assuming equivalence. | — |
 
 ## Decision gate
 
