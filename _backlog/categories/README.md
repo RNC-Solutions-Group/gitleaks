@@ -14,14 +14,14 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | [Git and hooks](git-hooks-sources.md) | 20 | 13 | 23 |
 | [Reporting and output](reporting-output.md) | 15 | 8 | 17 |
 | [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
-| [Dependency and build pins](dependencies.md) | 8 | 12 | 20 |
+| [Dependency and build pins](dependencies.md) | 7 | 11 | 18 |
 | [Integrations and releases](integrations-release.md) | 3 | 6 | 8 |
 | [Optional features](features.md) | 9 | 3 | 8 |
 | [Documentation](documentation.md) | 8 | 13 | 13 |
-| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 57 | 50 | 96 |
+| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 58 | 51 | 98 |
 | **Total assigned from open snapshot** | **285** | **252** | **391** |
 
-**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **228 active issues / 202 active PRs** in the technical categories, and **57 excluded issues / 50 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 391 work-package slots are accounting groups, not 391 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
+**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **227 active issues / 201 active PRs** in the technical categories, and **58 excluded issues / 51 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 391 work-package slots are accounting groups, not 391 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
 The inventories and `_backlog/data/` remain the original dated snapshot. Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 
