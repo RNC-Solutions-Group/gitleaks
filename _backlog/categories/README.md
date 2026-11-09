@@ -7,21 +7,21 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | Canonical category | Issues | PRs | Work packages |
 | --- | ---: | ---: | ---: |
 | [Security and hardening](security-hardening.md) | 12 | 7 | 15 |
-| [Scan integrity and file readers](scan-integrity.md) | 24 | 22 | 33 |
+| [Scan integrity and file readers](scan-integrity.md) | 25 | 22 | 34 |
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
-| [Configuration and allowlists](configuration-allowlists.md) | 48 | 28 | 49 |
+| [Configuration and allowlists](configuration-allowlists.md) | 42 | 28 | 41 |
 | [Git and hooks](git-hooks-sources.md) | 20 | 13 | 23 |
 | [Reporting and output](reporting-output.md) | 15 | 8 | 17 |
 | [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
 | [Dependency and build pins](dependencies.md) | 8 | 12 | 20 |
 | [Integrations and releases](integrations-release.md) | 3 | 6 | 8 |
 | [Optional features](features.md) | 9 | 3 | 8 |
-| [Documentation](documentation.md) | 7 | 13 | 12 |
-| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 51 | 50 | 90 |
-| **Total assigned from open snapshot** | **285** | **252** | **393** |
+| [Documentation](documentation.md) | 8 | 13 | 13 |
+| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 55 | 50 | 94 |
+| **Total assigned from open snapshot** | **285** | **252** | **391** |
 
-**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **234 active issues / 202 active PRs** in the technical categories, and **51 excluded issues / 50 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 393 work-package slots are accounting groups, not 393 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
+**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **230 active issues / 202 active PRs** in the technical categories, and **55 excluded issues / 50 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 391 work-package slots are accounting groups, not 391 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
 The inventories and `_backlog/data/` remain the original dated snapshot. Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 

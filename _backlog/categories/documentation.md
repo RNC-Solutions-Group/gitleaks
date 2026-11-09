@@ -2,7 +2,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**7 issues · 13 PRs · 12 work packages.**
+**8 issues · 13 PRs · 13 work packages.**
 
 Documentation, setup guidance, labels, and examples. Compare proposed text with current code and README behavior before consolidating patches.
 
@@ -23,6 +23,8 @@ Documentation, setup guidance, labels, and examples. Compare proposed text with 
 | — | [#2084](https://github.com/gitleaks/gitleaks/pull/2084) (@vincent067) | Add `examples/README.md` and a new reusable GitHub Actions example. | **HOLD — NOT SAFE AS-IS** | The proposed `gitleaks git --baseline-path ...` claims to **generate** a baseline (it actually consumes one); default workflow runs an Action rather than the shown manual SARIF upload; suggested `--exit-code 0` conflicts with blocking deployments; workflow summary has malformed shell quoting around `.gitleaksignore`. Requires functional/security review, not a typo bundle. | — |
 | — | [#2008](https://github.com/gitleaks/gitleaks/pull/2008) (@jylenhof) | Document `mise use -g gitleaks@latest` as an optional installation. | **DOCS BUNDLE — EXACT-PATCH CANDIDATE** | One additive README snippet, absent from master; confirm current mise registry availability as an integration smoke check before publishing. | — |
 | [#1067](https://github.com/gitleaks/gitleaks/issues/1067) | — | Legacy `examples/leaky-repo.toml` benchmark config removed. | **ISSUE — REVIEW PENDING** | Original request refers to a removed 2022-era example; current master does not include it. Whether a maintained benchmark configuration is useful remains a separate decision, not solved by the docs typo bundle. | — |
+| [#2295](https://github.com/gitleaks/gitleaks/issues/2295) | [#2306](https://github.com/gitleaks/gitleaks/pull/2306) (@rotirotirafa) | Document Firebase example-key provenance in generated GCP API-key allowlist. | **PATCH-REVIEWED — DOC/GENERATOR GATE** | PR #2306 adds explanatory comments in GCP rule generator/bundled output; verify both remain synchronized when regenerated. No claim that detection or allowlisting semantics change. | — |
+| [#1263](https://github.com/gitleaks/gitleaks/issues/1263) | — | Explain safe storage and lifecycle for secret-bearing baseline reports in centralized CI/pre-commit workflows. | **SOURCE-CHECKED — SECURITY DOCS REVIEW** | Upstream asks where a baseline should live and when to prune it. Current README's `Creating a baseline` section describes reuse but does not address that JSON findings can retain `Secret`/`Match` values. Draft security-sensitive guidance on protected access, retention, redacted artifact handling and periodic remediation; do not publish real secrets or assert a product defect. | — |
 
 ## Documentation consolidation recommendation — separate owner branch, no adoption here
 
@@ -45,7 +47,6 @@ Documentation, setup guidance, labels, and examples. Compare proposed text with 
 - **History and attribution:** preserve each author's upstream PR URL and source commit SHA in the owner consolidation PR. Prefer retaining original commits where they apply cleanly; adapted fixes should be a distinct owner-authored commit that explicitly credits the originating contributor (`Co-authored-by` when appropriate). Never claim that this triage branch adopted, tested, or merged any source PR.
 - **Integration boundary:** the **owner's second development branch** may incorporate this bundle, run a Markdown-link and command/usage check, and open one RNC PR. The upstream-submission branch and this triage branch receive only explanatory README/PR attribution notes as required; no unreviewed docs source changes are cherry-picked there.
 
-| [#2295](https://github.com/gitleaks/gitleaks/issues/2295) | [#2306](https://github.com/gitleaks/gitleaks/pull/2306) (@rotirotirafa) | Document Firebase example-key provenance in generated GCP API-key allowlist. | **PATCH-REVIEWED — DOC/GENERATOR GATE** | PR #2306 adds explanatory comments in GCP rule generator/bundled output; verify both remain synchronized when regenerated. No claim that detection or allowlisting semantics change. | — |
 
 ## Decision gate
 
