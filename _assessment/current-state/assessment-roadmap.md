@@ -1,10 +1,10 @@
 # Architecture, capabilities, and technical baseline — assessment roadmap
 
-**Status:** CP3A and CP4 executed 2026-11-09; reports awaiting owner review; CP5 not started  
+**Status:** CP4A corrections and CP5 consolidation complete 2026-11-09; baseline awaiting owner acceptance; no next checkpoint started  
 **Repository:** `RNC-Solutions-Group/gitleaks`  
 **Working branch:** `feat/issues-and-pr`  
 **Starting branch SHA (pre-documentation):** `6cd8c033512ba0de86f895cbced6a8f13b7cc531`  
-**Canonical code baseline:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` (fork `master`; application source identical at `6cd8c03` and at the branch HEAD assessed in CP0, CP1, CP2, CP2A, CP3, CP3A, and CP4)  
+**Canonical code baseline:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` (fork `master`; application source identical at `6cd8c03` and at the branch HEAD assessed in CP0–CP5)  
 **Purpose:** Characterize the fork as it exists, then provide evidence for external PR-to-baseline compatibility assessments.
 
 ## Mission and non-goals
@@ -15,15 +15,18 @@ This is **not** a mandate to fix defects, refactor, adopt PRs, change scanner ru
 
 ## Checkpoints and decision gates
 
-| CP | Investigation | Required outcome | Gate |
+| CP | Investigation | Required outcome | Execution/acceptance |
 | --- | --- | --- | --- |
-| **[CP0](CP0-reconnaissance/assignment-CP0.md)** | Reconnaissance: identity, Git lineage, package/test/tooling inventory, safe command matrix, sibling test repo | Reproducible starting manifest and evidence report | Stop for review before CP1 |
-| **[CP1](CP1-architecture/assignment-CP1.md)** | Architecture: entry points, component ownership, data flow, Git/dir/stdin sources, decoding, detector, config, rule evaluation, concurrency, outputs | Source-linked architecture and execution maps; coupling and risk hypotheses | Executed; [report](CP1-architecture/report-CP1.md) under owner review |
-| **[CP2](CP2-capabilities-correctness/assignment-CP2.md)** | Capabilities/correctness: CLI behavior, feature matrix, expected vs observed behavior, failure modes, test/fixture coverage | Capability register, tested behavior, known defects and regression gaps | Assignment ready; execute only upon explicit authorization; stop before CP3 |
-| **CP3** | Performance/stability: reproducible workloads, benchmarks, CPU/memory/allocations, concurrency and large-input behavior | Measurement conditions and baseline metrics; ranked, evidence-backed optimization hypotheses | Stop for review before CP4 |
-| **CP4** | Security/integrations and developer tooling: sensitive-data exposure, config/allowlists, dependencies, Git/hooks, reports, Makefile/script side effects, build/release behavior and reproducibility | Security, integration, and build-tooling assessment with verified behaviors, risks, and reproducibility limitations | Stop for review before CP5 |
-| **CP5** | Baseline consolidation: reconcile CP0–CP4, cross-check contradictions, index living architecture documentation | Dated baseline, findings register, verification matrix, prioritized investigation roadmap | Owner accepts baseline before PR comparisons |
-| **Later** | External upstream/third-party PR comparison | Applicability, correctness, compatibility, risks, benefits, and disposition **relative to this fork** | Separately authorized per PR/package |
+| **[CP0](CP0-reconnaissance/assignment-CP0.md)** | Reconnaissance: identity, Git lineage, package/test/tooling inventory, safe command matrix, sibling test repo | Reproducible starting manifest and evidence report; [report](CP0-reconnaissance/report-CP0.md) | **Executed**; owner acceptance not separately recorded |
+| **[CP1](CP1-architecture/assignment-CP1.md)** | Architecture: entry points, component ownership, data flow, Git/dir/stdin sources, decoding, detector, config, rule evaluation, concurrency, outputs | Source-linked architecture and execution maps; [report](CP1-architecture/report-CP1.md) | **Executed**; clarifications recorded; owner acceptance not separately recorded |
+| **[CP2](CP2-capabilities-correctness/assignment-CP2.md)** | Capabilities/correctness: CLI behavior, feature matrix, expected vs observed behavior, failure modes, test/fixture coverage | Capability register, tested behavior, known defects and regression gaps; [report](CP2-capabilities-correctness/report-CP2.md) | **Executed**; CP2A corrections complete; accepted subject to corrections |
+| **CP2A** | Corrective review of CP2 classifications/evidence | [review-CP2A.md](CP2-capabilities-correctness/review-CP2A.md) | **Complete** |
+| **[CP3](CP3-performance-stability/assignment-CP3.md)** | Performance/stability: reproducibly bounded workloads, profiles, concurrency | [report](CP3-performance-stability/report-CP3.md); [manifest](CP3-performance-stability/reproduction-manifest.md) | **Executed**; CP3A manifest complete; owner acceptance not separately recorded |
+| **CP3A** | Reproduction-manifest hardening (no rerun) | [reproduction-manifest.md](CP3-performance-stability/reproduction-manifest.md) | **Complete** |
+| **[CP4](CP4-security-integrations-tooling/assignment-CP4.md)** | Security/integrations/tooling: sensitive data, config, Git/hooks, reports, Makefile, build/release | [report](CP4-security-integrations-tooling/report-CP4.md); [review](CP4-security-integrations-tooling/review-CP4A.md) | **Executed with CP4A corrections**; owner acceptance not recorded |
+| **CP4A** | Corrective review (Make semantics, CP3 fixtures, status) | [review-CP4A.md](CP4-security-integrations-tooling/review-CP4A.md) | **Complete** |
+| **[CP5](CP5-baseline-consolidation/assignment-CP5.md)** | Baseline consolidation: findings register, verification matrix, roadmap, PR rubric | [report](CP5-baseline-consolidation/report-CP5.md), [findings](CP5-baseline-consolidation/findings-register.md), [matrix](CP5-baseline-consolidation/verification-matrix.md), [roadmap](CP5-baseline-consolidation/technical-roadmap.md) | **Complete**; **awaiting owner baseline acceptance** |
+| **Later** | External upstream/third-party PR comparison | Per-PR applicability, correctness, compatibility, risk, disposition | **Not authorized / not started** |
 
 ## CP4 emphasis — developer tooling and build reproducibility
 

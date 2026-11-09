@@ -92,12 +92,15 @@ All fixtures were generated in `/work/fixtures` on the disposable volume. The re
 ```bash
 F=/work/fixtures
 mkdir -p "$F"
+mkdir -p "$F"/{empty,files100,files500,files2000,files2000_1k,files500_16k,findings1000,dense,encoded1,encoded2,encodedbig1,encodedbig2,archive_src,ordinary,archive1,sizedir,sizesmall,sizelarge}
 
-# Base filler (deterministic 'a' runs)
-yes a | head -c 1024 > "$F/base1k"
-yes a | head -c 2048 > "$F/base2k"
-yes a | head -c 16384 > "$F/base16k"
-yes a | head -c 100000 > "$F/base100k"
+# Base filler: `yes a` emits the two-byte sequence 'a\n' repeatedly.
+# `head -c N` truncates it; the filler is therefore repeated 'a\n', not a
+# continuous run of 'a'. All base-filler sizes below are even, so the result ends in '\n'.
+yes a | head -c 1024 > "$F/base1k" || true
+yes a | head -c 2048 > "$F/base2k" || true
+yes a | head -c 16384 > "$F/base16k" || true
+yes a | head -c 100000 > "$F/base100k" || true
 
 # Plain corpora
 for i in $(seq 1 100);  do cp "$F/base1k"  "$F/files100/f$i.txt"; done
@@ -135,11 +138,13 @@ done
 tar -czf "$F/archive1/archive.tar.gz" -C "$F/archive_src" .
 
 # Size-threshold fixtures (0.9MiB and 1.1MiB, token appended)
-{ yes a | head -c 900000;  printf 'CP3TOKEN-9001\n'; } > "$F/sizesmall/small_0_9mb.txt"
-{ yes a | head -c 1100000; printf 'CP3TOKEN-9002\n'; } > "$F/sizelarge/large_1_1mb.txt"
+{ yes a | head -c 900000 || true;  printf 'CP3TOKEN-9001\n'; } > "$F/sizesmall/small_0_9mb.txt"
+{ yes a | head -c 1100000 || true; printf 'CP3TOKEN-9002\n'; } > "$F/sizelarge/large_1_1mb.txt"
 ```
 
-**Reproducibility caveat:** `yes a | head -c ...` closes the pipe early; the generator used `|| true` in the scripts to tolerate the resulting `SIGPIPE` status. The resulting file contents are deterministic (`a` repeated).
+**Reproducibility caveat:** `yes a | head -c ...` closes the pipe early; the generator scripts use `set -u` (not `pipefail`), so `head`'s successful status normally determines the pipeline. If reproducing under `set -o pipefail`, `yes` may exit 141 (SIGPIPE); use `|| true` as shown. The resulting file contents are deterministic: repeated two-byte `a\n` sequences, truncated to the requested byte counts.
+
+**Filler/decoder relationship:** the plain corpora consist of `a\n` repetitions, which do **not** contain long Base64-like alphanumeric runs. The CP3 plain-text CPU profile therefore supports the cost of running the encoding-detection regex over every fragment; it does **not** support a claim that long filler candidates were decoded. The encoded fixtures contain actual Base64 token strings; their decode/allocation behavior is separate.
 
 ### Verified fixture hashes
 

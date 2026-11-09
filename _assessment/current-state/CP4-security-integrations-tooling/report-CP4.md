@@ -1,11 +1,12 @@
 # CP4 — Security, integration, and developer-tooling assessment
 
-**Status:** Draft — ready for owner review  
+**Status:** CP4A-corrected — awaiting owner review  
 **Assessment date:** 2026-11-09 (America/New_York)  
 **Repository / branch:** `RNC-Solutions-Group/gitleaks` / `feat/issues-and-pr`  
 **Assessed code SHA:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` (canonical code baseline)  
 **Documentation HEAD at assessment:** `e1c04989b0c3a3566b7832f14f58b1a5c322d21f`  
 **Assignment:** [`assignment-CP4.md`](assignment-CP4.md)  
+**Review revision:** CP4A (2026-11-09) — corrected Makefile timing and fixture-filler interpretation; see [`review-CP4A.md`](review-CP4A.md).  
 **Related:** [`report-CP2.md`](../CP2-capabilities-correctness/report-CP2.md), [`review-CP2A.md`](../CP2-capabilities-correctness/review-CP2A.md), [`report-CP3.md`](../CP3-performance-stability/report-CP3.md)
 
 ---
@@ -22,7 +23,7 @@ Two confirmed **filesystem/data-integrity** risks affect report destinations: re
 
 The **untrusted-repository configuration boundary** is broader than many users may expect: a repository-local `.gitleaks.toml` is auto-loaded by default and can define allowlists, rules, and `[extend] path`; a repository-local `.gitleaksignore` can suppress findings; malformed regexes panic instead of producing a controlled error. These are local/CI trust issues, not remote code execution. `.gitleaksignore` loading follows symlinks and has no regular-file/size/capability checks (the #1572 pathway); exploitability of a hostile device/symlink target was not tested and remains unverified. Decoder and archive processing have real resource costs (CP3), but no unbounded input was executed.
 
-Tooling/release findings are moderate: the Makefile’s `VERSION` assignment runs `git fetch --tags` at parse time; all build/test/format/clean/profile targets have mutating or network side effects; CI uses an unpinned `gotestsum@latest` and mutates generated config in the checkout; the fork’s gitleaks scan workflow is disabled by its upstream-repository condition; the runtime image runs as root with no `.dockerignore`; and the `gore2regex` application binary builds while the full tagged package graph does not.
+Tooling/release findings are moderate: the Makefile’s `VERSION` value contains a literal shell backtick expression; `git fetch --tags` executes only when a recipe that expands `$(LDFLAGS)` runs (`make build`, and `make profile` through its build prerequisite), not during Makefile parsing or `make -n`. Build/test/format/clean/profile targets still have mutating prerequisites or effects; CI uses an unpinned `gotestsum@latest` and mutates generated config in the checkout; the fork’s gitleaks scan workflow is disabled by its upstream-repository condition; the runtime image runs as root with no `.dockerignore`; and the `gore2regex` application binary builds while the full tagged package graph does not.
 
 **Severity summary:** 2 High operational/integrity risks (fail-open scan status; destructive report destination), 4 Medium security/data-integrity risks (redaction/log leakage; untrusted config/ignore policy; baseline self-scan; timeout/partial handling), and a set of Low/Medium build/tooling and contract findings. No Critical remote vulnerability was established; no claim is made that dependency advisories are absent.
 
@@ -229,21 +230,21 @@ Sources: [`Makefile`](../../../Makefile#L1), [`scripts/profile.sh`](../../../scr
 
 | Target | Prerequisites | Commands | Filesystem/network/Git effects | Diagnostic suitability |
 | --- | --- | --- | --- | --- |
-| `VERSION` (parse-time assignment) | — | `git fetch --tags && git tag \| sort -V \| tail -1` | **Network + `.git` tag mutation**, executed when the Makefile is parsed — even `make -n` may evaluate it | Not safe |
+| `VERSION` / `LDFLAGS` | — | `VERSION := \`git fetch --tags && git tag \| sort -V \| tail -1\``; `LDFLAGS` embeds `$(VERSION)` | **No execution at parse time.** Backticks are literal Make text; the shell executes them only when a recipe expands `$(LDFLAGS)` (`build`, `profile`). `make -n` prints without shell execution. Network + `.git` tag mutation applies to build/profile, not every Make invocation | Not safe for build/profile; parse-only inspection is not the risk |
 | `config/gitleaks.toml` | wildcard generator sources | `go generate ./...` | Rewrites tracked generated config; toolchain/deps | Not safe |
 | `format` | — | `go fmt ./...` | Rewrites all Go source | Not safe |
 | `test-cover` | — | `go test -v ./... --race --cover --coverprofile=cover.out <pkg>`; `go tool cover -html` | Writes `cover.out`, opens browser; race needs CGO | Not safe as-written |
 | `test` | `config/gitleaks.toml`, `format` | generate + fmt + `go test -v ./... --race <pkg>` | Rewrites source/config, writes test artifacts | Not safe |
 | `failfast` | `format` | `go test -failfast ./...` | Rewrites source | Not safe |
-| `build` | `config/gitleaks.toml`, `format` | `go mod tidy`, `go build $(LDFLAGS)` | Rewrites go.mod/go.sum, source/config, creates binary | Not safe |
-| `lint` | — | `golangci-lint run` | Tool may write cache; tool absent locally | Potentially observational only if tool/cache controlled |
-| `clean` | — | `rm -rf profile`; delete `*.got.*`, `*.out` | Destructive deletion | Not safe |
-| `profile` | `build` | build + `scripts/profile.sh './gitleaks' '.'` | Binary/config/source mutation; writes `profile/<timestamp>` in CWD; runs scanner | Not safe |
+| `build` | `config/gitleaks.toml`, `format` | `go mod tidy`, `go build $(LDFLAGS)` | Rewrites go.mod/go.sum, source/config, creates binary; **shell executes `git fetch --tags` via LDFLAGS**; `go mod tidy` may need network if cache is cold | Not safe |
+| `lint` | — | `golangci-lint run` | Tool may write cache; no tag fetch; tool absent locally | Potentially observational only if tool/cache controlled |
+| `clean` | — | `rm -rf profile`; delete `*.got.*`, `*.out` | Destructive deletion; no network/tag fetch | Not safe |
+| `profile` | `build` | build + `scripts/profile.sh './gitleaks' '.'` | Inherits build network/mutation; writes `profile/<timestamp>` in CWD; runs scanner | Not safe |
 | `test-cover`/`test` package argument | — | `$(PKG)` = `github.com/zricethezav/gitleaks` (no `/v8`) | May select the wrong/no package; unverified | Investigate before future use |
 
 `profile.sh` sets `set -euo pipefail`, uses `--exit-code=0 --max-decode-depth 8`, writes `profile/<epoch>` and profiles under CWD ([`scripts/profile.sh:20-24`](../../../scripts/profile.sh#L20-L24), [`:38`](../../../scripts/profile.sh#L38), [`:66`](../../../scripts/profile.sh#L66)). It is a mutating diagnostic, not a read-only benchmark harness.
 
-**Recommendation:** separate future read-only diagnostics (direct `go test`, explicit external outputs, no fetch) from maintenance targets; remove parse-time `git fetch` from diagnostic paths and require explicit version input. No Makefile change was made.
+**Recommendation:** separate future read-only diagnostics (direct `go test`, explicit external outputs, no fetch) from maintenance targets; remove or make explicit the build/profile `git fetch --tags` dependency and require explicit version input. No Makefile change was made.
 
 ---
 
@@ -261,7 +262,7 @@ Sources: [`Makefile`](../../../Makefile#L1), [`scripts/profile.sh`](../../../scr
 | `go vet` | Fails on two test `lostcancel` diagnostics | Static gate absent in CI; unresolved |
 | Coverage | 30.9% instrumented; `cmd` 0%, `sources` 7.4% | Whole-program coverage lower |
 | Release tag | `.goreleaser` `gore2regex`, `-s -w`, version ldflags, prerelease | Release packaging not executed |
-| Version metadata | Makefile uses tag fetch; Dockerfile `git describe` | Network/Git-dependent version source |
+| Version metadata | Makefile `build`/`profile` fetch tags via shell expansion of `LDFLAGS`; Dockerfile `git describe` | Network/Git-dependent version source for those targets |
 | Runtime image | Root, bash/git/openssh, `safe.directory=*` | Broader attack surface than needed |
 | Build context | No `.dockerignore` | `.git`/docs included in context |
 | Dependency advisories | No live lookup performed | **Not claimed absent**; follow-up CP5/security process |
@@ -284,7 +285,7 @@ Sources: [`Makefile`](../../../Makefile#L1), [`scripts/profile.sh`](../../../scr
 | CP4-009 | Timeout does not interrupt a blocked stdin read promptly | Availability/integrity | **Medium** | High (Measured) | 2,009 ms for 1 s timeout; fatal after read | Context deadline eventually surfaces | Operator/CI delay; no unbounded test |
 | CP4-010 | `extendDepth` global causes repeated translation to skip validation; invalid rule accepted | Library correctness | **Low–Medium** | High (Measured probe) | Second invalid config accepted; rules=223→1 | CLI single-shot; tests reset manually | Embedded/library/repeated initialization; not normal CLI |
 | CP4-011 | Path-only `--redact` corrupts `Match` text | Output correctness | **Low–Medium** | High (Measured CP2) | CP2-004 repeated `REDACTED` | Redaction still removes secret | Cosmetic/data-quality; no secret exposure |
-| CP4-012 | Makefile parse-time `git fetch --tags`; build/test/format/clean/profile mutate or network | Tooling/reproducibility | **Medium** | High (source) | Makefile matrix | None; documentation warns | Developer/CI invoking Makefile targets; supply-chain/network dependency |
+| CP4-012 | Makefile `VERSION` backticks execute `git fetch --tags` when `build`/`profile` expand `LDFLAGS`; build/test/format/clean/profile have mutating prerequisites/effects | Tooling/reproducibility | **Medium** | High (source) | Makefile matrix; no make execution | None; documentation warns | Developer/CI invoking build/profile (network/tag mutation); mutating test/format/build/clean targets |
 | CP4-013 | Tagged full package graph fails; toolchain drift; vet failure | Build/release | **Medium** | High (Measured CP2) | CP2 `go test -tags gore2regex ./...` failure; `go vet` | App binary builds; CI actions pinned | Release/generator/CI workflows; not end-user binary |
 | CP4-014 | Fork gitleaks CI workflow is disabled; test workflow uses unpinned `gotestsum@latest` and mutates generated config | CI integration | **Medium** | High (source) | `gitleaks.yml:9`; `test.yml:30,37` | Pinned actions; no gitleaks scan on fork | Misleading security gate; supply-chain drift |
 | CP4-015 | Runtime container runs as root with broad tools and `safe.directory=*`; no `.dockerignore` | Container hardening | **Low–Medium** | Source | `Dockerfile:7-11`; no `.dockerignore` | Minimal binary copy; Alpine | Container compromise impact; not remotely reachable by scanner input |
@@ -355,7 +356,7 @@ These controls should not be read as compensating for CP4-001/002/003/004/006.
 | 4 | Harden repository-local config/ignore trust | CP4-004/006 | Future: opt-out of local config/ignore for untrusted repos; regular-file/size/timeouts for ignore; recover regex panics |
 | 5 | Explicit archive/decode resource budgets | CP4-007; CP3 | Future: uncompressed archive cap, decode gating with full coverage tests |
 | 6 | Baseline self-scan exclusion | CP4-005 | Future: normalize/realpath-aware exclusion; test inside/outside source |
-| 7 | Tooling/CI/release hygiene | CP4-012/013/014/015 | Future: remove parse-time fetch; pin gotestsum; SBOM/signing; non-root image; tagged graph tests; vet |
+| 7 | Tooling/CI/release hygiene | CP4-012/013/014/015 | Future: make build/profile tag fetch explicit or avoid it; pin gotestsum; SBOM/signing; non-root image; tagged graph tests; vet |
 | 8 | Dependency advisory process | CP4-016 | Future scheduled scan; do not claim absence |
 | 9 | Report format contract decisions | CP4-001/017; CP2-001/002/015 | Document exit/report/empty-CSV/SARIF semantics before code changes |
 

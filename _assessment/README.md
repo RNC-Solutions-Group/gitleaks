@@ -19,9 +19,14 @@ Read the root [`AGENTS.md`](../AGENTS.md) and the local [`AGENTS.md`](AGENTS.md)
 | [`current-state/CP3-performance-stability/assignment-CP3.md`](current-state/CP3-performance-stability/assignment-CP3.md) | Bounded performance and stability checkpoint assignment | Executed 2026-11-09; CP3A manifest complete |
 | [`current-state/CP3-performance-stability/report-CP3.md`](current-state/CP3-performance-stability/report-CP3.md) | Performance/stability baseline, profiles, findings, and optimization ranking | CP3 accepted; CP3A manifest complete |
 | [`current-state/CP3-performance-stability/reproduction-manifest.md`](current-state/CP3-performance-stability/reproduction-manifest.md) | CP3A reproducibility manifest: provenance, fixtures, commands, hashes, limitations | Complete |
-| [`current-state/CP4-security-integrations-tooling/assignment-CP4.md`](current-state/CP4-security-integrations-tooling/assignment-CP4.md) | Security, integration, and developer-tooling checkpoint assignment | Executed 2026-11-09; report in review |
-| [`current-state/CP4-security-integrations-tooling/report-CP4.md`](current-state/CP4-security-integrations-tooling/report-CP4.md) | Threat model, scan-integrity/redaction/filesystem/CI/tooling assessment | Draft — ready for owner review |
-| `current-state/CP5-*/` | Final baseline consolidation checkpoint | Planned; create only when authorized |
+| [`current-state/CP4-security-integrations-tooling/assignment-CP4.md`](current-state/CP4-security-integrations-tooling/assignment-CP4.md) | Security, integration, and developer-tooling checkpoint assignment | Executed 2026-11-09; CP4A corrections complete |
+| [`current-state/CP4-security-integrations-tooling/report-CP4.md`](current-state/CP4-security-integrations-tooling/report-CP4.md) | Threat model, scan-integrity/redaction/filesystem/CI/tooling assessment | CP4A-corrected; awaiting owner review |
+| [`current-state/CP4-security-integrations-tooling/review-CP4A.md`](current-state/CP4-security-integrations-tooling/review-CP4A.md) | CP4A Makefile-timing and fixture-filler corrections | Complete |
+| [`current-state/CP5-baseline-consolidation/assignment-CP5.md`](current-state/CP5-baseline-consolidation/assignment-CP5.md) | Final baseline consolidation assignment | Executed 2026-11-09 |
+| [`current-state/CP5-baseline-consolidation/report-CP5.md`](current-state/CP5-baseline-consolidation/report-CP5.md) | Consolidated technical baseline report | Complete — awaiting owner acceptance |
+| [`current-state/CP5-baseline-consolidation/findings-register.md`](current-state/CP5-baseline-consolidation/findings-register.md) | Deduplicated CP5 findings register with CP0–CP4 crosswalk | Complete |
+| [`current-state/CP5-baseline-consolidation/verification-matrix.md`](current-state/CP5-baseline-consolidation/verification-matrix.md) | Capability, evidence, and regression-gap matrix | Complete |
+| [`current-state/CP5-baseline-consolidation/technical-roadmap.md`](current-state/CP5-baseline-consolidation/technical-roadmap.md) | Prioritized future investigation/remediation roadmap | Complete — recommendations only |
 | [`templates/checkpoint-assignment.md`](templates/checkpoint-assignment.md) | Common structure for CP1–CP5 and future assignments | Ready |
 | [`templates/assessment-report.md`](templates/assessment-report.md) | Common investigation/report format | Ready |
 | `comparisons/` | Later external PR-to-baseline comparisons | Planned; not part of CP0 |
