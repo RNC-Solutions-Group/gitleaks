@@ -9,7 +9,7 @@ Before starting an assigned checkpoint:
 3. Read the specifically authorized checkpoint's `assignment-CP*.md` in full. No checkpoint is automatically authorized by completing the previous one.
 4. Use [`templates/checkpoint-assignment.md`](templates/checkpoint-assignment.md) for future checkpoint assignments and [`templates/assessment-report.md`](templates/assessment-report.md) for investigation reports.
 
-Write assessment outputs within the authorized checkpoint folder. Update the workspace index or roadmap within `_assessment/` as needed. Keep `_backlog/` read-only; link to its canonical records rather than copying or reclassifying them.
+Write current-state checkpoint outputs inside their authorized `current-state/CPX-*/` folder. Update the workspace index or roadmap within `_assessment/` as needed. Keep `_backlog/` read-only; link to its canonical records rather than copying or reclassifying them.
 
 Every material finding needs source/command evidence, a verification status, impact, and an explicit uncertainty statement when proof is incomplete. Treat the current-state baseline as a reference to challenge against code, not as an authority that overrides contrary evidence.
 

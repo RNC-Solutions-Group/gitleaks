@@ -16,7 +16,7 @@ This is **not** a mandate to fix defects, refactor, adopt PRs, change scanner ru
 
 | CP | Investigation | Required outcome | Gate |
 | --- | --- | --- | --- |
-| **CP0** | Reconnaissance: identity, Git lineage, package/test/tooling inventory, safe command matrix, sibling test repo | Reproducible starting manifest and evidence report | Stop for review before CP1 |
+| **[CP0](CP0-reconnaissance/assignment-CP0.md)** | Reconnaissance: identity, Git lineage, package/test/tooling inventory, safe command matrix, sibling test repo | Reproducible starting manifest and evidence report | Stop for review before CP1 |
 | **CP1** | Architecture: entry points, component ownership, data flow, Git/dir/stdin sources, decoding, detector, config, rule evaluation, concurrency, outputs | Source-linked architecture and execution maps; coupling and risk hypotheses | Stop for review before CP2 |
 | **CP2** | Capabilities/correctness: CLI behavior, feature matrix, expected vs observed behavior, failure modes, test/fixture coverage | Capability register, tested behavior, known defects and regression gaps | Stop for review before CP3 |
 | **CP3** | Performance/stability: reproducible workloads, benchmarks, CPU/memory/allocations, concurrency and large-input behavior | Measurement conditions and baseline metrics; ranked, evidence-backed optimization hypotheses | Stop for review before CP4 |

@@ -2,7 +2,7 @@
 
 **Status:** Ready; not executed  
 **Authority:** Execute only when explicitly instructed `Execute CP0`  
-**Scope:** Read-only repository/tooling inspection and safe diagnostics; documentation only in `_assessment/CP0-reconnaissance/`.
+**Scope:** Read-only repository/tooling inspection and safe diagnostics; documentation only in `_assessment/current-state/CP0-reconnaissance/`.
 
 ## Objective
 
@@ -28,7 +28,7 @@ Establish the exact code baseline, repository layout, toolchain and dependency i
 
 ## Deliverables
 
-Create `_assessment/CP0-reconnaissance/report-CP0.md` using the shared report template, containing:
+Create `_assessment/current-state/CP0-reconnaissance/report-CP0.md` using the shared report template, containing:
 
 - A repository/branch/SHA/environment manifest.
 - A package and entry-point inventory with source references.
@@ -49,4 +49,4 @@ An unavailable optional tool, missing sibling fixture repository, or failing exi
 
 ## Definition of done
 
-Meet the shared [`../README.md`](../README.md#shared-definition-of-done) checklist, fully address the deliverables above, and explicitly identify each remaining unknown. At completion, summarize results and **stop for Dave's review**. CP1 must not start automatically.
+Meet the shared [`../../README.md`](../../README.md#shared-definition-of-done) checklist, fully address the deliverables above, and explicitly identify each remaining unknown. At completion, summarize results and **stop for Dave's review**. CP1 must not start automatically.
