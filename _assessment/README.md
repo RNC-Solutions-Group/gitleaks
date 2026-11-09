@@ -16,9 +16,12 @@ Read the root [`AGENTS.md`](../AGENTS.md) and the local [`AGENTS.md`](AGENTS.md)
 | [`current-state/CP2-capabilities-correctness/assignment-CP2.md`](current-state/CP2-capabilities-correctness/assignment-CP2.md) | Capabilities, correctness, and regression-baseline checkpoint assignment | Executed 2026-11-09; CP2A review complete |
 | [`current-state/CP2-capabilities-correctness/report-CP2.md`](current-state/CP2-capabilities-correctness/report-CP2.md) | Runtime/source verification and capability matrix, produced after CP2 authorization | Accepted with CP2A corrections |
 | [`current-state/CP2-capabilities-correctness/review-CP2A.md`](current-state/CP2-capabilities-correctness/review-CP2A.md) | CP2A finding-classification and evidence-hardening review | Complete — CP2 accepted with corrections |
-| [`current-state/CP3-performance-stability/assignment-CP3.md`](current-state/CP3-performance-stability/assignment-CP3.md) | Bounded performance and stability checkpoint assignment | Executed 2026-11-09; report in review |
-| [`current-state/CP3-performance-stability/report-CP3.md`](current-state/CP3-performance-stability/report-CP3.md) | Performance/stability baseline, profiles, findings, and optimization ranking | Draft — ready for owner review |
-| `current-state/CP4-*/` through `current-state/CP5-*/` | Later current-state checkpoint assignments and reports | Planned; create only when authorized |
+| [`current-state/CP3-performance-stability/assignment-CP3.md`](current-state/CP3-performance-stability/assignment-CP3.md) | Bounded performance and stability checkpoint assignment | Executed 2026-11-09; CP3A manifest complete |
+| [`current-state/CP3-performance-stability/report-CP3.md`](current-state/CP3-performance-stability/report-CP3.md) | Performance/stability baseline, profiles, findings, and optimization ranking | CP3 accepted; CP3A manifest complete |
+| [`current-state/CP3-performance-stability/reproduction-manifest.md`](current-state/CP3-performance-stability/reproduction-manifest.md) | CP3A reproducibility manifest: provenance, fixtures, commands, hashes, limitations | Complete |
+| [`current-state/CP4-security-integrations-tooling/assignment-CP4.md`](current-state/CP4-security-integrations-tooling/assignment-CP4.md) | Security, integration, and developer-tooling checkpoint assignment | Executed 2026-11-09; report in review |
+| [`current-state/CP4-security-integrations-tooling/report-CP4.md`](current-state/CP4-security-integrations-tooling/report-CP4.md) | Threat model, scan-integrity/redaction/filesystem/CI/tooling assessment | Draft — ready for owner review |
+| `current-state/CP5-*/` | Final baseline consolidation checkpoint | Planned; create only when authorized |
 | [`templates/checkpoint-assignment.md`](templates/checkpoint-assignment.md) | Common structure for CP1–CP5 and future assignments | Ready |
 | [`templates/assessment-report.md`](templates/assessment-report.md) | Common investigation/report format | Ready |
 | `comparisons/` | Later external PR-to-baseline comparisons | Planned; not part of CP0 |

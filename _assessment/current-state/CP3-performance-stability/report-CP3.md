@@ -1,11 +1,12 @@
 # CP3 — Performance and stability assessment
 
-**Status:** Draft — ready for owner review  
+**Status:** CP3 accepted; CP3A reproduction manifest complete  
 **Assessment date:** 2026-11-09 (America/New_York)  
 **Repository / branch:** `RNC-Solutions-Group/gitleaks` / `feat/issues-and-pr`  
 **Assessed code SHA:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` (canonical code baseline)  
 **Documentation HEAD at assessment:** `7d36d8266d52e96eecc76a3aa6d3cf3c80b7f8ee`  
-**Assignment:** [`assignment-CP3.md`](assignment-CP3.md)
+**Assignment:** [`assignment-CP3.md`](assignment-CP3.md)  
+**Reproduction manifest:** [`reproduction-manifest.md`](reproduction-manifest.md) (CP3A; verified evidence, no benchmark rerun)
 
 ---
 
@@ -203,7 +204,7 @@ Retained heap (in-use) was small: 3.08 MiB for `files2000`, 4.86 MiB for `findin
 
 | ID | Finding | Status | Evidence | Impact |
 | --- | --- | --- | --- | --- |
-| CP3-001 | Unconditional decoder encoding scan dominates plain-text scans | **Measured + source-linked** | 8,196 ms vs 286 ms at depth 0 (28.7×); 92.3% CPU in decoder path (`files2000`) | Highest measured CPU cost; default depth 5 pays it on every fragment |
+| CP3-001 | Unconditional decoder encoding scan dominates plain-text scans | **Measured + source-linked** | 8,196 ms vs 286 ms at depth 0 (28.7×); 92.3% CPU in decoder path (`files2000`) | Highest measured CPU cost; default depth 5 pays it on every fragment. **The 28.7× figure disables decoding and therefore changes detection coverage; it is not a safe optimization gain.** |
 | CP3-002 | First decode pass costs ~10× on encoded 5 MiB fixtures; depth 2 adds ~2–10% | Measured | 94→950→968 ms (`encodedbig1`); 118→991→1,091 ms (`encodedbig2`) | Default depth 5 necessarily pays at least the first pass; incremental depth cost is smaller at this scale |
 | CP3-003 | Encoding regex/base64 candidate handling is the CPU hotspot | Measured | `findEncodingMatches` 92% cumulative; broad base64 pattern; `bytes.growSlice` allocations | Optimization target with coverage risk |
 | CP3-004 | 100 KiB per-file buffer drives allocation volume | Measured + source | 207.74 MiB of 292.97 MiB on 2,000 files; source [`sources/file.go:167-171`](../../../sources/file.go#L167-L171) | GC/alloc pressure, especially small files |
