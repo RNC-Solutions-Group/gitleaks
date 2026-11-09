@@ -1,12 +1,13 @@
 # CP2 — Capabilities, correctness, and regression baseline
 
-**Status:** Draft — ready for owner review  
+**Status:** CP2A review complete — accepted with corrections  
 **Assessment date:** 2026-11-09 (America/New_York)  
 **Repository / branch:** `RNC-Solutions-Group/gitleaks` / `feat/issues-and-pr`  
 **Assessed code SHA:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` (canonical code baseline)  
 **Branch HEAD at assessment:** `c39f9a84339719c7c9d5602ca5caa910bd173e89` (documentation-only)  
 **Assignment:** [`assignment-CP2.md`](assignment-CP2.md)  
-**Test environment:** disposable Linux tree in Docker volume `cp2-work`; `golang:1.27.3` (local image digest `sha256:e519d3b0…`), Go `go1.27.3 linux/amd64`, `CGO_ENABLED=1`, Git 2.47.3, gcc 14.2.0; module requirement `go 1.24.11`; no native Go on the host.
+**Review revision:** CP2A (2026-11-09) — classification corrections and evidence hardening; see [`review-CP2A.md`](review-CP2A.md).  
+**Test environment:** disposable Linux tree in Docker volume `cp2-work`; `golang:1.27.3` (local image digest `sha256:e519d3b0…`), Go `go1.27.3 linux/amd64`, `CGO_ENABLED=1`, Git 2.47.3, gcc 14.2.0; module requirement `go 1.24.11`. Native Go 1.27.3 for Windows is now installed (`C:\Program Files\Go`, created 2026-11-09 14:50) but was not used for CP2 measurements and no Windows tests were run.
 
 ---
 
@@ -14,7 +15,7 @@
 
 The pinned code builds, tests, and runs under the approved Linux container toolchain. The default suite passed **275/275 tests with 0 failures and 0 skips**; `-race` passed; `-shuffle=on` passed; `gofmt -l` was clean on the LF export. `go vet ./...` fails on two test-only `lostcancel` diagnostics. Coverage across instrumented packages is **30.9%** of statements, with `sources` at 7.4% and the `cmd` package at 0% (no tests).
 
-The executable baseline is healthy in its core paths but has several confirmed correctness and contract defects:
+The executable baseline is healthy in its core paths but contains a mix of confirmed defects, security/data-integrity risks, static/build failures, and contract questions. CP2A classifies them separately; this report’s measured results are unchanged.
 
 - **Path-only findings are corrupted by `--redact`**: `Match` becomes `REDACTED` repeated between every character. Reproduced.
 - **A Git subprocess failure returns success**: an invalid `git log` option produced `[git] fatal …`, `stderr is not empty`, 0 commits scanned, `[]` findings, and **exit 0** with “no leaks found.” Reproduced.
@@ -60,7 +61,7 @@ Positive results: all scanning modes (`git`, `dir`, `stdin`, `detect`, `protect`
 | Build provenance | `go version -m /out/gitleaks`: Go 1.27.3, `CGO_ENABLED=1`, `GOOS=linux`, `GOARCH=amd64`, module `(devel)` because the export has no `.git`; dependencies carry `h1:` hashes |
 | Release variant | `go build -tags gore2regex .` succeeded; build info records `-tags=gore2regex`, `CGO_ENABLED=1` |
 | Test user | Root for the main suite; `uid 1000` for the unreadable-file test |
-| Constraints | No Windows runtime; no native Go; no external scans; no #2019/#1572; no unbounded inputs; test artifacts outside the repository |
+| Constraints | No Windows runtime/tests; native Go 1.27.3 Windows is available at CP2A review but was not used for CP2; no external scans; no #2019/#1572; no unbounded inputs; test artifacts outside the repository |
 
 **Module provenance note:** `go list -m all` with `GOPROXY=off` failed because the offline cache lacked some module-graph metadata. It is not a test failure; `go mod verify`, the successful build/test runs, and embedded build info establish the dependency set.
 
@@ -68,7 +69,7 @@ Positive results: all scanning modes (`git`, `dir`, `stdin`, `detect`, `protect`
 
 ## 2. Capability and CLI contract matrix
 
-Status vocabulary: **PASS** = observed behavior matches expected; **FAIL** = observed defect/contract mismatch; **PARTIAL** = some behavior verified, some unverified/ambiguous; **NOT RUN**; **EXCLUDED**.
+Status vocabulary: **PASS** = observed behavior matches expected; **FAIL** = observed defect/contract mismatch; **CONTRACT** = observed behavior requires a documented contract decision (not automatically a defect); **PARTIAL** = some behavior verified, some unverified/ambiguous; **NOT RUN**; **EXCLUDED**.
 
 | Capability / flag | Code anchor | Expected | Observed | Status | Evidence |
 | --- | --- | --- | --- | --- | --- |
@@ -97,13 +98,13 @@ Status vocabulary: **PASS** = observed behavior matches expected; **FAIL** = obs
 | Generic-rule dedupe | [`detect/utils.go:137-166`](../../../detect/utils.go#L137-L166) | Generic suppressed when specific matches | Only `specific-cp2` retained | PASS | `generic` |
 | Entropy gate | [`detect/detect.go:542-554`](../../../detect/detect.go#L542-L554) | Low threshold keeps; high suppresses | entropy 2.0→finding; 4.0→0 | PASS | `entropy-low/high` |
 | JSON report | [`report/json.go:13-16`](../../../report/json.go#L13-L16) | Valid JSON array | 1 finding parsed | PASS | `fmt-json` |
-| CSV report | [`report/csv.go:15-77`](../../../report/csv.go#L15-L77) | Header+row | 1 row; empty findings → 0-byte file | PARTIAL | `fmt-csv`, `empty-csv` |
+| CSV report | [`report/csv.go:15-77`](../../../report/csv.go#L15-L77) | Header+row | 1 row; empty findings → 0-byte file | PASS (normal) / CONTRACT (empty) | `fmt-csv`, `empty-csv` |
 | JUnit report | [`report/junit.go:16-107`](../../../report/junit.go#L16-L107) | Valid XML | 1 testcase/failure | PASS | `fmt-junit` |
 | SARIF report | [`report/sarif.go:17-217`](../../../report/sarif.go#L17-L217) | Valid SARIF 2.1.0 | Parsed; 1 result | PASS | `fmt-sarif` |
 | Template report | [`report/template.go:19-53`](../../../report/template.go#L19-L53) | Render template | `cp2-token|path` | PASS | `fmt-template` |
-| Report path `-` without format | [`cmd/root.go:366-379`](../../../cmd/root.go#L366-L379) | Probably stdout JSON | Fatal `Unknown report format:`; exit 1 | **FAIL** | `stdout-no-format` |
+| Report path `-` without format | [`cmd/root.go:366-379`](../../../cmd/root.go#L366-L379) | No implicit format documented; stdout likely expected | Fatal `Unknown report format:`; exit 1 | **CONTRACT** | `stdout-no-format` |
 | Report path `.json` inference | same | JSON written | 448-byte JSON | PASS | `infer-json` |
-| `--report-template` alone | [`cmd/root.go:399-402`](../../../cmd/root.go#L399-L402) | Help says it implies template | Fatal unless `--report-format=template` | **FAIL** | `tmpl-mismatch` |
+| `--report-template` alone | [`cmd/root.go:399-402`](../../../cmd/root.go#L399-L402) | Help says it implies template | Fatal unless `--report-format=template` | **CONTRACT** | `tmpl-mismatch` |
 | Existing report target | [`cmd/root.go:347-358`](../../../cmd/root.go#L347-L358) | Write/overwrite at end | Target deleted during validation; sentinel gone | **FAIL** | `report-delete` |
 | `--exit-code` | [`cmd/root.go:493-499`](../../../cmd/root.go#L493-L499) | Findings→flag value; else 0/1 | `--exit-code 0`→0; default→1; clean→0 | PASS | `dir-token`, `dir-token-exit1`, `dir-clean` |
 | `--diagnostics mem` | [`cmd/diagnostics.go:178-210`](../../../cmd/diagnostics.go#L178-L210) | Write profile | `mem.pprof` created | PASS | `diagnostics-mem` |
@@ -112,12 +113,12 @@ Status vocabulary: **PASS** = observed behavior matches expected; **FAIL** = obs
 | `--platform github` links | [`detect/utils.go:23-110`](../../../detect/utils.go#L23-L110) | Commit link | Link generated under `--network none` | PASS | `git-link` |
 | Invalid platform | [`cmd/git.go:74-76`](../../../cmd/git.go#L74-L76) | Fatal | `invalid scm platform value: bogus`; exit 1 | PASS | `bad-platform` |
 | Git stderr/subprocess error | [`sources/git.go:414-420`](../../../sources/git.go#L414-L420), [`detect/detect.go:228-232`](../../../detect/detect.go#L228-L232) | Nonzero/failed scan | `[git] fatal…`, `stderr is not empty`, 0 commits, `[]`, exit 0, “no leaks found” | **FAIL** | `git-badflag` |
-| Unreadable file (non-root) | [`sources/files.go:155-162`](../../../sources/files.go#L155-L162) | Skip/error | Warning, remaining finding, exit 0 | **PARTIAL/FAIL** | `perm-nonroot` |
-| Timeout on blocked stdin | [`cmd/root.go:48-58`](../../../cmd/root.go#L48-L58), [`sources/file.go:174-190`](../../../sources/file.go#L174-L190) | Abort near deadline | Waited 2,009 ms for a 1 s timeout; then fatal `context deadline exceeded` | **PARTIAL** | `timeout-stdin` |
+| Unreadable file (non-root) | [`sources/files.go:155-162`](../../../sources/files.go#L155-L162) | Skip/error | Warning, remaining finding, exit 0 | **CONTRACT** | `perm-nonroot` |
+| Timeout on blocked stdin | [`cmd/root.go:48-58`](../../../cmd/root.go#L48-L58), [`sources/file.go:174-190`](../../../sources/file.go#L174-L190) | Abort near deadline | Waited 2,009 ms for a 1 s timeout; then fatal `context deadline exceeded` | **CONTRACT** | `timeout-stdin` |
 | Invalid regex | [`config/config.go:123-128`](../../../config/config.go#L123-L128) | Controlled config error | Panic, exit 2 | **FAIL** | `bad-regex` |
-| Finding order | [`detect/detect.go:327`](../../../detect/detect.go#L327) | Deterministic output | 8 runs alternated `alpha/beta` order | **FAIL** | `order-1..8` |
-| Default config under `gore2regex` | [`regexp/wasilibs_regex.go:1-14`](../../../regexp/wasilibs_regex.go#L1-L14) | 222 rules compile | Default scan passed, `[]` | PASS | `re2-default` |
-| Tagged build/test graph | same | Build all packages | `go build -tags gore2regex ./...` and `go test -tags gore2regex ./...` fail in `cmd/generate/config/rules` | **FAIL** | tagged build/test logs |
+| Finding order | [`detect/detect.go:327`](../../../detect/detect.go#L327) | Deterministic output | 8 runs alternated `alpha/beta` order | **CONTRACT** | `order-1..8` |
+| `gore2regex` application binary | [`regexp/wasilibs_regex.go:1-14`](../../../regexp/wasilibs_regex.go#L1-L14) | Build and run | Binary built; 222-rule default config scanned successfully | PASS | `re2-default` |
+| Tagged build/test graph | same | Build all packages | `go build -tags gore2regex ./...` and `go test -tags gore2regex ./...` fail in `cmd/generate/config/rules` | **FAIL** (C3) | tagged build/test logs |
 
 ---
 
@@ -130,7 +131,7 @@ All commands ran in `/work/src` (disposable volume) with `GOFLAGS=-mod=readonly`
 | `go build ./...` | 0 | 20.08 s (with binary) | Success |
 | `go build -o /out/gitleaks .` | 0 | (same run) | 24,570,239-byte Linux binary |
 | `go test -mod=readonly -count=1 -timeout 600s -json ./...` | 0 | 6.79 s | **275 passed, 0 failed, 0 skipped** |
-| `go test -race -mod=readonly -count=1 -timeout 600s ./...` | 0 | 34.39 s | Success |
+| `go test -race -mod=readonly -count=1 -timeout 600s ./...` | 0 | 34.39 s | Success on exercised paths only (not a proof for unexercised code) |
 | `go test -shuffle=on -count=1 ./...` | 0 | 7.25 s (combined) | Success |
 | `go vet ./...` | **1** | 6.11 s (with gofmt) | 2 `lostcancel` diagnostics, test file only |
 | `gofmt -l .` | 0 | (same run) | 0 files listed (LF export) |
@@ -167,6 +168,8 @@ Source inspection shows `cancel()` is called in both the `expireContext` and nor
 
 ## 4. Correctness findings register
 
+CP2A classification ([`review-CP2A.md`](review-CP2A.md)): **C1 correctness defects** — CP2-004, CP2-008, CP2-014 (logging/work; no demonstrated false negative); **C2 security/data-integrity risks** — CP2-003, CP2-005, CP2-007, CP2-009; **C3 build/static-analysis failures** — CP2-010, CP2-011 (tagged graph); **C4 contract decisions** — CP2-001, CP2-002, CP2-006, CP2-012, CP2-013, CP2-015; **C5 expected/intentional** — CP2-016; **C6 unverified** — CP2-017; **C7 positive verification** — CP2-018 and the `gore2regex` application-binary result. The table’s original measured statuses are preserved.
+
 | ID | Finding | Status | Controlled reproduction (expected → observed) | Impact | Owner |
 | --- | --- | --- | --- | --- | --- |
 | CP2-001 | `--report-path -` without an explicit format is fatal | Measured | `dir --report-path -` (no `--report-format`) → expected stdout JSON; observed `FTL Unknown report format:` and exit 1 | CLI usability/automation break; `-` is documented but not self-describing | CP2 |
@@ -188,7 +191,7 @@ Source inspection shows `cancel()` is called in both the `expireContext` and nor
 | CP2-017 | Truncated archive produced no diagnostic | Unverified | Truncated `.tar.gz` + depth 1 → no error, no findings | Whether skipped as binary or silently failed is unresolved | CP2/CP4 |
 | CP2-018 | Positive capabilities verified | Measured | See §2: decode/archive/size/symlink/entropy/allowlists/reports/exit/preference | Core behavior is largely sound | — |
 
-**Negative findings preserved:** CP1’s commit-allowlist bug did **not** produce a user-visible false negative in this test because the detector-level allowlist still suppressed the finding; it remains a source-level inefficiency/logging defect. The truncated-archive test did not reproduce an error path, so no archive-failure claim is made.
+**Negative findings preserved:** CP1’s commit-allowlist bug did **not** produce a user-visible false negative in this test because the detector-level allowlist still suppressed the finding; it remains a source-level inefficiency/logging defect. The truncated-archive test did not reproduce an error path, so no archive-failure claim is made. Detailed CP2A reproduction evidence for CP2-003/004/005/006/007/008/009/013 is in [`review-CP2A.md` §3](review-CP2A.md); raw outputs remain outside the repository.
 
 ---
 
