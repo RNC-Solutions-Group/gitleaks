@@ -1,10 +1,10 @@
 # Crosswalk duplicates — historical evidence register
 
-Source snapshot: [2026-11-08 Gitleaks backlog](../README.md) · [Candidate-link CSV](../data/crosswalk.csv) · Branch: `feat/issues-and-pr`
+Source snapshot: [2026-11-08 Gitleaks backlog](README.md) · [Candidate-link CSV](data/crosswalk.csv) · Branch: `feat/issues-and-pr`
 
 ## Scope and counting
 
-This is the **historical crosswalk and duplicate-triage audit trail**, not an active candidate category or a list of implemented fixes. Every open-snapshot issue/PR formerly owned here was either routed to its technical category or placed in the [RNC exclusion ledger](exclusions.md). Historical tables below retain original references and contributor credit. It uses the 174 initial candidate relationships and distinguishes high-signal `Fixes/Closes/Resolves` references or explicit issue URLs from low-signal bare number mentions.
+This is the **historical crosswalk and duplicate-triage audit trail**, not an active candidate category or a list of implemented fixes. Every open-snapshot issue/PR formerly owned here was either routed to its technical category or placed in the [RNC exclusion ledger](categories/exclusions.md). Historical tables below retain original references and contributor credit. It uses the 174 initial candidate relationships and distinguishes high-signal `Fixes/Closes/Resolves` references or explicit issue URLs from low-signal bare number mentions.
 
 **Focused scrub result: 0 active issues / 0 active PRs / 0 independent review packages here.** Immediately before this scrub, the duplicate bucket owned 27 issues, 46 PRs and 32 review-package slots. All 27 issues and 36 non-excluded PRs now live in domain-specific categories; 10 overlapping PRs were retired from independent review. The 285/252/174 totals below are immutable collection/crosswalk statistics.
 
@@ -25,20 +25,20 @@ This is the **historical crosswalk and duplicate-triage audit trail**, not an ac
 
 | Canonical owner | Routed issues | Routed PRs | Active packages |
 | --- | ---: | ---: | ---: |
-| [Security and hardening](security-hardening.md) | 4 | 1 | 4 |
-| [Scan integrity](scan-integrity.md) | 7 | 9 | 8 |
-| [Git and hooks](git-hooks-sources.md) | 2 | 4 | 2 |
-| [Documentation](documentation.md) | 1 | 3 | 1 |
-| [Provider rules](detection-rules.md) | 4 | 8 | 4 |
-| [Detection accuracy](detection-accuracy.md) | 4 | 6 | 4 |
-| [Performance and stability](performance-stability.md) | 1 | 1 | 1 |
-| [Configuration and allowlists](configuration-allowlists.md) | 2 | 3 | 3 |
-| [Optional features](features.md) | 2 | 1 | 1 |
+| [Security and hardening](categories/security-hardening.md) | 4 | 1 | 4 |
+| [Scan integrity](categories/scan-integrity.md) | 7 | 9 | 8 |
+| [Git and hooks](categories/git-hooks-sources.md) | 2 | 4 | 2 |
+| [Documentation](categories/documentation.md) | 1 | 3 | 1 |
+| [Provider rules](categories/detection-rules.md) | 4 | 8 | 4 |
+| [Detection accuracy](categories/detection-accuracy.md) | 4 | 6 | 4 |
+| [Performance and stability](categories/performance-stability.md) | 1 | 1 | 1 |
+| [Configuration and allowlists](categories/configuration-allowlists.md) | 2 | 3 | 3 |
+| [Optional features](categories/features.md) | 2 | 1 | 1 |
 | **Routed active** | **27** | **36** | **28** |
-| [RNC exclusions](exclusions.md) | **0** | **10** | **10** |
+| [RNC exclusions](categories/exclusions.md) | **0** | **10** | **10** |
 | **Left in duplicate category** | **0** | **0** | **0** |
 
-**Superseded independent PR reviews:** [#2300](https://github.com/gitleaks/gitleaks/pull/2300) → #2312 (report permissions); [#2200](https://github.com/gitleaks/gitleaks/pull/2200) → #2166 (global commit allowlist); [#2082](https://github.com/gitleaks/gitleaks/pull/2082) → #2241 (invalid-regex errors); [#2161](https://github.com/gitleaks/gitleaks/pull/2161), [#2199](https://github.com/gitleaks/gitleaks/pull/2199) → #2271 (regex reuse); [#2162](https://github.com/gitleaks/gitleaks/pull/2162) → #2271 **plus** #2255 (combined regex/column changes); [#2123](https://github.com/gitleaks/gitleaks/pull/2123), [#2175](https://github.com/gitleaks/gitleaks/pull/2175), [#2187](https://github.com/gitleaks/gitleaks/pull/2187), [#2201](https://github.com/gitleaks/gitleaks/pull/2201) → #2255 (`withinColumns` guard and tests). This eliminates **review duplication**, not the underlying need to test and implement a correct fix; the [exclusion ledger](exclusions.md) has individual contributor credits and reopen gates.
+**Superseded independent PR reviews:** [#2300](https://github.com/gitleaks/gitleaks/pull/2300) → #2312 (report permissions); [#2200](https://github.com/gitleaks/gitleaks/pull/2200) → #2166 (global commit allowlist); [#2082](https://github.com/gitleaks/gitleaks/pull/2082) → #2241 (invalid-regex errors); [#2161](https://github.com/gitleaks/gitleaks/pull/2161), [#2199](https://github.com/gitleaks/gitleaks/pull/2199) → #2271 (regex reuse); [#2162](https://github.com/gitleaks/gitleaks/pull/2162) → #2271 **plus** #2255 (combined regex/column changes); [#2123](https://github.com/gitleaks/gitleaks/pull/2123), [#2175](https://github.com/gitleaks/gitleaks/pull/2175), [#2187](https://github.com/gitleaks/gitleaks/pull/2187), [#2201](https://github.com/gitleaks/gitleaks/pull/2201) → #2255 (`withinColumns` guard and tests). This eliminates **review duplication**, not the underlying need to test and implement a correct fix; the [exclusion ledger](categories/exclusions.md) has individual contributor credits and reopen gates.
 
 **False duplicates deliberately retained as separate work:** #2110/#2111/#2112 concern different possible Slack credential types and went to Security; #1203 (raw Basic Auth syntax) vs #2214 (Basic Auth URL) need different detection tests; #2010 (unknown-extension archive skipped) vs #2316 (text mistaken for archive) need inverse file-reader tests; #1651 vs #2324 is a *weak potential linkage*, not a verified issue-to-PR fix. Each is separately traceable in its owning category.
 
@@ -60,7 +60,7 @@ These are distinct issue records that may describe the same root cause.
 
 ## B. Competing PRs for the same issue — historical candidate crosswalk
 
-This is the complete set of issue targets from the **initial** crosswalk that had **at least two high-signal open PR references**. It is preserved for contributor attribution and is not the current active-review queue; see the second-pass decisions in [exclusions.md](exclusions.md). Every contributor remains individually credited.
+This is the complete set of issue targets from the **initial** crosswalk that had **at least two high-signal open PR references**. It is preserved for contributor attribution and is not the current active-review queue; see the second-pass decisions in [exclusions.md](categories/exclusions.md). Every contributor remains individually credited.
 
 | Issue | Problem | Strong PR candidates | PR authors | Triage |
 | --- | --- | ---: | --- | --- |
@@ -108,7 +108,7 @@ These 5 PRs had strong textual references to more than one issue at collection. 
 - **Chunking and scanning false negatives:** [#1651](https://github.com/gitleaks/gitleaks/issues/1651) reports 60 Regex101 matches versus 50 from Gitleaks, increasing to 55/58/59 with larger chunks; [#2328](https://github.com/gitleaks/gitleaks/issues/2328) describes binary signature misclassification on later chunks of long first lines. These are related investigation paths, **not** proven duplicate bugs. Track their distinct reproductions and fixed expectations separately.
 - **Archive behavior:** [#2010](https://github.com/gitleaks/gitleaks/issues/2010) (archive recognized by MIME but skipped under unknown extension) and [#2316](https://github.com/gitleaks/gitleaks/issues/2316) (plain text mistakenly classified as archive because of a filename substring) are inverse failure modes. They may share filename/type-dispatch code but are not interchangeable tests.
 - **Staged, unreadable, and skipped files:** [#2232](https://github.com/gitleaks/gitleaks/issues/2232), [#2337](https://github.com/gitleaks/gitleaks/issues/2337), [#2316](https://github.com/gitleaks/gitleaks/issues/2316), and [#2328](https://github.com/gitleaks/gitleaks/issues/2328) all involve silent clean results after incomplete scanning, yet each arises from a different path. A common incomplete-scan result contract could be useful, but keep bug-specific fixes/tests separate.
-- **Dependency upgrades:** dependency-only PRs live exclusively in [dependencies](dependencies.md), not this register; similar titles are not evidence of duplicates.
+- **Dependency upgrades:** dependency-only PRs live exclusively in [dependencies](categories/dependencies.md), not this register; similar titles are not evidence of duplicates.
 
 ## E. Crosswalk false-positive safeguards
 
@@ -146,16 +146,16 @@ These links were previously discovered in a second routing pass; they are **arch
 | [#2214](https://github.com/gitleaks/gitleaks/issues/2214) | [#2224](https://github.com/gitleaks/gitleaks/pull/2224) (@rylena) | http Basic-Auth secret not detected | **HISTORICAL — ROUTED** | Consult canonical domain table; no work is owned here. |
 | — | [#2324](https://github.com/gitleaks/gitleaks/pull/2324) (@cardene777) | fix(sources): finish the current line when no blank line is found at a chunk boundary | **HISTORICAL — ROUTED** | Consult canonical domain table; no work is owned here. |
 | — | [#2292](https://github.com/gitleaks/gitleaks/pull/2292) (@Saadanjum0) | fix(git): return an error when the git command fails | **HISTORICAL — ROUTED** | Consult canonical domain table; no work is owned here. |
-| — | [#2204](https://github.com/gitleaks/gitleaks/pull/2204) (@rayair250-droid) | perf(detect): reuse regex matches instead of scanning the fragment twice | **HISTORICAL — EXCLUDED RNC** | Previously recorded in [exclusions](exclusions.md); no live duplicate slot. |
+| — | [#2204](https://github.com/gitleaks/gitleaks/pull/2204) (@rayair250-droid) | perf(detect): reuse regex matches instead of scanning the fragment twice | **HISTORICAL — EXCLUDED RNC** | Previously recorded in [exclusions](categories/exclusions.md); no live duplicate slot. |
 | — | [#2150](https://github.com/gitleaks/gitleaks/pull/2150) (@AlbusZhuo) | Fix composite withinColumns cross-line matching | **HISTORICAL — ROUTED** | Consult canonical domain table; no work is owned here. |
 
 **Master code checks (historical source comparisons):** #2329 targets the current first-chunk heuristic; #2317 targets archive content validation. #2338 concerns staged files classified as binary. #2324 proposes a new safe-boundary line-completion helper absent from `master/sources/common.go`. These are distinct failure modes even if they share the scanner's fail-open symptoms. **Do not mark any of them fixed or adopted until tests demonstrate it.**
 
-**Weak crosswalk rule:** PR #2324 mentions #1651, #2292 mentions #1981, and #2280 mentions #2225; these are potential competing implementation paths, not verified `Fixes` relationships. The upstream PR #1435 is already RNC-superseded and remains exclusively in [exclusions.md](exclusions.md).
+**Weak crosswalk rule:** PR #2324 mentions #1651, #2292 mentions #1981, and #2280 mentions #2225; these are potential competing implementation paths, not verified `Fixes` relationships. The upstream PR #1435 is already RNC-superseded and remains exclusively in [exclusions.md](categories/exclusions.md).
 
 ## Second-pass overlap disposition
 
-- **Retired redundant patch reviews:** #1943, #2151, #2163, #2204, #2049, #2053, #2124, #2171. Each exact edit or strictly included edit is covered by a still-open representative PR (#2319, #2199, or #2343). The older issues #1859, #1895, #2160, and #2048 were collapsed under canonical active issues #2302, #2121, and #2120. The [RNC exclusion ledger](exclusions.md) preserves individual credit and reopen triggers.
-- **Moved based on actual diffs:** issue #2003 and PR #2128 are now in [Git/hooks](git-hooks-sources.md) because the patch corrects Git log option tokenization; PR #2205 independently modifies **CSV multiline-message formatting** and is in [reporting-output](reporting-output.md). A textual #2003 mention was not enough to call these competing fixes.
-- **Moved provider-rule ownership:** PR #2280 actually adds Supabase and database-credential rules and is now linked to issue #2279 in [provider rules](detection-rules.md); its weak issue mentions do not justify a separate duplicate-category work package.
+- **Retired redundant patch reviews:** #1943, #2151, #2163, #2204, #2049, #2053, #2124, #2171. Each exact edit or strictly included edit is covered by a still-open representative PR (#2319, #2199, or #2343). The older issues #1859, #1895, #2160, and #2048 were collapsed under canonical active issues #2302, #2121, and #2120. The [RNC exclusion ledger](categories/exclusions.md) preserves individual credit and reopen triggers.
+- **Moved based on actual diffs:** issue #2003 and PR #2128 are now in [Git/hooks](categories/git-hooks-sources.md) because the patch corrects Git log option tokenization; PR #2205 independently modifies **CSV multiline-message formatting** and is in [reporting-output](categories/reporting-output.md). A textual #2003 mention was not enough to call these competing fixes.
+- **Moved provider-rule ownership:** PR #2280 actually adds Supabase and database-credential rules and is now linked to issue #2279 in [provider rules](categories/detection-rules.md); its weak issue mentions do not justify a separate duplicate-category work package.
 - **Later focused disposition:** The `withinColumns` one-line guards were consolidated to two representative test approaches, and report-permission #2300 was retired in favor of the broader #2312. The unreadable-file #2232 and provider-rule #2309 alternatives remain active in their technical categories. No scanner fix was applied.

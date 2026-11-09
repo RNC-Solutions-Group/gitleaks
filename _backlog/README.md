@@ -1,8 +1,8 @@
-# Gitleaks issue and PR assessment workspace
+# Gitleaks backlog — RNC assessment workspace
 
 Collection timestamp: 2026-11-08T07:14:05.557Z
 
-This branch contains an initial, reproducible review snapshot of **upstream `gitleaks/gitleaks`**, not a change to the Gitleaks scanner. It is a workspace for deciding which community fixes and enhancements merit independent tests in RNC's downstream branches.
+This branch contains a dated, reproducible review snapshot of **upstream `gitleaks/gitleaks`**, not changes to the scanner. Active categories identify what remains to assess; separate records retain exclusion decisions and duplicate-history evidence.
 
 ## Contents
 
@@ -10,17 +10,25 @@ This branch contains an initial, reproducible review snapshot of **upstream `git
 - [02 — Open pull requests](02-open-pull-requests.md): all 252 open PRs, with authors, refs, and review state.
 - [03 — PR/issue crosswalk](03-pr-issue-crosswalk.md): links, confidence, and exclusions.
 - [data/](data/): structured public-safe JSON snapshots, filterable CSV, and collection manifest.
-- [categories/](categories/README.md): where reviewed candidates and experiment outcomes will be documented.
+- [categories/](categories/README.md): current technical work queues, ownership and decision gates.
 
-## RNC second-pass junk-drawer assessment (2026-11-08)
+## Current RNC review status
 
-The [category ownership register](categories/README.md) now reflects code/diff and targeted issue-body elimination passes against fork `master` at `5f6ec56c`. **50 issues and 48 PRs** have defensible RNC exclusions (obsolete, superseded, or closed by exception); **235 issues and 204 PRs** remain active for independent review. Details, original contributor links, rationale, and reopen criteria are in [exclusions.md](categories/exclusions.md). Additional cross-category moves were made from actual changed files; competing nonidentical fixes remain pending.
+| Disposition | Issues | PRs |
+| --- | ---: | ---: |
+| Active technical-category review | **235** | **204** |
+| [RNC exclusions](categories/exclusions.md) | **50** | **48** |
+| **Original snapshot assigned** | **285** | **252** |
 
-The focused categories are [documentation](categories/documentation.md) (including an **attribution-preserving, separate-branch eight-PR consolidation recommendation**), [dependencies](categories/dependencies.md) (open issue triage and a repaired PR table), [integrations/release](categories/integrations-release.md), [Git and hooks](categories/git-hooks-sources.md), [Optional Features](categories/features.md), and [Performance & Stability](categories/performance-stability.md). The Git/hook pass checked individual issue bodies and 12 PR diffs, excluding six independent slots, reclassifying five work packages, and pairing a Git-config defect with its proposed fix. The Optional Features pass excluded two issue-only slots: one already addressed by a master CLI flag and another closed by an existing opt-in report-template workflow. Five feature issue work packages remain active; the two open PRs are still pending. The Performance & Stability pass source-checked all three issues and both open PR patches; **none qualified for exclusion**, so four work packages remain pending. The former two-item Needs Review category is retired: [#1864](categories/exclusions.md) is an external GitLab ruleset exception supported by master AWS allowlist evidence, while [#1127](categories/integrations-release.md) remains active under Windows/Azure DevOps integration pending reproduction. Integrations & Releases excluded four issue slots and one linked PR slot by documented RNC scope/support exceptions; #1754 moved to Configuration because existing `minVersion` only warns, not enforces. Eight release/integration work packages remain active, with no adoption. The [Scan Integrity](categories/scan-integrity.md) pass excluded six issues and three outdated PR implementations, moved ten misrouted issues to their proper categories, and paired one directory-argument issue with its proposed fix; 23 scan-integrity work packages remain active. The [Reporting & Output](categories/reporting-output.md) scrub excluded eight issue-only slots and one obsolete old-API PR, relocated four issues (including a potential secret-redaction leak to Security), and retained 15 active reporting packages for deeper review. No proposed documentation or scanner patches have been adopted here.
+All upstream snapshot items have one disposition in the [active category index](categories/README.md), with **0 unassigned**. The register records 430 work-package accounting slots, which are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
 
-**Focused duplicate scrub (2026-11-08):** All 27 issues and 46 PRs formerly assigned to [Candidate Duplicates](categories/crosswalk-duplicates.md) were individually checked against issue context and source patches. Ten redundant PR implementations were placed in [exclusions](categories/exclusions.md) with contributor attribution and reopen conditions; the remaining 27 issues and 36 PRs were routed into nine domain categories, including distinct potential credential exposure reports. The duplicate category now has **zero active ownership** and remains a historical crosswalk. Active backlog is **235 issues / 204 PRs**, with **430 accounting work-package slots** across the register. Nothing was merged or run in production.
+## Historical evidence (outside active categories)
 
-These are **RNC review dispositions only**. They do not close upstream GitHub items, endorse or adopt a surviving PR, or prove that any unresolved defect is fixed. The three full Markdown inventories still represent their original upstream snapshot, with strikethrough meaning *routed*; the JSON/CSV data exports remain unchanged.
+- [Duplicate / competing-fix crosswalk](crosswalk-duplicates.md) — the 174 original candidate relationships, subsequent patch comparisons, retained contributors and disposition reasoning. This is a **historical audit artifact**, not an active work queue.
+- [PR/issue crosswalk inventory](03-pr-issue-crosswalk.md) — original relationship extraction and confidence.
+- [Exclusions ledger](categories/exclusions.md) — canonical reasons, evidence and reopen gates for retired RNC review slots.
+
+The source inventories and JSON/CSV exports are retained unchanged. Category files focus on open work and the tests needed to evaluate it; retirement history stays in the historical crosswalk or exclusion ledger.
 
 ## Review lifecycle
 

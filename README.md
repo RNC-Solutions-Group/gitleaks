@@ -27,9 +27,12 @@ Start with [`_backlog/README.md`](_backlog/README.md), then use:
 | [`01-issue-backlog.md`](_backlog/01-issue-backlog.md) | Full upstream issue inventory |
 | [`02-open-pull-requests.md`](_backlog/02-open-pull-requests.md) | Full upstream PR inventory with authors and links |
 | [`03-pr-issue-crosswalk.md`](_backlog/03-pr-issue-crosswalk.md) | Issue/PR relationships and confidence |
+| [`crosswalk-duplicates.md`](_backlog/crosswalk-duplicates.md) | Historical duplicate/competing-fix assessment, contributor links, and decisions; **not an active category** |
 | [`data/`](_backlog/data/) | Immutable snapshot exports, not a live issue tracker |
 
 The initial snapshot on **2026-11-08** contained **285 open upstream issues and 252 upstream PRs**. Dispositions are evaluated against fork `master` at [`5f6ec56c`](https://github.com/RNC-Solutions-Group/gitleaks/commit/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c), with the separately hardened Docker branch tracked as a different implementation baseline. These counts and comparisons are a dated snapshot, not a claim about today's upstream state.
+
+Current RNC triage ownership: **235 active issues / 204 active PRs**, with **50 issues / 48 PRs excluded** from independent review. The [category index](_backlog/categories/README.md) contains only working queues; the [historical duplicate crosswalk](_backlog/crosswalk-duplicates.md) and [exclusions](_backlog/categories/exclusions.md) preserve the reasoning behind retired review slots.
 
 ## Branch boundaries and contributor credit
 

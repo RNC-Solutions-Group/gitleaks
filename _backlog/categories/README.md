@@ -17,32 +17,25 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | [Dependency and build pins](dependencies.md) | 8 | 12 | 20 |
 | [Integrations and releases](integrations-release.md) | 3 | 6 | 8 |
 | [Optional features](features.md) | 7 | 3 | 6 |
-| [Candidate duplicates / competing fixes](crosswalk-duplicates.md) | 0 | 0 | 0 |
 | [Documentation](documentation.md) | 6 | 12 | 11 |
 | [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 50 | 48 | 87 |
 | **Total assigned from open snapshot** | **285** | **252** | **430** |
 
-**Unassigned from snapshot: 0 issues, 0 PRs.** The former `Needs Review` catch-all was retired: #1864 is excluded by documented third-party scope and #1127 is owned by Integrations and Releases, with its uncertainty retained. This is **100% routing coverage**, not 100% technical review or remediation. A routed candidate remains active unless documented otherwise. The original three inventories and raw API exports keep their historical totals. A struck-through link in the three Markdown inventories means *categorized*, never *closed on GitHub*.
+**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **235 active issues / 204 active PRs** in the technical categories, and **50 excluded issues / 48 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 430 work-package slots are accounting groups, not 430 distinct bugs or fixes.
 
-**Focused elimination tally (2026-11-08):** 50 of 285 upstream issues and 48 of 252 upstream PRs are excluded from independent RNC review as obsolete, superseded, or closed by exception. **235 issues / 204 PRs remain active across all categories.** The 87 exclusion-column work-package slots are not a claim of 87 unique root causes or fixes. Issue #2063 was separated from workflow PR #2209 (different repositories), whereas issue #1316 was paired with PR #2311 after Git-source review. In this Scan Integrity pass, legacy PR #1639 was separated from still-active issue #1638 and issue #1888 was paired with PR #1936; those package-count adjustments also offset each other. The Reporting & Output scrub later separated obsolete PR #1232 from still-active feature issue #1048; this adds one ledger package slot without adding an upstream item. The duplicate-focused pass then added six accounting slots: 32 mixed duplicate packages became 28 domain-specific active packages plus 10 individually documented excluded-PR slots. The register now has 430 package slots, with improved ownership and evidence.
-
-The candidate-duplicates register now owns **0 active issues / 0 active PRs**; its historical source links and contributor attributions remain as a crosswalk. Two historical duplicate-category issue targets may be referenced outside the current open-issue snapshot; those links are not included in the 285 count. The original duplicate report's 174 candidate-link tally is unchanged. Counts in this table use **unique open-snapshot IDs**, so historic counts and a document's incidental hyperlinks must not be summed.
-
-The Scan Integrity scrub source-checked the current reader/CLI architecture against 15 upstream PR patches: six issues and three obsolete PRs were excluded, ten issue-only packages were moved to configuration/detection/Git ownership, and issue #1888 was paired with PR #1936. This did not implement or merge scanner changes.
-
-The Reporting & Output scrub excluded eight issue-only slots and outdated PR #1232, rerouted four requests to configuration/detection/provider/security ownership, and retained seven live reporting PRs pending independent review. The duplicate-focused pass then checked all 27 issues / 46 PRs assigned there, excluded ten redundant PR review implementations, and routed all survivors to their actual technical owners. **The duplicate category is now historical evidence only.** Scanner behavior and upstream state were not modified.
+The inventories and `_backlog/data/` remain the original dated snapshot. Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 
 ## Triage confidence
 
 - **RNC CLOSED / SUPERSEDED:** only when a known replacement or a verified nonissue has supporting evidence, with [exclusions.md](exclusions.md) as the exclusion ledger. No upstream issue or PR is closed by these documents.
 - **REVIEWED — TESTING:** existing CVE PRs #2308/#2336 and their linked issues; not yet adopted.
-- **SOURCE-CHECKED — TEST PENDING:** select open PR patches compared directly to fork `master` (including #2329, #2317, #2319, #2294, #2237, #2206, #2307, #2348 and #2258). No build/run proof is implied.
-- **SECOND-PASS EXCLUDED:** the [exclusion ledger](exclusions.md) records patch/version evidence, replacement PR or issue when known, and reopen conditions. A PR superseded by another **open** PR is a duplicate review slot, not a proven fix. Nonidentical provider and scanner proposals remain pending.
+- **SOURCE-CHECKED — TEST PENDING:** select open PR patches compared directly to fork `master`. No build/run proof is implied.
+- **RNC EXCLUDED:** the [exclusion ledger](exclusions.md) records patch/version evidence, replacement PR or issue when known, and reopen conditions. A PR superseded by another **open** PR is a duplicate review slot, not a proven fix. Nonidentical provider and scanner proposals remain pending.
 - **PENDING REVIEW:** remaining records were routed by issue/PR titles and direct crosswalk references. The right category helps evaluate them; it does not establish root cause, patch correctness, priority, or obsolescence.
 
 ## Single-owner rule
 
-Every upstream issue and PR has exactly **one primary category**. Verified related issues and the PRs that address them form **one work package** in the same category. Category documents may mention other IDs for context, but that does not transfer ownership. We do **not** turn weak mentions or third-party release-note references into confirmed relationships. For example, issue #2304 merely mentioning PR #2300 does not make a report-deletion bug the same fix as a report-permission issue.
+Every upstream issue and PR has exactly **one primary category**. Verified related issues and the PRs that address them form **one work package** in the same category. Category documents may mention other IDs for context, but that does not transfer ownership. We do **not** turn weak mentions or third-party release-note references into confirmed relationships. A shared numeric reference is never sufficient to prove duplicate root causes.
 
 ## Branch and attribution workflow
 

@@ -2,20 +2,18 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**Duplicate-category scrub (2026-11-08):** Two issues and four PRs were routed here as two packages. The pre-commit hook fix and Git subprocess error propagation require separate tests; none was adopted.
+**18 issues · 12 PRs · 20 work packages.**
 
-**18 active upstream issues · 12 active upstream PRs · 20 work packages.** This focused pass excluded four non-scanner support/action reports and two superseded/obsolete PRs in [exclusions.md](exclusions.md), rerouted five work packages by actual changed files, and paired issue #1316 with #2311 for one combined review. Previous exclusions (#2025/#2039, v7 #555) and PR #643's provider-rule routing remain unchanged. No upstream state or scanner code changed.
+Git history, hooks, staged changes, diff/log parsing, and source integration. Reproduce Git-specific behavior independently of directory scans.
 
-Git history, pre-commit/pre-receive, staged changes, git diff/log behavior, and Git source integration. Reproduce independently of generic directory scanning.
-
-**Evidence rules:** “SOURCE-CHECKED” means a targeted patch/current-source comparison, **not** that a fix was built or tested. Most records are title/crosswalk-only and must stay pending until reproduced, diffed, and assessed on the fork. “Obsolete,” “superseded,” “adopted,” or “corrected” require separate evidence; no PR is adopted by routing it here.
+**Review states:** `SOURCE-CHECKED` records a targeted source/patch comparison, **not** a built or tested correction. `PENDING` records an unresolved issue or competing proposal. No PR is adopted or upstream item closed by categorization. See [RNC exclusions](exclusions.md) for retired review slots.
 
 ## Candidates
 
 | Open issue(s) | Open PR(s) and contributor(s) | Scope and proposed change | RNC status | Source evidence / remaining gate | RNC implementation PR/commit |
 | --- | --- | --- | --- | --- | --- |
-| [#2302](https://github.com/gitleaks/gitleaks/issues/2302) | [#2319](https://github.com/gitleaks/gitleaks/pull/2319) (@abhinavrastogi2627) | `gitleaks-system` pre-commit hook passes filenames unexpectedly. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | PR adds `pass_filenames: false`, pre-commit integration test and module changes; older #1895/#1859 and PR #1943 already retired by the previous crosswalk pass. | — |
-| [#1981](https://github.com/gitleaks/gitleaks/issues/1981) | [#2080](https://github.com/gitleaks/gitleaks/pull/2080) (@Smeet23), [#2292](https://github.com/gitleaks/gitleaks/pull/2292) (@Saadanjum0), [#2339](https://github.com/gitleaks/gitleaks/pull/2339) (@delaysystem) | Git subprocess failures reported as a clean scan. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | Three patches propose different failure propagation and process-wait paths. Preserve separate error and cleanup tests until behavior is compared; no upstream-state change. | — |
+| [#2302](https://github.com/gitleaks/gitleaks/issues/2302) | [#2319](https://github.com/gitleaks/gitleaks/pull/2319) (@abhinavrastogi2627) | `gitleaks-system` pre-commit hook passes filenames unexpectedly. | **SOURCE-CHECKED — TEST PENDING** | PR adds `pass_filenames: false`, pre-commit integration test and module changes; verify actual hook execution and filename passing. | — |
+| [#1981](https://github.com/gitleaks/gitleaks/issues/1981) | [#2080](https://github.com/gitleaks/gitleaks/pull/2080) (@Smeet23), [#2292](https://github.com/gitleaks/gitleaks/pull/2292) (@Saadanjum0), [#2339](https://github.com/gitleaks/gitleaks/pull/2339) (@delaysystem) | Git subprocess failures reported as a clean scan. | **SOURCE-CHECKED — TEST PENDING** | Three patches propose different failure propagation and process-wait paths. Preserve separate error and cleanup tests until behavior is compared; no upstream-state change. | — |
 | [#2003](https://github.com/gitleaks/gitleaks/issues/2003) | [#2128](https://github.com/gitleaks/gitleaks/pull/2128) (@puneetdixit200) | Quoted `--log-opts` and Git notes/CSV interaction. | **SOURCE-CHECKED — REVIEW PENDING** | `sources/git.go` still tokenizes log options with `strings.Split(logOpts, " ")`; #2128 adds a quote-aware parser and tests. Issue also mentions CSV notes/escaping, not necessarily resolved by tokenization alone. Distinct reporting PR #2205 remains in its own category. | — |
 | — | [#2318](https://github.com/gitleaks/gitleaks/pull/2318) (@MAHIR-BABBAR) | Properly skip commits on a global commit allowlist. | **SOURCE-CHECKED — TEST PENDING** | Current `Git.Fragments` uses `continue` inside the allowlist loop, not the surrounding commit/file loop; PR adds an explicit `commitAllowed` guard and regression test. This is a real current-source mismatch. | — |
 | [#1316](https://github.com/gitleaks/gitleaks/issues/1316) | [#2311](https://github.com/gitleaks/gitleaks/pull/2311) (@tonymet) | Global Git `format.pretty`/color customization corrupts parsed commit metadata. | **LINKED BY SOURCE — TEST PENDING** | #1316 reproduces empty author/commit information with user Git config; #2311 forces `format.pretty=medium` and adds `--no-color` for log output. Master applies neither. Compare with #2284's `--no-color` log changes; PRs overlap but neither is a full substitute for the other. | — |
@@ -32,18 +30,9 @@ Git history, pre-commit/pre-receive, staged changes, git diff/log behavior, and 
 | [#1022](https://github.com/gitleaks/gitleaks/issues/1022) | — | Docker-image pre-commit hook reports `unknown option staged` in v8.15.0. | **ISSUE — REPRO PENDING** | Same Git error signature as #1364, but custom `docker_image`/system command overrides differ. Retain as related historical case until the exact container working directory and mount behavior is compared. | — |
 | [#821](https://github.com/gitleaks/gitleaks/issues/821) | — | Incoming commits missed in GitLab pre-receive hook. | **ISSUE — REPRO PENDING** | Historical v8.5.3 use of `detect --source=.` may not include quarantine incoming refs. Pre-receive context and current `git --log-opts` integration require a dedicated test; PR #2236 documents diff-only limits but does not fix hook revision selection. | — |
 
-| [#1293](https://github.com/gitleaks/gitleaks/issues/1293) | — | can gitleaks understand .gitleaksignore while scanning a bare git repo? | **RECLASSIFIED — REVIEW PENDING** | Bare Git-repository `.gitleaksignore` discovery is tied to `git` source/working-tree semantics; belongs with Git-source behavior. | — |
-| [#1163](https://github.com/gitleaks/gitleaks/issues/1163) | — | detect --source folder is not honored as a folder in git mode | **RECLASSIFIED — REVIEW PENDING** | Hidden legacy `detect --source=<subdir>` calls Git history and scans outside the requested subfolder; investigate with current `git`/`--log-opts` interface. | — |
-| [#800](https://github.com/gitleaks/gitleaks/issues/800) | — | Add a flag to enable scanning both the git commit message as well as the commit content | **RECLASSIFIED — REVIEW PENDING** | Adds optional scanning of Git commit messages rather than only changed file content; Git history-source feature. | — |
-
-## Individual scrub findings
-
-- **Exclusions:** #1448 (`/bin/bash` missing in the pre-commit environment), #1381 (general `git commit --amend` question), #949 (Git global-hook template configuration question), #1306 (separate JavaScript Action's invalid revision range), plus superseded context PR #1824 and obsolete legacy Git-ignore implementation PR #1249. Reasons and reopen conditions live in [exclusions.md](exclusions.md).
-- **Moves:** #2218/#2236 to [documentation](documentation.md); #1984/#2081 and #2086 to [integrations/release](integrations-release.md); #1923 to [configuration](configuration-allowlists.md); #1626 to [reporting](reporting-output.md). Original authors and links stay intact.
-- **Scan Integrity ownership addendum:** #1293, #1163 and #800 moved here on 2026-11-08 for Git-source semantics; all remain pending, and this does not reopen the prior Git & Hooks scrub.
-- **Review consolidation, not exclusion:** issue #1316 is now paired with #2311. #2311 and #2284 overlap in Git-log color handling but are not interchangeable: one also normalizes pretty formatting; the other protects the staged-diff path.
-- **Preserved by evidence:** #2318, #2301, #2284, #2203, #2128, and #1918 propose distinct current-source behavioral changes; historical pre-commit cases #1364/#1022 remain related but unproven duplicates. No PR was adopted, corrected, or cherry-picked.
-
+| [#1293](https://github.com/gitleaks/gitleaks/issues/1293) | — | can gitleaks understand .gitleaksignore while scanning a bare git repo? | **REVIEW PENDING** | Bare Git-repository `.gitleaksignore` discovery is tied to `git` source/working-tree semantics; belongs with Git-source behavior. | — |
+| [#1163](https://github.com/gitleaks/gitleaks/issues/1163) | — | detect --source folder is not honored as a folder in git mode | **REVIEW PENDING** | Hidden legacy `detect --source=<subdir>` calls Git history and scans outside the requested subfolder; investigate with current `git`/`--log-opts` interface. | — |
+| [#800](https://github.com/gitleaks/gitleaks/issues/800) | — | Add a flag to enable scanning both the git commit message as well as the commit content | **REVIEW PENDING** | Adds optional scanning of Git commit messages rather than only changed file content; Git history-source feature. | — |
 
 ## Decision gate
 

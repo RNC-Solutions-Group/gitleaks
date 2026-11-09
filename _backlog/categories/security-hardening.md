@@ -1,12 +1,10 @@
-# Security hardening — reviewed and testing
+# Security Hardening — RNC review queue
 
-Primary active category for upstream dependency-security PRs [#2308](https://github.com/gitleaks/gitleaks/pull/2308) and [#2336](https://github.com/gitleaks/gitleaks/pull/2336) and associated upstream issues. The records below reflect *review and testing*, **not** integrated or released fixes.
+Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**Duplicate-category scrub (2026-11-08):** 12 active issues, 6 active PRs, 14 packages. Four issues and PR #2312 were routed here from duplicate review. The three similarly titled token-exposure reports concern *distinct* Slack credential types; no secret contents are reproduced here. The older CVE-focused test work is unchanged.
+**12 issues · 6 PRs · 14 work packages.** This category covers dependency CVEs, secrets exposure, report-file permissions, execution hardening, and supply-chain controls.
 
-The [closed ledger](exclusions.md) is authoritative: excluded RNC-closed items are not duplicated in this active table. The two PRs and three linked issues below belong **only** to this category, not dependencies or duplicates.
-
-**Additional-linkage check:** the crosswalk's extra apparent CVE-issue relationship is a third-party Cobra release-note reference, not a Gitleaks security fix. No additional first-party PR/issue relationships were confirmed from this pass, so there are no new `PENDING REVIEW` candidates yet.
+**Review states:** CVE proposals #2308 and #2336 have operator-reported test evidence but remain unadopted; other entries are pending independent reproduction and source/behavior review. Never reproduce potential credential values in this ledger. [RNC exclusions](exclusions.md) are recorded separately.
 
 ## Tracked work
 
@@ -22,13 +20,26 @@ The [closed ledger](exclusions.md) is authoritative: excluded RNC-closed items a
 - [RNC test harness](https://github.com/RNC-Solutions-Group/gitleaks/tree/test/security-integration-2308-2336/_rnc-build) reports 19/19 scenarios and 121/121 assertions passing for its tested images; 34/38 Docker-applicable fixture files validated, four exercised-only, and 75 upstream Go-only contracts not imported. This establishes parity over the tested scope **only**, not complete release acceptance.
 - Go test evidence for the upstream PRs is operator-reported from earlier local work; it should be preserved alongside exact tested commit hashes and command outputs.
 
-## Issue-to-PR mapping
+## Additional security and supply-chain candidates — pending review
 
-| Upstream issue | Upstream state | RNC assessment |
-| --- | --- | --- |
-| [#2305](https://github.com/gitleaks/gitleaks/issues/2305) — CVEs in v8.30.1 | Open | Linked to [#2308](https://github.com/gitleaks/gitleaks/pull/2308); **reviewed — testing**; confirm each CVE against final image SBOM. |
-| [#2291](https://github.com/gitleaks/gitleaks/issues/2291) — Go CVE vulnerabilities | Open | Linked to [#2308](https://github.com/gitleaks/gitleaks/pull/2308); **reviewed — testing**; distinguish Go stdlib from individually pinned modules. |
-| [#2330](https://github.com/gitleaks/gitleaks/issues/2330) — compression/archive module CVEs | Open | Linked to [#2336](https://github.com/gitleaks/gitleaks/pull/2336); **reviewed — testing**; package-specific findings require image verification. |
+The following additional items require independent evidence on actual source, images, and operational impact.
+
+| Upstream issue(s) | Upstream PR(s) / contributor(s) | Scope | RNC disposition | Gate |
+| --- | --- | --- | --- | --- |
+| [#2299](https://github.com/gitleaks/gitleaks/issues/2299) | [#2312](https://github.com/gitleaks/gitleaks/pull/2312) (@Varshith-Kali) | Secret-bearing report files created with permissions inherited from umask. | **SOURCE-CHECKED — TEST PENDING** | PR #2312 covers **both** report file-creation paths and tightens pre-existing files to `0600`. Verify modes, report failure handling, Windows behavior, and symlinks. |
+| [#2110](https://github.com/gitleaks/gitleaks/issues/2110) | — | Possible Slack bot token exposure reported against upstream repository. | **SOURCE-CHECKED — TEST PENDING** | Distinct token type from #2111/#2112; do not copy values into triage. Maintainer verification, revocation/rotation, and history remediation are security incident actions, not scanner-rule adoption. |
+| [#2111](https://github.com/gitleaks/gitleaks/issues/2111) | — | Possible Slack user token exposure reported against upstream repository. | **SOURCE-CHECKED — TEST PENDING** | Not equivalent to bot or app-level token report. Keep candidate confidential in operational handoff; confirm identity and validity without publishing samples. |
+| [#2112](https://github.com/gitleaks/gitleaks/issues/2112) | — | Possible Slack app-level token exposure reported against upstream repository. | **SOURCE-CHECKED — TEST PENDING** | Third distinct credential type; no evidence that identical titles mean duplicate leaked values. Maintainer-only verification and mitigation required. |
+| [#2176](https://github.com/gitleaks/gitleaks/issues/2176) | [#2206](https://github.com/gitleaks/gitleaks/pull/2206) (@trinathone) | Run as a non-root user in Docker | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| [#2074](https://github.com/gitleaks/gitleaks/issues/2074) | — | Untrusted impersonation of the project at gitleaks.org | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| [#1572](https://github.com/gitleaks/gitleaks/issues/1572) | — | .gitleaksignore should be treated as untrusted input | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| [#1277](https://github.com/gitleaks/gitleaks/issues/1277) | — | [Security] Vulnerabilities reported in docker image | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| — | [#2237](https://github.com/gitleaks/gitleaks/pull/2237) (@bunlongheng) | fix: prevent CSV formula injection in csv report output | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| — | [#637](https://github.com/gitleaks/gitleaks/pull/637) (@varunsh-coder) | Add specific permissions to workflows under .github/workflows | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
+| [#1243](https://github.com/gitleaks/gitleaks/issues/1243) | — | Potential redaction bypass: pre-commit output may reveal a secret in the `Finding:` context when the source file has no terminal newline; user reports `Secret:` is redacted but adjacent context is not. | **PENDING REVIEW — SECURITY-SENSITIVE** — not reproduced on master | Verify with synthetic secrets on fork `master`, `--redact`, missing terminal newline and both Git/dir modes. Treat raw log output as sensitive during reproduction. No fix or suppression decision here. |
+
+
+**Priority checks:** #2237 addresses spreadsheet formula injection in CSV exports; #2176/#2206 concerns non-root execution; #1572 concerns trust of .gitleaksignore; #1277 is an older image-vulnerability report needing the actual release/image digest. A current Docker builder or Alpine tag does not automatically resolve these unrelated behaviors. No adoption has occurred.
 
 ## Promotion and completion gate
 
@@ -38,26 +49,3 @@ The [closed ledger](exclusions.md) is authoritative: excluded RNC-closed items a
 4. Compare to independent expected findings—not blindly to release-image behavior—and report all fixture exclusions.
 5. Record the user-approved RNC branch/PR/commit receiving each contribution. Until then, status remains **REVIEWED — TESTING**.
 6. Only after evidence and owner approval promote security changes downstream according to the established branch policy; do not merge community PRs or alter upstream state from these docs.
-
-
-## Additional security and supply-chain candidates — pending review
-
-The initial #2308/#2336 CVE test work above is unchanged. The following **newly routed** items were not tested or integrated; they are held here to assess real security impact, compatibility, and current-image relevance.
-
-| Upstream issue(s) | Upstream PR(s) / contributor(s) | Scope | RNC disposition | Gate |
-| --- | --- | --- | --- | --- |
-| [#2299](https://github.com/gitleaks/gitleaks/issues/2299) | [#2312](https://github.com/gitleaks/gitleaks/pull/2312) (@Varshith-Kali) | Secret-bearing report files created with permissions inherited from umask. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | PR #2312 covers **both** report file-creation paths and tightens pre-existing files to `0600`. The narrower #2300 is excluded as an independent review. Verify modes, report failure handling, Windows behavior, and symlinks. |
-| [#2110](https://github.com/gitleaks/gitleaks/issues/2110) | — | Possible Slack bot token exposure reported against upstream repository. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | Distinct token type from #2111/#2112; do not copy values into triage. Maintainer verification, revocation/rotation, and history remediation are security incident actions, not scanner-rule adoption. |
-| [#2111](https://github.com/gitleaks/gitleaks/issues/2111) | — | Possible Slack user token exposure reported against upstream repository. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | Not equivalent to bot or app-level token report. Keep candidate confidential in operational handoff; confirm identity and validity without publishing samples. |
-| [#2112](https://github.com/gitleaks/gitleaks/issues/2112) | — | Possible Slack app-level token exposure reported against upstream repository. | **RECLASSIFIED — SOURCE-CHECKED, TEST PENDING** | Third distinct credential type; no evidence that identical titles mean duplicate leaked values. Maintainer-only verification and mitigation required. |
-| [#2176](https://github.com/gitleaks/gitleaks/issues/2176) | [#2206](https://github.com/gitleaks/gitleaks/pull/2206) (@trinathone) | Run as a non-root user in Docker | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| [#2074](https://github.com/gitleaks/gitleaks/issues/2074) | — | Untrusted impersonation of the project at gitleaks.org | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| [#1572](https://github.com/gitleaks/gitleaks/issues/1572) | — | .gitleaksignore should be treated as untrusted input | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| [#1277](https://github.com/gitleaks/gitleaks/issues/1277) | — | [Security] Vulnerabilities reported in docker image | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| — | [#2237](https://github.com/gitleaks/gitleaks/pull/2237) (@bunlongheng) | fix: prevent CSV formula injection in csv report output | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| — | [#637](https://github.com/gitleaks/gitleaks/pull/637) (@varunsh-coder) | Add specific permissions to workflows under .github/workflows | **PENDING REVIEW** — not implemented | Review changed code and linked reproduction before selecting a PR or making an RNC-only correction. |
-| [#1243](https://github.com/gitleaks/gitleaks/issues/1243) | — | Potential redaction bypass: pre-commit output may reveal a secret in the `Finding:` context when the source file has no terminal newline; user reports `Secret:` is redacted but adjacent context is not. | **PENDING REVIEW — SECURITY-SENSITIVE** — not reproduced on master | Verify with synthetic secrets on fork `master`, `--redact`, missing terminal newline and both Git/dir modes. Treat raw log output as sensitive during reproduction. No fix or suppression decision here. |
-
-**Reporting reclassification:** Issue #1243 was moved here on 2026-11-08 because it describes a possible secret leak through redacted output. It remains unreproduced on fork master; the prior CVE testing scope is unchanged.
-
-**Priority checks:** #2237 addresses spreadsheet formula injection in CSV exports; #2176/#2206 concerns non-root execution; #1572 concerns trust of .gitleaksignore; #1277 is an older image-vulnerability report needing the actual release/image digest. A current Docker builder or Alpine tag does not automatically resolve these unrelated behaviors. No adoption has occurred.
