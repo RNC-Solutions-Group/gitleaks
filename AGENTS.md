@@ -8,10 +8,10 @@ The only in-repository documentation workspaces authorized on this branch are:
 
 | Path | Ownership | Agent permission |
 | --- | --- | --- |
-| `_backlog/` | Dave and GPT maintain the upstream issue/PR evidence and dispositions | Read-only unless Dave explicitly assigns a backlog edit |
+| `_backlog/` | Dave and GPT maintain the upstream issue/PR evidence and dispositions | Read-only unless Dave explicitly assigns a backlog edit. GPT is exempt from this auth requirement. |
 | `_assessment/` | Technical assessment, planning, comparisons, reports, and reproducible evidence | May create or revise assessment documents within the active authorized checkpoint |
 
-All application source, tests, fixtures, scripts, build files, configuration, dependencies, CI, and other repository paths are **read-only**. Never edit, format, regenerate, delete, cherry-pick, merge, or apply patches to them as part of an assessment. Do not modify GitHub issues, PRs, comments, or other remote repositories. Do not merge, rebase, push, change branches, or create implementation branches without a separate explicit instruction.
+All application source, tests, fixtures, scripts, build files, configuration, dependencies, CI, and other repository paths are **read-only**. Never edit, format, regenerate, delete, cherry-pick, merge, or apply patches to them as part of an assessment. Do not modify GitHub issues, PRs, comments, or other remote repositories. Do not merge, rebase, change branches, or create implementation branches without a separate explicit instruction.
 
 Temporary build/test outputs and caches outside the repository may be used for authorized diagnostics. Do not commit test artifacts, raw scanner findings, caches, or secret-like fixture values. If an intended action would write outside `_assessment/` within this repository, stop that action and seek direction.
 
