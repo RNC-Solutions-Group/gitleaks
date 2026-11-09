@@ -77,7 +77,7 @@ These failures were present at the CP5 baseline and remain; they are **not** int
 3. **Optional `re2_cgo` remains separate.** `CGO_ENABLED=1` alone does not select it. The `re2_cgo` build requires system `re2` and `pkg-config` (`libre2-dev` on Debian/Ubuntu); without them the build fails with `Package re2 was not found`.
 4. **Repository graph expansion** from the latest `go4.org` pseudo-version. This does not affect linked code but is a supply-chain review item.
 
-No application source, tests, fixtures, scripts, config, CI, Dockerfile, Makefile, or Git metadata were changed by this experiment.
+No application source, tests, fixtures, application config/rule files, scripts, CI, Dockerfile, Makefile, or Git metadata were changed by this experiment. The only non-documentation changes are `go.mod` and `go.sum`.
 
 ## Deliverables
 
