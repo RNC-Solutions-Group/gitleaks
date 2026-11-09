@@ -12,7 +12,7 @@
 
 ## Executive assessment
 
-The fork is a single Go binary assembled from a Cobra CLI (`cmd`), a Viper/TOML configuration layer (`config`), three fragment sources (`sources`), a detector with a recursive decoder (`detect`, `detect/codec`), a regex abstraction (`regexp`), and five report writers (`report`). The CLI converges every scanning mode on `Detector.DetectSource` **except** the deprecated `protect` command, which calls the deprecated `DetectGit` wrapper and therefore drops the command context.
+The fork is a single Go binary assembled from a Cobra CLI (`cmd`), a Viper/TOML configuration layer (`config`), three fragment sources (`sources`), a detector with a recursive decoder (`detect`, `detect/codec`), a regex abstraction (`regexp`), and five report writers (`report`). Every scanning mode ultimately reaches `Detector.DetectSource`. Most call it directly; the deprecated `protect` command reaches it indirectly through the deprecated `DetectGit` wrapper, which replaces the command context with `context.Background()`.
 
 The control path is: command-specific bootstrap → `initConfig` → `initDiagnostics` → `config.Translate` → `Detector` construction → `DetectSource` → source-specific fragment production → per-fragment `DetectContext` (global commit/path allowlists, keyword prefilter, per-rule `detectRule`, up to `MaxDecodeDepth` decode iterations) → per-finding `AddFinding` (fingerprint ignore, baseline, mutex append) → summary/report/exit. Findings are filtered and redacted in `DetectContext` before they reach storage or reporting.
 
@@ -39,7 +39,7 @@ The most consequential source-level findings are: empty-secret path-only finding
 | ID | Claim | Status | Evidence | Impact | CP owner |
 | --- | --- | --- | --- | --- | --- |
 | CP1-001 | Canonical source tree is identical at `5f6ec56` and branch HEAD `9fb7c4e` | Verified (Git) | `git diff --name-only 5f6ec56..HEAD` contains only `AGENTS.md`, `README.md`, `_assessment/**`, `_backlog/**`; `git diff --stat` over Go/build paths is empty | Findings can cite `5f6ec56` and remain valid at HEAD | All |
-| CP1-002 | Every scanning CLI mode converges on `DetectSource` except `protect` | Verified (source) | `runDetect`/`runGit`/`runDirectory`/`runStdIn` call `Detector.DetectSource`; `runProtect` calls `DetectGit` ([`cmd/protect.go:61`](../../../cmd/protect.go#L61)), which wraps `DetectSource` with `context.Background()` ([`detect/git.go:19-29`](../../../detect/git.go#L19-L29)) | `protect` loses CLI context/timeout/cancellation; divergent error and shutdown behavior | CP2 |
+| CP1-002 | All scanning modes ultimately reach `DetectSource`; `protect` uses an indirect `DetectGit` path that loses the command context | Verified (source) | `runDetect`/`runGit`/`runDirectory`/`runStdIn` call `Detector.DetectSource`; `runProtect` calls `DetectGit` ([`cmd/protect.go:61`](../../../cmd/protect.go#L61)), which wraps `DetectSource` with `context.Background()` ([`detect/git.go:19-29`](../../../detect/git.go#L19-L29)) | `protect` loses CLI context/timeout/cancellation; divergent error and shutdown behavior | CP2 |
 | CP1-003 | Empty-secret path-only findings are corrupted when redaction is 100% | Verified (source) / Inferred (runtime) | Path-only finding has no `Secret` ([`detect/detect.go:397-405`](../../../detect/detect.go#L397-L405)); `Redact` sets `secret = "REDACTED"` then `strings.ReplaceAll(f.Match, "", "REDACTED")` ([`report/finding.go:78-86`](../../../report/finding.go#L78-L86)); `filter` applies it to every finding ([`detect/utils.go:158-160`](../../../detect/utils.go#L158-L160)) | `--redact` can turn `file detected: …` into repeated `REDACTED` text; no test covers path-only + redact | CP2 |
 | CP1-004 | Git commit allowlists are logged as skipped but not skipped at the source | Verified (source) | `continue` at [`sources/git.go:341-346`](../../../sources/git.go#L341-L346) continues the allowlist loop, not the diff loop; commit info is then built and the diff is scanned | Redundant scanning and misleading logs; findings are still filtered by the detector-level allowlist check ([`detect/detect.go:301-305`](../../../detect/detect.go#L301-L305)), so no confirmed false negative — runtime verification needed | CP2 |
 | CP1-005 | Fragment/worker errors are absorbed; a partial scan can return success | Verified (source) | `DetectSource` logs fragment errors and returns `nil` ([`detect/detect.go:228-232`](../../../detect/detect.go#L228-L232)); `Git.Fragments` returns `yield(Fragment{}, err)` and ignores `wg.Wait()` ([`sources/git.go:414-430`](../../../sources/git.go#L414-L430)); `Files.Fragments` returns only the walk error ([`sources/files.go:142-190`](../../../sources/files.go#L142-L190)) | CLI may report success on incomplete scans; scanner integrity risk | CP2 |
@@ -292,9 +292,11 @@ Startup is Cobra-driven: `main` installs an interrupt listener and calls `cmd.Ex
 3. One decoder per fragment; decoded text is scanned only through overlapping segments, and finding locations must map back to original text.
 4. Finding identity: `file:rule:line` (global) or `commit:file:rule:line` (commit); `.gitleaksignore` depends on both forms; fingerprint changes break suppressions.
 5. Rule/allowlist evaluation order: commit/path first, then content; `gitleaks:allow` is checked on the finding line before secret-group/entropy/allowlist filtering.
-6. Reporter contract: `Write` is called once with all findings; report path handling and exit precedence are CLI-visible contracts.
+6. Reporter interface: `Write` receives all findings once; report format and documented exit semantics are compatibility considerations. **Do not preserve destructive report-path validation merely because it is existing behavior.**
 7. Build-tag contract: default tests use stdlib regex; release binaries use `gore2regex`.
 8. Finding order is not guaranteed because rules are traversed from a map; report consumers must sort or compare order-insensitively.
+
+**Observed behaviors to challenge, not preserve as invariants:** absorbed fragment/worker errors (CP1-005/013), discarded `protect` cancellation context (CP1-002/006), premature report-target deletion (CP1-007), and empty-secret redaction corruption (CP1-003). A later PR may intentionally correct these behaviors if tests establish the expected contract.
 
 **Backlog cross-references (leads only, not reassessed):** #2019 and #1572 remain separate packages in [`performance-stability.md:20-42`](../../../_backlog/categories/performance-stability.md#L20-L42) and the security record; the Git-stream/error work package (#1338/#2246) aligns with C-01–C-04 and AR-01; #2023’s size/decoder ordering concerns align with AR-09/AR-10; #2121/#2271 align with the double `FindAllStringIndex` observation (§3, detection-order item 6). No backlog disposition was changed.
 
@@ -311,10 +313,12 @@ Startup is Cobra-driven: `main` installs an interrupt listener and calls `cmd.Ex
 | `MaxTargetMegaBytes` check occurs after decoding | Confirmed, with refinements: only when the flag is nonzero; dir source has an opt-in pre-read size check; Git has no pre-read cap; path-only rules run before the check |
 | `DetectSource` logs fragment errors and returns nil | Confirmed; CLI exits 1 only if `DetectSource` itself returns an error, which source-level absorption usually prevents |
 | Command layer logs scan errors and continues | Confirmed logging, but the summary exits 1 when the error survives; `pipe`/`stdin` use fatal immediately |
-| No application HTTP/network client | Confirmed: only the localhost pprof server; `extendURL` is a TODO; Git subprocesses are the external boundary |
+| Direct first-party HTTP client | No direct client identified in the inspected first-party code; localhost pprof exists and `extendURL` is a TODO. Dependency- or subprocess-driven network activity is not ruled out. |
 | Windows symlink/CRLF/fixture-renaming caveats | Confirmed and carried forward; `detect` tests rename fixtures in place |
 
 ---
+
+**Owner-review clarification (2026-11-09):** The execution-path headline now distinguishes direct from indirect `DetectSource` invocation; the comparison invariants distinguish established interfaces from defect candidates; and the absence of an HTTP client is scoped to inspected first-party code. These are documentation clarifications only, not additional runtime verification.
 
 ## 8. Known limitations and unresolved questions
 
