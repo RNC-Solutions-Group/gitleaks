@@ -1,5 +1,17 @@
 # Contribution guidelines
 
+## Build toolchain
+
+The minimum supported Go version is declared by the `go` directive in
+[`go.mod`](go.mod) (currently Go 1.26.0). The build and test toolchain used by
+CI and by the container image is pinned to **Go 1.27.3**:
+
+- CI: [`.github/workflows/test.yml`](.github/workflows/test.yml)
+- Container build stage: [`Dockerfile`](Dockerfile) (`golang:1.27.3-alpine3.24`)
+
+Building with a Go release older than the `go.mod` requirement fails at the
+module version gate before compilation.
+
 ## General
 
 ### Issues

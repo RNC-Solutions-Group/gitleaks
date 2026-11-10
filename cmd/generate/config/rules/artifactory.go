@@ -18,8 +18,16 @@ func ArtifactoryApiKey() *config.Rule {
 	}
 
 	// validate
+	sampleKey := secrets.MustGenerateSecret(secrets.Requirements{
+		Regex:       utils.AlphaNumeric("69"),
+		Prefix:      "AKCp",
+		MinEntropy:  r.Entropy,
+		Seed:        secrets.DefaultSeed,
+		MaxAttempts: secrets.DefaultMaxAttempts,
+		Label:       r.RuleID,
+	})
 	tps := []string{
-		"artifactoryApiKey := \"AKCp" + secrets.NewSecret(utils.AlphaNumeric("69")) + "\"",
+		"artifactoryApiKey := \"" + sampleKey + "\"",
 	}
 	// false positives
 	fps := []string{
@@ -43,8 +51,16 @@ func ArtifactoryReferenceToken() *config.Rule {
 	}
 
 	// validate
+	sampleToken := secrets.MustGenerateSecret(secrets.Requirements{
+		Regex:       utils.AlphaNumeric("59"),
+		Prefix:      "cmVmd",
+		MinEntropy:  r.Entropy,
+		Seed:        secrets.DefaultSeed,
+		MaxAttempts: secrets.DefaultMaxAttempts,
+		Label:       r.RuleID,
+	})
 	tps := []string{
-		"artifactoryRefToken := \"cmVmd" + secrets.NewSecret(utils.AlphaNumeric("59")) + "\"",
+		"artifactoryRefToken := \"" + sampleToken + "\"",
 	}
 	// false positives
 	fps := []string{

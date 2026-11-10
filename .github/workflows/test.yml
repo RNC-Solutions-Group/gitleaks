@@ -1,37 +1,375 @@
 name: Test
 
+# Push CI runs on integration branches. Feature/experiment branches with
+# open PRs are covered by the pull_request trigger instead, avoiding duplicate
+# push + PR runs. Pull request branch filters apply to the target/base branch.
 on:
   push:
     branches:
-      - "*"
+      - master
+      - "dev/**"
   pull_request:
     branches:
-      - "*"
+      - master
+      - "dev/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned build/test toolchain. The go.mod minimum supported version is lower.
+  GO_VERSION: "1.27.3"
+  # Gitleaks parses build versions as SemVer. Keep the SHA in build metadata,
+  # using the default config's minimum supported version as a non-release base.
+  CI_VERSION: "v8.25.0+ci.${{ github.sha }}"
+  # Pinned test reporter and vulnerability scanner (no unpinned @latest installs).
+  GOTESTSUM_VERSION: "v1.13.0"
+  GOVULNCHECK_VERSION: "v1.9.0"
+  TRIVY_IMAGE: "aquasec/trivy:0.76.2"
 
 jobs:
-  test:
-    strategy:
-      matrix:
-        platform: [ ubuntu-latest, windows-latest ]
-    runs-on: ${{ matrix.platform }}
+  linux-tests:
+    name: Linux build and tests
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: 1.25
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Confirm Go version
+        run: |
+          go version
+          go env GOVERSION
+          test "$(go env GOVERSION)" = "go${GO_VERSION}"
 
       - name: Build
         run: go build ./...
 
-      - name: Set up gotestsum
-        run: |
-          go install gotest.tools/gotestsum@latest
+      - name: Install pinned test reporter
+        run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
 
-      - name: Test
-        run: |
-          gotestsum --raw-command -- go test -json ./... --race
+      - name: Test (race)
+        run: gotestsum --raw-command -- go test -json -race ./...
 
-      - name: Validate Config
-        run: go generate ./... && git diff --exit-code
+      - name: Validate generated configuration without committing it
+        run: |
+          go generate ./...
+          git diff --exit-code
+
+  windows-tests:
+    name: Windows build and tests
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Confirm Go version
+        run: |
+          go version
+          go env GOVERSION
+          if ((go env GOVERSION) -ne "go$env:GO_VERSION") { throw "unexpected Go toolchain" }
+
+      - name: Build
+        run: go build ./...
+
+      - name: Install pinned test reporter
+        run: go install gotest.tools/gotestsum@$env:GOTESTSUM_VERSION
+
+      - name: Test (race)
+        run: gotestsum --raw-command -- go test -json -race ./...
+
+  macos-tests:
+    name: macOS ${{ matrix.arch }} build and tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: Intel (amd64)
+            runner: macos-15-intel
+            goarch: amd64
+            machine: x86_64
+          - arch: Apple Silicon (arm64)
+            runner: macos-15
+            goarch: arm64
+            machine: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Confirm native toolchain and runner architecture
+        run: |
+          go version
+          uname -m
+          test "$(go env GOVERSION)" = "go${GO_VERSION}"
+          test "$(go env GOOS)" = "darwin"
+          test "$(go env GOARCH)" = "${{ matrix.goarch }}"
+          test "$(uname -m)" = "${{ matrix.machine }}"
+
+      - name: Build native macOS executable
+        run: |
+          go build -trimpath \
+            -ldflags "-s -w -X=github.com/zricethezav/gitleaks/v8/version.Version=${CI_VERSION}" \
+            -o "${RUNNER_TEMP}/gitleaks-macos" .
+          file "${RUNNER_TEMP}/gitleaks-macos"
+
+      - name: Execute native CLI and verify version stamp
+        run: |
+          test "$("${RUNNER_TEMP}/gitleaks-macos" version)" = "${CI_VERSION}"
+          "${RUNNER_TEMP}/gitleaks-macos" --help > /dev/null
+          mkdir -p "${RUNNER_TEMP}/clean-scan"
+          printf 'ordinary text, no credentials\n' > "${RUNNER_TEMP}/clean-scan/readme.txt"
+          "${RUNNER_TEMP}/gitleaks-macos" dir "${RUNNER_TEMP}/clean-scan" --no-banner --log-level error
+
+      - name: Build and execute native gore2regex variant
+        run: |
+          go build -trimpath -tags gore2regex \
+            -ldflags "-s -w -X=github.com/zricethezav/gitleaks/v8/version.Version=${CI_VERSION}" \
+            -o "${RUNNER_TEMP}/gitleaks-macos-re2" .
+          test "$("${RUNNER_TEMP}/gitleaks-macos-re2" version)" = "${CI_VERSION}"
+
+      - name: Install pinned test reporter
+        run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
+
+      - name: Test (race) on native macOS
+        run: gotestsum --raw-command -- go test -json -race ./...
+
+  build-stdlib:
+    name: Standard regexp application build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Standard (stdlib) regexp application build
+        run: |
+          go build -trimpath -o /tmp/gitleaks-std .
+          /tmp/gitleaks-std --version
+          go list -f '{{.GoFiles}}' ./regexp
+
+  build-re2:
+    name: gore2regex application build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # The application binary must build with the RE2 engine. The full tagged
+      # package graph is a known baseline failure (generator rules), and is not
+      # silently suppressed here.
+      - name: RE2 (gore2regex) application build
+        run: |
+          go build -trimpath -tags gore2regex -o /tmp/gitleaks-re2 .
+          /tmp/gitleaks-re2 --version
+          go list -tags gore2regex -f '{{.GoFiles}}' ./regexp
+
+  docker-amd64:
+    name: Docker linux/amd64 build and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image (linux/amd64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: gitleaks:ci-amd64
+          build-args: |
+            VERSION=${{ env.CI_VERSION }}
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
+
+      - name: Smoke test (CLI, runtime packages, version stamping)
+        run: |
+          set -eux
+          test "$(docker image inspect --format '{{.Architecture}}' gitleaks:ci-amd64)" = "amd64"
+          docker run --rm gitleaks:ci-amd64 --version
+          test "$(docker run --rm gitleaks:ci-amd64 version)" = "${CI_VERSION}"
+          docker run --rm gitleaks:ci-amd64 --help
+          docker run --rm --entrypoint sh gitleaks:ci-amd64 -c 'bash --version | head -1; git --version; ssh -V'
+
+      - name: Smoke test (mounted workspace scan and exit code)
+        run: |
+          set -eux
+          workdir="$(mktemp -d)"
+          printf 'aws_secret_access_key = "Zq8vN2rT5wY7bC1dF4gH6jK9mP3sU0xE2aD5fG8h"\n' > "${workdir}/creds.txt"
+          mkdir -p "${workdir}/clean"
+          printf 'nothing to see here\n' > "${workdir}/clean/readme.txt"
+
+          docker run --rm -v "${workdir}:/scan" gitleaks:ci-amd64 dir /scan/clean --no-banner --log-level error
+          set +e
+          docker run --rm -v "${workdir}:/scan" gitleaks:ci-amd64 dir /scan --no-banner --log-level error
+          code="$?"
+          set -e
+          test "${code}" = "1"
+
+      - name: Smoke test (git repository scan)
+        run: |
+          set -eux
+          repodir="$(mktemp -d)"
+          cd "${repodir}"
+          git init -q
+          printf 'aws_secret_access_key = "Zq8vN2rT5wY7bC1dF4gH6jK9mP3sU0xE2aD5fG8h"\n' > creds.txt
+          git -c user.email=ci@example.invalid -c user.name=ci add .
+          git -c user.email=ci@example.invalid -c user.name=ci commit -q -m "fixture"
+
+          set +e
+          docker run --rm -v "${repodir}:/repo" gitleaks:ci-amd64 git /repo --no-banner --log-level error
+          code="$?"
+          set -e
+          test "${code}" = "1"
+
+      - name: Report format smoke test (JSON report generation)
+        run: |
+          set -eux
+          workdir="$(mktemp -d)"
+          printf 'aws_secret_access_key = "Zq8vN2rT5wY7bC1dF4gH6jK9mP3sU0xE2aD5fG8h"\n' > "${workdir}/creds.txt"
+          report_file="$(mktemp)"
+          set +e
+          docker run --rm -v "${workdir}:/scan" gitleaks:ci-amd64 dir /scan --no-banner --log-level error \
+            --report-format json --report-path - > "${report_file}"
+          code="$?"
+          set -e
+          test "${code}" = "1"
+          grep -q '"RuleID"' "${report_file}"
+
+  docker-arm64:
+    name: Docker linux/arm64 build and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image (linux/arm64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          tags: gitleaks:ci-arm64
+          build-args: |
+            VERSION=${{ env.CI_VERSION }}
+          cache-from: type=gha,scope=arm64
+          cache-to: type=gha,mode=max,scope=arm64
+
+      - name: Smoke test (CLI and architecture)
+        run: |
+          set -eux
+          test "$(docker image inspect --format '{{.Architecture}}' gitleaks:ci-arm64)" = "arm64"
+          docker run --rm --platform linux/arm64 gitleaks:ci-arm64 --version
+          test "$(docker run --rm --platform linux/arm64 gitleaks:ci-arm64 version)" = "${CI_VERSION}"
+          docker run --rm --platform linux/arm64 gitleaks:ci-arm64 --help
+
+      - name: Smoke test (mounted workspace scan and exit code)
+        run: |
+          set -eux
+          workdir="$(mktemp -d)"
+          printf 'aws_secret_access_key = "Zq8vN2rT5wY7bC1dF4gH6jK9mP3sU0xE2aD5fG8h"\n' > "${workdir}/creds.txt"
+
+          set +e
+          docker run --rm --platform linux/arm64 -v "${workdir}:/scan" gitleaks:ci-arm64 dir /scan --no-banner --log-level error
+          code="$?"
+          set -e
+          test "${code}" = "1"
+
+  dependencies:
+    name: Dependency and module verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Verify module checksums
+        run: go mod verify
+
+      - name: Confirm go.mod and go.sum are tidy
+        run: go mod tidy -diff
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Vulnerability scan (govulncheck, pinned)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}
+          govulncheck ./...
+
+  container-scan:
+    name: Container vulnerability assessment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image (linux/amd64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: gitleaks:ci-scan
+          build-args: |
+            VERSION=${{ env.CI_VERSION }}
+          cache-from: type=gha,scope=amd64
+
+      # Advisory data comes from the public Trivy database, so a database outage
+      # must not fail the build. Findings are reported, not used as a gate.
+      - name: Scan image with Trivy (pinned)
+        continue-on-error: true
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            ${TRIVY_IMAGE} image \
+            --scanners vuln \
+            --format table \
+            --exit-code 0 \
+            gitleaks:ci-scan
