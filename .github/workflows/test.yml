@@ -260,11 +260,14 @@ jobs:
           set -eux
           workdir="$(mktemp -d)"
           printf 'aws_secret_access_key = "Zq8vN2rT5wY7bC1dF4gH6jK9mP3sU0xE2aD5fG8h"\n' > "${workdir}/creds.txt"
+          report_file="$(mktemp)"
           set +e
           docker run --rm -v "${workdir}:/scan" gitleaks:ci-amd64 dir /scan --no-banner --log-level error \
-            --report-format json --report-path /dev/stdout > "${workdir}/report.json"
+            --report-format json --report-path - > "${report_file}"
+          code="$?"
           set -e
-          grep -q '"RuleID"' "${workdir}/report.json"
+          test "${code}" = "1"
+          grep -q '"RuleID"' "${report_file}"
 
   docker-arm64:
     name: Docker linux/arm64 build and smoke test
