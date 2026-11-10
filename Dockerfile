@@ -16,14 +16,13 @@ RUN go mod download
 
 COPY . .
 
-# Version stamping: honour an explicit --build-arg VERSION (what release
-# tooling passes). Otherwise use git describe so commits after the latest tag
-# aren't mislabeled as that release. It also produces a commit hash for a
-# tagless checkout; "unknown" is the last-resort fallback without git metadata.
-# Don't use --dirty: .dockerignore omits tracked files from the build context,
-# making even clean source appear modified. .git is deliberately included.
+# Version stamping: honour an explicit --build-arg VERSION (release and CI).
+# Gitleaks validates the current version as SemVer when loading its config,
+# so tagless builds must not use a bare Git SHA or "unknown" as the version.
+# The default config requires v8.25.0; use that non-release base plus commit
+# metadata for builds without a supplied VERSION. .git stays in the context.
 ARG VERSION
-RUN VERSION="${VERSION:-$(git -c safe.directory='*' describe --tags --always 2>/dev/null || echo unknown)}" && \
+RUN VERSION="${VERSION:-v8.25.0+git.$(git -c safe.directory='*' rev-parse --short=12 HEAD 2>/dev/null || echo unknown)}" && \
     CGO_ENABLED=0 go build -trimpath \
       -o /out/gitleaks \
       -ldflags "-s -w -X=github.com/zricethezav/gitleaks/v8/version.Version=${VERSION}"
