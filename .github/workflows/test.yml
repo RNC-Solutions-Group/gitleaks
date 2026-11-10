@@ -1,15 +1,17 @@
 name: Test
 
-# `*` does not match branch names containing "/", so the experimental branch
-# (test/deps-upgrade-all) would never have triggered CI. `**` matches any branch
-# name, including slash-separated ones.
+# Push CI runs on integration branches. Feature/experiment branches with
+# open PRs are covered by the pull_request trigger instead, avoiding duplicate
+# push + PR runs. Pull request branch filters apply to the target/base branch.
 on:
   push:
     branches:
-      - "**"
+      - master
+      - "dev/**"
   pull_request:
     branches:
-      - "**"
+      - master
+      - "dev/**"
   workflow_dispatch:
 
 permissions:
