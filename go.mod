@@ -3,9 +3,10 @@ module github.com/zricethezav/gitleaks/v8
 go 1.26.0
 
 require (
+	charm.land/lipgloss/v2 v2.0.6
 	github.com/BobuSumisu/aho-corasick v1.0.3
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/fatih/semgroup v1.3.0
 	github.com/gitleaks/go-gitdiff v0.9.1
 	github.com/google/go-cmp v0.7.0
@@ -25,14 +26,14 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/STARRY-S/zip v0.2.3 // indirect
 	github.com/andybalholm/brotli v1.2.8 // indirect
-	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/sevenzip v1.6.5 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
-	github.com/charmbracelet/colorprofile v0.4.3 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886 // indirect
 	github.com/charmbracelet/x/ansi v0.11.9 // indirect
-	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
+	github.com/charmbracelet/x/termios v0.1.1 // indirect
+	github.com/charmbracelet/x/windows v0.2.2 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707 // indirect
@@ -50,7 +51,7 @@ require (
 	github.com/minio/minlz v1.2.4 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/muesli/termenv v0.16.0 // indirect
+	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/nwaples/rardecode/v2 v2.4.6 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.33 // indirect

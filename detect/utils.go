@@ -12,7 +12,7 @@ import (
 	"github.com/zricethezav/gitleaks/v8/report"
 	"github.com/zricethezav/gitleaks/v8/sources"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 var linkCleaner = strings.NewReplacer(
@@ -175,6 +175,10 @@ func printFinding(f report.Finding, noColor bool) {
 	skipColor := noColor
 	finding := ""
 	var secret lipgloss.Style
+	// Styled output is written through a down-sampling writer so that redirected
+	// or piped output stays free of ANSI escape sequences, as it was with
+	// Lip Gloss v1.
+	out := report.ColorWriter()
 
 	// Matches from filenames do not have a |line| or |secret|
 	if !isFileMatch {
@@ -223,41 +227,41 @@ func printFinding(f report.Finding, noColor bool) {
 	}
 
 	if skipColor || isFileMatch {
-		fmt.Printf("%-12s %s\n", "Finding:", f.Match)
-		fmt.Printf("%-12s %s\n", "Secret:", f.Secret)
+		fmt.Fprintf(out, "%-12s %s\n", "Finding:", f.Match)
+		fmt.Fprintf(out, "%-12s %s\n", "Secret:", f.Secret)
 	} else {
-		fmt.Printf("%-12s %s", "Finding:", finding)
-		fmt.Printf("%-12s %s\n", "Secret:", secret)
+		fmt.Fprintf(out, "%-12s %s", "Finding:", finding)
+		fmt.Fprintf(out, "%-12s %s\n", "Secret:", secret)
 	}
 
-	fmt.Printf("%-12s %s\n", "RuleID:", f.RuleID)
-	fmt.Printf("%-12s %f\n", "Entropy:", f.Entropy)
+	fmt.Fprintf(out, "%-12s %s\n", "RuleID:", f.RuleID)
+	fmt.Fprintf(out, "%-12s %f\n", "Entropy:", f.Entropy)
 
 	if f.File == "" {
 		f.PrintRequiredFindings()
-		fmt.Println("")
+		fmt.Fprintln(out, "")
 		return
 	}
 	if len(f.Tags) > 0 {
-		fmt.Printf("%-12s %s\n", "Tags:", f.Tags)
+		fmt.Fprintf(out, "%-12s %s\n", "Tags:", f.Tags)
 	}
-	fmt.Printf("%-12s %s\n", "File:", f.File)
-	fmt.Printf("%-12s %d\n", "Line:", f.StartLine)
+	fmt.Fprintf(out, "%-12s %s\n", "File:", f.File)
+	fmt.Fprintf(out, "%-12s %d\n", "Line:", f.StartLine)
 	if f.Commit == "" {
-		fmt.Printf("%-12s %s\n", "Fingerprint:", f.Fingerprint)
+		fmt.Fprintf(out, "%-12s %s\n", "Fingerprint:", f.Fingerprint)
 		f.PrintRequiredFindings()
-		fmt.Println("")
+		fmt.Fprintln(out, "")
 		return
 	}
-	fmt.Printf("%-12s %s\n", "Commit:", f.Commit)
-	fmt.Printf("%-12s %s\n", "Author:", f.Author)
-	fmt.Printf("%-12s %s\n", "Email:", f.Email)
-	fmt.Printf("%-12s %s\n", "Date:", f.Date)
-	fmt.Printf("%-12s %s\n", "Fingerprint:", f.Fingerprint)
+	fmt.Fprintf(out, "%-12s %s\n", "Commit:", f.Commit)
+	fmt.Fprintf(out, "%-12s %s\n", "Author:", f.Author)
+	fmt.Fprintf(out, "%-12s %s\n", "Email:", f.Email)
+	fmt.Fprintf(out, "%-12s %s\n", "Date:", f.Date)
+	fmt.Fprintf(out, "%-12s %s\n", "Fingerprint:", f.Fingerprint)
 	if f.Link != "" {
-		fmt.Printf("%-12s %s\n", "Link:", f.Link)
+		fmt.Fprintf(out, "%-12s %s\n", "Link:", f.Link)
 	}
 
 	f.PrintRequiredFindings()
-	fmt.Println("")
+	fmt.Fprintln(out, "")
 }

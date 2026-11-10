@@ -6,6 +6,25 @@
 **Experiment branch:** `test/deps-upgrade-all`
 **Canonical CP5 baseline remains unchanged.** This experiment does not supersede CP5 and does not mark CP5 owner acceptance.
 
+## Round 2 — toolchain, Alpine runtime, and Lip Gloss v2
+
+**Status:** Experimental implementation checkpoint complete; **not merged, not released, not production-approved.**
+**Round 2 base commit:** `c5911d4c0decb848a99397a306079760c9f9d4b2`
+**Full record:** [`deps-upgrade-round2.md`](deps-upgrade-round2.md)
+
+Round 1 (below) was dependency-only: it changed `go.mod`, `go.sum`, and documentation. Round 2 is the first round that also changes application source, the container build, and CI. The round 1 results below remain valid and are not rewritten.
+
+| Area | Round 2 result |
+| --- | --- |
+| Go toolchain | Build/test pinned to **Go 1.27.3**; `go.mod` minimum deliberately stays **1.26.0** |
+| Container | Reproducible `golang:1.27.3-alpine3.24` build; patched `alpine:3.24` runtime (`zlib` 1.4-r0) |
+| Lip Gloss | `github.com/charmbracelet/lipgloss` v1.1.0 → **`charm.land/lipgloss/v2` v2.0.6** |
+| Display output | Finding output routed through a color-downsampling writer; redirected output stays ANSI-free |
+| CI | 8-job workflow; `**` branch trigger fixes the slash-branch matching defect |
+| Dependencies | 1 direct module replaced; `termenv`, `x/cellbuf`, `go-osc52` removed from the graph |
+| Container scan | **0 OS-package findings**; 1 unreachable Go-module advisory (`GO-2026-5932`) |
+| Regressions | None retained; the ANSI leak found mid-migration is fixed and covered by a new test |
+
 ## Objective
 
 Determine whether the fork can move to the latest stable Go dependency stack, including `github.com/wasilibs/go-re2` v1.13.0, and characterize the build, test, detection, performance, security, and migration consequences before any remediation work is authorized.

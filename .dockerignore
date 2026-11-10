@@ -1,0 +1,32 @@
+# Docker build context for the gitleaks container image.
+#
+# NOTE: `.git` is intentionally NOT excluded. The Dockerfile derives the stamped
+# application version from the nearest git tag when VERSION is not supplied as a
+# build argument, and go.mod/go.sum plus all compiled sources are always kept.
+
+# Documentation and assessment trees are not part of the build.
+_assessment/
+_backlog/
+docs/
+scripts/
+
+# Fixtures, generated samples, and report templates are not needed to compile
+# the application. The embedded rule config lives in config/gitleaks.toml and is
+# deliberately kept.
+testdata/
+report_templates/
+
+# GitHub and editor metadata.
+.github/
+.vscode/
+.idea/
+
+# Local build output, profiles, and test artifacts.
+gitleaks
+build/
+dist/
+profile/
+**/*.out
+**/*.got.*
+**/*.exe
+cover.out

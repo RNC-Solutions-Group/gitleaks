@@ -2,12 +2,25 @@ package report
 
 import (
 	"fmt"
+	"io"
 	"math"
+	"os"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/zricethezav/gitleaks/v8/sources"
 )
+
+// ColorWriter returns a writer for standard output that down-samples ANSI
+// color sequences to the color profile supported by the current terminal.
+//
+// Lip Gloss v2 always renders full-fidelity ANSI and leaves color down-sampling
+// to the output layer. Writing styled output through this writer preserves the
+// v1 behavior where redirected or piped output contains no escape sequences.
+func ColorWriter() io.Writer {
+	return colorprofile.NewWriter(os.Stdout, os.Environ())
+}
 
 // Finding contains a whole bunch of information about a secret finding.
 // Plenty of real estate in this bad boy so fillerup as needed.
@@ -104,7 +117,8 @@ func (f *Finding) PrintRequiredFindings() {
 		return
 	}
 
-	fmt.Printf("%-12s ", "Required:")
+	out := ColorWriter()
+	fmt.Fprintf(out, "%-12s ", "Required:")
 
 	// Create orange style for secrets
 	orangeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#bf9478"))
@@ -118,9 +132,9 @@ func (f *Finding) PrintRequiredFindings() {
 
 		// Format: rule-id:line:secret
 		if i == 0 {
-			fmt.Printf("%s:%d:%s\n", aux.RuleID, aux.StartLine, orangeStyle.Render(auxSecret))
+			fmt.Fprintf(out, "%s:%d:%s\n", aux.RuleID, aux.StartLine, orangeStyle.Render(auxSecret))
 		} else {
-			fmt.Printf("%-12s %s:%d:%s\n", "", aux.RuleID, aux.StartLine, orangeStyle.Render(auxSecret))
+			fmt.Fprintf(out, "%-12s %s:%d:%s\n", "", aux.RuleID, aux.StartLine, orangeStyle.Render(auxSecret))
 		}
 	}
 }
