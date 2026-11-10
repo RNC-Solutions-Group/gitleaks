@@ -144,7 +144,7 @@ jobs:
           load: true
           tags: gitleaks:ci-amd64
           build-args: |
-            VERSION=ci-${GITHUB_SHA}
+            VERSION=ci-${{ github.sha }}
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,mode=max,scope=amd64
 
@@ -153,6 +153,7 @@ jobs:
           set -eux
           test "$(docker image inspect --format '{{.Architecture}}' gitleaks:ci-amd64)" = "amd64"
           docker run --rm gitleaks:ci-amd64 --version
+          test "$(docker run --rm gitleaks:ci-amd64 version)" = "ci-${GITHUB_SHA}"
           docker run --rm gitleaks:ci-amd64 --help
           docker run --rm --entrypoint sh gitleaks:ci-amd64 -c 'bash --version | head -1; git --version; ssh -V'
 
@@ -219,7 +220,7 @@ jobs:
           load: true
           tags: gitleaks:ci-arm64
           build-args: |
-            VERSION=ci-${GITHUB_SHA}
+            VERSION=ci-${{ github.sha }}
           cache-from: type=gha,scope=arm64
           cache-to: type=gha,mode=max,scope=arm64
 
@@ -228,6 +229,7 @@ jobs:
           set -eux
           test "$(docker image inspect --format '{{.Architecture}}' gitleaks:ci-arm64)" = "arm64"
           docker run --rm --platform linux/arm64 gitleaks:ci-arm64 --version
+          test "$(docker run --rm --platform linux/arm64 gitleaks:ci-arm64 version)" = "ci-${GITHUB_SHA}"
           docker run --rm --platform linux/arm64 gitleaks:ci-arm64 --help
 
       - name: Smoke test (mounted workspace scan and exit code)
@@ -287,7 +289,7 @@ jobs:
           load: true
           tags: gitleaks:ci-scan
           build-args: |
-            VERSION=ci-${GITHUB_SHA}
+            VERSION=ci-${{ github.sha }}
           cache-from: type=gha,scope=amd64
 
       # Advisory data comes from the public Trivy database, so a database outage
