@@ -18,6 +18,9 @@ permissions:
 env:
   # Pinned build/test toolchain. The go.mod minimum supported version is lower.
   GO_VERSION: "1.27.3"
+  # Gitleaks parses build versions as SemVer. Keep the SHA in build metadata,
+  # using the default config's minimum supported version as a non-release base.
+  CI_VERSION: "v8.25.0+ci.${{ github.sha }}"
   # Pinned test reporter and vulnerability scanner (no unpinned @latest installs).
   GOTESTSUM_VERSION: "v1.13.0"
   GOVULNCHECK_VERSION: "v1.9.0"
@@ -122,13 +125,13 @@ jobs:
       - name: Build native macOS executable
         run: |
           go build -trimpath \
-            -ldflags "-s -w -X=github.com/zricethezav/gitleaks/v8/version.Version=ci-${GITHUB_SHA}" \
+            -ldflags "-s -w -X=github.com/zricethezav/gitleaks/v8/version.Version=${CI_VERSION}" \
             -o "${RUNNER_TEMP}/gitleaks-macos" .
           file "${RUNNER_TEMP}/gitleaks-macos"
 
       - name: Execute native CLI and verify version stamp
         run: |
-          test "$("${RUNNER_TEMP}/gitleaks-macos" version)" = "ci-${GITHUB_SHA}"
+          test "$("${RUNNER_TEMP}/gitleaks-macos" version)" = "${CI_VERSION}"
           "${RUNNER_TEMP}/gitleaks-macos" --help > /dev/null
           mkdir -p "${RUNNER_TEMP}/clean-scan"
           printf 'ordinary text, no credentials\n' > "${RUNNER_TEMP}/clean-scan/readme.txt"
@@ -137,9 +140,9 @@ jobs:
       - name: Build and execute native gore2regex variant
         run: |
           go build -trimpath -tags gore2regex \
-            -ldflags "-s -w -X=github.com/zricethezav/gitleaks/v8/version.Version=ci-${GITHUB_SHA}" \
+            -ldflags "-s -w -X=github.com/zricethezav/gitleaks/v8/version.Version=${CI_VERSION}" \
             -o "${RUNNER_TEMP}/gitleaks-macos-re2" .
-          test "$("${RUNNER_TEMP}/gitleaks-macos-re2" version)" = "ci-${GITHUB_SHA}"
+          test "$("${RUNNER_TEMP}/gitleaks-macos-re2" version)" = "${CI_VERSION}"
 
       - name: Install pinned test reporter
         run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
@@ -206,7 +209,7 @@ jobs:
           load: true
           tags: gitleaks:ci-amd64
           build-args: |
-            VERSION=ci-${{ github.sha }}
+            VERSION=${{ env.CI_VERSION }}
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,mode=max,scope=amd64
 
@@ -215,7 +218,7 @@ jobs:
           set -eux
           test "$(docker image inspect --format '{{.Architecture}}' gitleaks:ci-amd64)" = "amd64"
           docker run --rm gitleaks:ci-amd64 --version
-          test "$(docker run --rm gitleaks:ci-amd64 version)" = "ci-${GITHUB_SHA}"
+          test "$(docker run --rm gitleaks:ci-amd64 version)" = "${CI_VERSION}"
           docker run --rm gitleaks:ci-amd64 --help
           docker run --rm --entrypoint sh gitleaks:ci-amd64 -c 'bash --version | head -1; git --version; ssh -V'
 
@@ -282,7 +285,7 @@ jobs:
           load: true
           tags: gitleaks:ci-arm64
           build-args: |
-            VERSION=ci-${{ github.sha }}
+            VERSION=${{ env.CI_VERSION }}
           cache-from: type=gha,scope=arm64
           cache-to: type=gha,mode=max,scope=arm64
 
@@ -291,7 +294,7 @@ jobs:
           set -eux
           test "$(docker image inspect --format '{{.Architecture}}' gitleaks:ci-arm64)" = "arm64"
           docker run --rm --platform linux/arm64 gitleaks:ci-arm64 --version
-          test "$(docker run --rm --platform linux/arm64 gitleaks:ci-arm64 version)" = "ci-${GITHUB_SHA}"
+          test "$(docker run --rm --platform linux/arm64 gitleaks:ci-arm64 version)" = "${CI_VERSION}"
           docker run --rm --platform linux/arm64 gitleaks:ci-arm64 --help
 
       - name: Smoke test (mounted workspace scan and exit code)
@@ -351,7 +354,7 @@ jobs:
           load: true
           tags: gitleaks:ci-scan
           build-args: |
-            VERSION=ci-${{ github.sha }}
+            VERSION=${{ env.CI_VERSION }}
           cache-from: type=gha,scope=amd64
 
       # Advisory data comes from the public Trivy database, so a database outage
