@@ -17,11 +17,13 @@ RUN go mod download
 COPY . .
 
 # Version stamping: honour an explicit --build-arg VERSION (what release
-# tooling passes), otherwise fall back to the nearest git tag, then "unknown"
-# for tagless or shallow checkouts. .git is intentionally kept in the build
-# context (.dockerignore) so the fallback keeps working.
+# tooling passes). Otherwise use git describe so commits after the latest tag
+# aren't mislabeled as that release. It also produces a commit hash for a
+# tagless checkout; "unknown" is the last-resort fallback without git metadata.
+# Don't use --dirty: .dockerignore omits tracked files from the build context,
+# making even clean source appear modified. .git is deliberately included.
 ARG VERSION
-RUN VERSION="${VERSION:-$(git -c safe.directory='*' describe --tags --abbrev=0 2>/dev/null || echo unknown)}" && \
+RUN VERSION="${VERSION:-$(git -c safe.directory='*' describe --tags --always 2>/dev/null || echo unknown)}" && \
     CGO_ENABLED=0 go build -trimpath \
       -o /out/gitleaks \
       -ldflags "-s -w -X=github.com/zricethezav/gitleaks/v8/version.Version=${VERSION}"
