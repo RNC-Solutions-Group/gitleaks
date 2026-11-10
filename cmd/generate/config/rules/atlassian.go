@@ -2,6 +2,7 @@ package rules
 
 import (
 	"github.com/zricethezav/gitleaks/v8/cmd/generate/config/utils"
+	"github.com/zricethezav/gitleaks/v8/cmd/generate/secrets"
 	"github.com/zricethezav/gitleaks/v8/config"
 )
 
@@ -23,14 +24,19 @@ func Atlassian() *config.Rule {
 	}
 
 	// validate
-	// A random 24-character token can match the regex but occasionally fall
-	// below the 3.5 entropy threshold. Keep generation validation deterministic
-	// with a known high-entropy token instead of weakening the detection rule.
-	const sampleToken = "HXe8DGg1iJd2AopzyxkFB7F2"
+	// Generate against the declared entropy threshold so a regex-valid but
+	// low-entropy candidate is rejected before the detector validator runs.
+	sampleToken := secrets.MustGenerateSecret(secrets.Requirements{
+		Regex:       utils.AlphaNumeric("20") + utils.Hex("4"),
+		MinEntropy:  r.Entropy,
+		Seed:        secrets.DefaultSeed,
+		MaxAttempts: secrets.DefaultMaxAttempts,
+		Label:       r.RuleID,
+	})
 	tps := utils.GenerateSampleSecrets("atlassian", sampleToken)
 	tps = append(tps, utils.GenerateSampleSecrets("confluence", sampleToken)...)
 	tps = append(tps, utils.GenerateSampleSecrets("jira", sampleToken)...)
-	tps = append(tps, `JIRA_API_TOKEN=HXe8DGg1iJd2AopzyxkFB7F2`)
+	tps = append(tps, `JIRA_API_TOKEN=`+sampleToken)
 	tps = append(tps, utils.GenerateSampleSecrets("jira", "ATATT3xFfGF0K3irG5tKKi-6u-wwaXQFeGwZ-IHR-hQ3CulkKtMSuteRQFfLZ6jihHThzZCg_UjnDt-4Wl_gIRf4zrZJs5JqaeuBhsfJ4W5GD6yGg3W7903gbvaxZPBjxIQQ7BgFDSkPS8oPispw4KLz56mdK-G6CIvLO6hHRrZHY0Q3tvJ6JxE=C63992E6")...)
 
 	fps := []string{"getPagesInConfluenceSpace,searchConfluenceUsingCql"}
