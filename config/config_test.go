@@ -2,6 +2,8 @@ package config
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -658,6 +660,101 @@ auto-overwrite = false
 			assert.Equal(t, test.aggregation, cfg.Aggregation)
 		})
 	}
+}
+
+func TestTranslateTracksConfigFiles(t *testing.T) {
+	t.Cleanup(func() {
+		extendDepth = 0
+		viper.Reset()
+	})
+
+	writeConfig := func(t *testing.T, name, content string) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), name)
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+		return path
+	}
+	translateFile := func(t *testing.T, path string) Config {
+		t.Helper()
+		viper.SetConfigFile(path)
+		require.NoError(t, viper.ReadInConfig())
+		var vc ViperConfig
+		require.NoError(t, viper.Unmarshal(&vc))
+		cfg, err := vc.Translate()
+		require.NoError(t, err)
+		return cfg
+	}
+
+	t.Run("explicit file config is tracked", func(t *testing.T) {
+		t.Cleanup(func() {
+			extendDepth = 0
+			viper.Reset()
+		})
+		path := writeConfig(t, "main.toml", "title = \"main\"\n")
+		cfg := translateFile(t, path)
+		requireConfigFile(t, cfg.ConfigFiles, path)
+	})
+
+	t.Run("inline config has no filesystem path", func(t *testing.T) {
+		t.Cleanup(func() {
+			extendDepth = 0
+			viper.Reset()
+		})
+		viper.SetConfigType("toml")
+		require.NoError(t, viper.ReadConfig(strings.NewReader("title = \"inline\"\n")))
+		var vc ViperConfig
+		require.NoError(t, viper.Unmarshal(&vc))
+		cfg, err := vc.Translate()
+		require.NoError(t, err)
+		assert.Empty(t, cfg.ConfigFiles)
+	})
+
+	t.Run("extended file config is tracked", func(t *testing.T) {
+		t.Cleanup(func() {
+			extendDepth = 0
+			viper.Reset()
+		})
+		base := writeConfig(t, "base.toml", "title = \"base\"\n")
+		main := writeConfig(t, "main.toml", "title = \"main\"\n[extend]\npath = \""+filepath.ToSlash(base)+"\"\n")
+		cfg := translateFile(t, main)
+		requireConfigFile(t, cfg.ConfigFiles, main)
+		requireConfigFile(t, cfg.ConfigFiles, base)
+	})
+
+	t.Run("nested extended file configs are tracked", func(t *testing.T) {
+		t.Cleanup(func() {
+			extendDepth = 0
+			viper.Reset()
+		})
+		grand := writeConfig(t, "grand.toml", "title = \"grand\"\n")
+		base := writeConfig(t, "base.toml", "title = \"base\"\n[extend]\npath = \""+filepath.ToSlash(grand)+"\"\n")
+		main := writeConfig(t, "main.toml", "title = \"main\"\n[extend]\npath = \""+filepath.ToSlash(base)+"\"\n")
+		cfg := translateFile(t, main)
+		requireConfigFile(t, cfg.ConfigFiles, main)
+		requireConfigFile(t, cfg.ConfigFiles, base)
+		requireConfigFile(t, cfg.ConfigFiles, grand)
+	})
+}
+
+func requireConfigFile(t *testing.T, configFiles []string, want string) {
+	t.Helper()
+	wantAbs, err := filepath.Abs(want)
+	require.NoError(t, err)
+	wantInfo, err := os.Stat(wantAbs)
+	require.NoError(t, err)
+	for _, path := range configFiles {
+		gotAbs, err := filepath.Abs(path)
+		if err != nil {
+			continue
+		}
+		if filepath.Clean(gotAbs) == filepath.Clean(wantAbs) {
+			return
+		}
+		if gotInfo, err := os.Stat(gotAbs); err == nil && os.SameFile(gotInfo, wantInfo) {
+			return
+		}
+	}
+	t.Fatalf("configuration file %q not found in %v", want, configFiles)
 }
 
 func testTranslate(t *testing.T, test translateCase) {

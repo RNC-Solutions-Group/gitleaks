@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -102,6 +103,10 @@ type Config struct {
 	OrderedRules []string
 	Allowlists   []*Allowlist
 	MinVersion   string
+	// ConfigFiles lists every configuration file loaded from disk for this
+	// config, including files reached through extend.path. Inline
+	// GITLEAKS_CONFIG_TOML data and the embedded default config are not paths.
+	ConfigFiles []string
 	// AutoOverwrite and Aggregation are the resolved report output policy.
 	// AutoOverwrite defaults to true and Aggregation defaults to false.
 	AutoOverwrite bool
@@ -227,6 +232,7 @@ func (vc *ViperConfig) Translate() (Config, error) {
 		// I don't love this
 		c.Path = viper.ConfigFileUsed()
 	}
+	c.ConfigFiles = appendConfigFile(c.ConfigFiles, c.Path)
 
 	if err := validateMinVersion(c.MinVersion, c.Path); err != nil {
 		return Config{}, err
@@ -501,7 +507,24 @@ func (c *Config) extend(extensionConfig Config) {
 	// append allowlists, not attempting to merge
 	c.Allowlists = append(c.Allowlists, extensionConfig.Allowlists...)
 
+	for _, path := range extensionConfig.ConfigFiles {
+		c.ConfigFiles = appendConfigFile(c.ConfigFiles, path)
+	}
+
 	// sort to keep extended rules in order
 	sort.Strings(c.OrderedRules)
 	return
+}
+
+func appendConfigFile(paths []string, path string) []string {
+	if path == "" {
+		return paths
+	}
+	clean := filepath.Clean(path)
+	for _, existing := range paths {
+		if filepath.Clean(existing) == clean {
+			return paths
+		}
+	}
+	return append(paths, path)
 }
