@@ -527,6 +527,7 @@ type Git struct {
 	Config          *config.Config
 	Remote          *RemoteInfo
 	Sema            *semgroup.Group
+	MaxFileSize     int
 	MaxArchiveDepth int
 }
 
@@ -697,6 +698,7 @@ func (s *Git) processDiffFile(
 		file := File{
 			Content:         blob,
 			Path:            diffFile.NewName,
+			MaxFileSize:     s.MaxFileSize,
 			MaxArchiveDepth: s.MaxArchiveDepth,
 			Config:          s.Config,
 		}

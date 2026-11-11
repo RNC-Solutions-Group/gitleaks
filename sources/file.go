@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +21,11 @@ import (
 
 const defaultBufferSize = 100 * 1_000 // 100kb
 const InnerPathSeparator = "!"
+
+// archivePeekSize bounds how much content is inspected when verifying a
+// filename-derived archive match. It covers the magic/header checks used by the
+// archive package, including brotli's bounded trial decode.
+const archivePeekSize = 64 * 1_000
 
 type seekReaderAt interface {
 	io.ReaderAt
@@ -39,6 +45,15 @@ type File struct {
 	// Config is the gitleaks config used for shouldSkipPath. If not set, then
 	// shouldSkipPath is ignored
 	Config *config.Config
+	// MaxFileSize is the largest uncompressed file or member size, in bytes,
+	// that will be scanned. Zero means no explicit limit. Propagation follows
+	// gitleaks/gitleaks#2099 (@alephnull-sh); unknown-size streams are bounded
+	// with a temporary spool instead of buffering whole contents in memory.
+	MaxFileSize int
+	// Size is the known size in bytes. For archive members this is the
+	// uncompressed member size. Zero means unknown or empty; a positive
+	// MaxFileSize is then enforced by bounded spooling.
+	Size int64
 	// outerPaths is the list of container paths (e.g. archives) that lead to
 	// this file
 	outerPaths []string
@@ -51,10 +66,21 @@ type File struct {
 // Fragments yields fragments for the this source
 func (s *File) Fragments(ctx context.Context, yield FragmentsFunc) error {
 	format, _, err := archives.Identify(ctx, s.Path, nil)
-	// Process the file as an archive if there's no error && Identify returns
-	// a format; but if there's an error or no format, just swallow the error
-	// and fall back on treating it like a normal file and let fileFragments
-	// decide what to do with it.
+	if err != nil && !errors.Is(err, archives.NoMatch) {
+		return fmt.Errorf("could not identify file format: %w", err)
+	}
+	// Identify was called without content, so a filename alone can select a
+	// format. Verify the selected format against a bounded content prefix
+	// before routing the file into archive/decompression handling.
+	if err == nil && format != nil {
+		matches, matchErr := s.contentMatchesArchive(ctx, format)
+		if matchErr != nil {
+			return matchErr
+		}
+		if !matches {
+			format = nil
+		}
+	}
 	if err == nil && format != nil {
 		if s.archiveDepth+1 > s.MaxArchiveDepth {
 			var event *zerolog.Event
@@ -83,7 +109,130 @@ func (s *File) Fragments(ctx context.Context, yield FragmentsFunc) error {
 		logging.Warn().Str("path", s.FullPath()).Msg("skipping unknown archive type")
 	}
 
+	cleanup, skipped, err := s.applyPlainSizeLimit(ctx)
+	if err != nil {
+		return err
+	}
+	if skipped {
+		return nil
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
 	return s.fileFragments(ctx, bufio.NewReader(s.Content), yield)
+}
+
+// contentMatchesArchive reports whether the selected format's stream signature
+// matches a bounded prefix. Consumed bytes are restored before returning, even
+// on a read error, so the caller can report the error without losing content.
+// The content-verification approach is adapted from gitleaks/gitleaks#2317
+// (@Varshith-Kali), with explicit read-error propagation and non-seekable
+// prefix replay added here.
+func (s *File) contentMatchesArchive(ctx context.Context, format archives.Format) (bool, error) {
+	peeked := make([]byte, archivePeekSize)
+	n, readErr := io.ReadFull(s.Content, peeked)
+	peeked = peeked[:n]
+	s.restorePrefix(peeked)
+
+	if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
+		return false, fmt.Errorf("could not read file for archive verification: %w", readErr)
+	}
+
+	match, err := verifyArchiveStream(ctx, format, s.Path, peeked)
+	if err != nil {
+		return false, fmt.Errorf("could not verify archive content: %w", err)
+	}
+	return match.ByStream, nil
+}
+
+func (s *File) restorePrefix(prefix []byte) {
+	if len(prefix) == 0 {
+		return
+	}
+	if seeker, ok := s.Content.(io.Seeker); ok {
+		if _, err := seeker.Seek(-int64(len(prefix)), io.SeekCurrent); err == nil {
+			return
+		}
+	}
+	s.Content = io.MultiReader(bytes.NewReader(prefix), s.Content)
+}
+
+// verifyArchiveStream checks the format's stream signature against a bounded
+// prefix. Combined formats are checked at the outer compression layer;
+// verifying the inner archive would require unbounded decompression.
+func verifyArchiveStream(ctx context.Context, format archives.Format, name string, peeked []byte) (archives.MatchResult, error) {
+	if ca, ok := format.(archives.CompressedArchive); ok && ca.Compression != nil {
+		return ca.Compression.Match(ctx, name, bytes.NewReader(peeked))
+	}
+	return format.Match(ctx, name, bytes.NewReader(peeked))
+}
+
+// applyPlainSizeLimit enforces MaxFileSize for non-archive content. Known
+// sizes are checked without reading. Unknown or zero sizes are bounded through
+// a temporary spool so an oversized stream is excluded before any fragment is
+// yielded.
+func (s *File) applyPlainSizeLimit(ctx context.Context) (cleanup func(), skipped bool, err error) {
+	if s.MaxFileSize <= 0 {
+		return nil, false, nil
+	}
+
+	if s.Size > int64(s.MaxFileSize) {
+		logging.Warn().
+			Str("path", s.FullPath()).
+			Msgf("skipping file: too large max_size=%dMB, size=%dMB", s.MaxFileSize/1_000_000, s.Size/1_000_000)
+		return nil, true, nil
+	}
+	if s.Size > 0 {
+		return nil, false, nil
+	}
+
+	content, size, cleanup, skipped, err := spoolLimitedReader(ctx, s.Content, s.MaxFileSize)
+	if err != nil {
+		return nil, false, err
+	}
+	if skipped {
+		cleanup()
+		logging.Warn().
+			Str("path", s.FullPath()).
+			Msgf("skipping file: too large max_size=%dMB", s.MaxFileSize/1_000_000)
+		return nil, true, nil
+	}
+	s.Content = content
+	s.Size = size
+	return cleanup, false, nil
+}
+
+func spoolLimitedReader(ctx context.Context, reader io.Reader, max int) (io.Reader, int64, func(), bool, error) {
+	if max <= 0 {
+		return reader, 0, nil, false, nil
+	}
+	tmp, err := os.CreateTemp("", "gitleaks-content-")
+	if err != nil {
+		return nil, 0, nil, false, fmt.Errorf("could not create temporary content file: %w", err)
+	}
+	cleanup := func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+	}
+
+	n, err := io.Copy(tmp, io.LimitReader(reader, int64(max)+1))
+	if err != nil {
+		cleanup()
+		return nil, 0, nil, false, fmt.Errorf("could not read file: %w", err)
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		cleanup()
+		return nil, 0, nil, false, ctxErr
+	}
+	if n > int64(max) {
+		cleanup()
+		return nil, n, func() {}, true, nil
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		cleanup()
+		return nil, 0, nil, false, fmt.Errorf("could not rewind temporary content file: %w", err)
+	}
+	return tmp, n, cleanup, false, nil
 }
 
 // extractorFragments recursively crawls archives and yields fragments
@@ -95,16 +244,33 @@ func (s *File) extractorFragments(ctx context.Context, extractor archives.Extrac
 			if err != nil {
 				return fmt.Errorf("could not create temporary archive file: %w", err)
 			}
-			defer func() {
+			cleanup := func() {
 				_ = tmpfile.Close()
 				_ = os.Remove(tmpfile.Name())
-			}()
-
-			_, err = io.Copy(tmpfile, reader)
-			if err != nil {
-				return fmt.Errorf("could not copy archive file: %w", err)
 			}
+			defer cleanup()
 
+			var (
+				copied  int64
+				copyErr error
+			)
+			if s.MaxFileSize > 0 {
+				copied, copyErr = io.Copy(tmpfile, io.LimitReader(reader, int64(s.MaxFileSize)+1))
+			} else {
+				copied, copyErr = io.Copy(tmpfile, reader)
+			}
+			if copyErr != nil {
+				return fmt.Errorf("could not copy archive file: %w", copyErr)
+			}
+			if s.MaxFileSize > 0 && copied > int64(s.MaxFileSize) {
+				logging.Warn().
+					Str("path", s.FullPath()).
+					Msgf("skipping archive: too large max_size=%dMB", s.MaxFileSize/1_000_000)
+				return nil
+			}
+			if _, err := tmpfile.Seek(0, io.SeekStart); err != nil {
+				return fmt.Errorf("could not rewind archive file: %w", err)
+			}
 			reader = tmpfile
 		}
 	}
@@ -114,31 +280,41 @@ func (s *File) extractorFragments(ctx context.Context, extractor archives.Extrac
 			return nil
 		}
 
-		innerReader, err := d.Open()
-		if err != nil {
-			return fmt.Errorf("could not open archive entry %q: %w", d.NameInArchive, err)
-		}
-		defer innerReader.Close()
 		path := filepath.Clean(d.NameInArchive)
-
 		if s.Config != nil && shouldSkipPath(s.Config, path) {
 			logging.Debug().Str("path", s.FullPath()).Msg("skipping file: global allowlist")
 			return nil
 		}
 
+		if s.MaxFileSize > 0 && d.Size() > int64(s.MaxFileSize) {
+			logging.Warn().
+				Str("path", filepath.ToSlash(filepath.Join(s.FullPath(), path))).
+				Msgf("skipping file: too large max_size=%dMB, size=%dMB", s.MaxFileSize/1_000_000, d.Size()/1_000_000)
+			return nil
+		}
+
+		innerReader, err := d.Open()
+		if err != nil {
+			return fmt.Errorf("could not open archive entry %q: %w", d.NameInArchive, err)
+		}
 		file := &File{
 			Content:         innerReader,
 			Path:            path,
 			Symlink:         s.Symlink,
 			outerPaths:      append(s.outerPaths, filepath.ToSlash(s.Path)),
 			MaxArchiveDepth: s.MaxArchiveDepth,
+			MaxFileSize:     s.MaxFileSize,
+			Size:            d.Size(),
 			archiveDepth:    s.archiveDepth + 1,
 		}
 
 		if err := file.Fragments(ctx, yield); err != nil {
+			_ = innerReader.Close()
 			return err
 		}
-
+		if err := innerReader.Close(); err != nil {
+			return fmt.Errorf("could not close archive entry %q: %w", d.NameInArchive, err)
+		}
 		return nil
 	})
 }
@@ -150,12 +326,34 @@ func (s *File) decompressorFragments(ctx context.Context, decompressor archives.
 		return fmt.Errorf("could not open compressed file: %w", err)
 	}
 
+	if s.MaxFileSize > 0 {
+		content, size, cleanup, skipped, err := spoolLimitedReader(ctx, innerReader, s.MaxFileSize)
+		if closeErr := innerReader.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("could not close compressed file: %w", closeErr)
+		}
+		if err != nil {
+			return err
+		}
+		if skipped {
+			cleanup()
+			logging.Warn().
+				Str("path", s.FullPath()).
+				Msgf("skipping file: too large max_size=%dMB", s.MaxFileSize/1_000_000)
+			return nil
+		}
+		defer cleanup()
+		s.Content = content
+		s.Size = size
+		return s.fileFragments(ctx, bufio.NewReader(content), yield)
+	}
+
 	if err := s.fileFragments(ctx, bufio.NewReader(innerReader), yield); err != nil {
 		_ = innerReader.Close()
 		return err
 	}
-
-	_ = innerReader.Close()
+	if err := innerReader.Close(); err != nil {
+		return fmt.Errorf("could not close compressed file: %w", err)
+	}
 	return nil
 }
 

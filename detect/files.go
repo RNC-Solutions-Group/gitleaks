@@ -51,24 +51,16 @@ func (d *Detector) DetectFiles(scanTargets <-chan sources.ScanTarget) ([]report.
 				return nil
 			}
 
-			// Too large; nothing to do here.
-			if d.MaxTargetMegaBytes > 0 {
-				rawLength := info.Size() / 1_000_000
-				if rawLength > int64(d.MaxTargetMegaBytes) {
-					logger.Warn().Msgf(
-						"skipping file: too large max_size=%dMB, size=%dMB",
-						d.MaxTargetMegaBytes, rawLength,
-					)
-					return nil
-				}
-			}
-
-			// Convert this to a file source
+			// Convert this to a file source. File enforces the configured
+			// limit after archive verification, using the actual content for
+			// archive members rather than the container size.
 			file := sources.File{
 				Content:         f,
 				Path:            scanTarget.Path,
 				Symlink:         scanTarget.Symlink,
 				Config:          &d.Config,
+				MaxFileSize:     d.MaxTargetMegaBytes * 1_000_000,
+				Size:            info.Size(),
 				MaxArchiveDepth: d.MaxArchiveDepth,
 			}
 

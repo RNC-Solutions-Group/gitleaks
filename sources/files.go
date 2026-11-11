@@ -17,6 +17,8 @@ import (
 type ScanTarget struct {
 	Path    string
 	Symlink string
+	// Size is the target file's size when known.
+	Size int64
 }
 
 // Deprecated: Use Files and detector.DetectSource instead
@@ -81,14 +83,10 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 				return nil
 			}
 
-			// Too large; nothing to do here.
-			if s.MaxFileSize > 0 && info.Size() > int64(s.MaxFileSize) {
-				logger.Warn().Msgf(
-					"skipping file: too large max_size=%dMB, size=%dMB",
-					s.MaxFileSize/1_000_000, info.Size()/1_000_000,
-				)
-				return nil
-			}
+			// Size enforcement happens in File after archive verification so
+			// an archive's members, not merely its compressed outer size, are
+			// bounded.
+			scanTarget.Size = info.Size()
 		}
 
 		// set the initial scan target values
@@ -112,6 +110,7 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 			scanTarget = ScanTarget{
 				Path:    realPath,
 				Symlink: path,
+				Size:    realPathFileInfo.Size(),
 			}
 		}
 
@@ -184,6 +183,8 @@ func (s *Files) scanFile(ctx context.Context, scanTarget ScanTarget, yield Fragm
 		Path:            scanTarget.Path,
 		Symlink:         scanTarget.Symlink,
 		Config:          s.Config,
+		MaxFileSize:     s.MaxFileSize,
+		Size:            scanTarget.Size,
 		MaxArchiveDepth: s.MaxArchiveDepth,
 	}
 

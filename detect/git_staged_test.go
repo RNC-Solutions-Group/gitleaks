@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -284,4 +285,35 @@ func TestStagedArchiveRespectsDepthPolicy(t *testing.T) {
 	findings, err := stagedDetector(t, repo, true, 0)
 	require.NoError(t, err)
 	assert.Empty(t, findings)
+}
+
+func stagedFindingsWithMaxFileSize(t *testing.T, repo string, maxFileSize int) ([]report.Finding, error) {
+	t.Helper()
+	detector, err := NewDetectorDefaultConfig()
+	require.NoError(t, err)
+	gitCmd, err := sources.NewGitDiffCmdContext(context.Background(), repo, true)
+	require.NoError(t, err)
+	return detector.DetectSource(context.Background(), &sources.Git{
+		Cmd:             gitCmd,
+		Config:          &detector.Config,
+		Remote:          sources.NewRemoteInfo(scm.NoPlatform, repo),
+		Sema:            detector.Sema,
+		MaxFileSize:     maxFileSize,
+		MaxArchiveDepth: 0,
+	})
+}
+
+func TestStagedBinaryMarkedBlobHonorsMaxFileSize(t *testing.T) {
+	repo := initStagedTestRepo(t)
+	stageFile(t, repo, ".gitattributes", "secret.txt -diff\n")
+	stageFile(t, repo, "secret.txt", strings.Repeat("A", 512)+" token = \""+stagedTestPAT+"\"\n")
+
+	findings, err := stagedFindingsWithMaxFileSize(t, repo, 100)
+	require.NoError(t, err)
+	assert.Empty(t, findings)
+
+	findings, err = stagedFindingsWithMaxFileSize(t, repo, 4096)
+	require.NoError(t, err)
+	require.NotEmpty(t, findings)
+	assert.Equal(t, stagedTestPAT, findings[0].Secret)
 }

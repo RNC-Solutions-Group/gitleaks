@@ -30,6 +30,7 @@ func (d *Detector) DetectGitContext(ctx context.Context, cmd *sources.GitCmd, re
 			Config:          &d.Config,
 			Remote:          (*sources.RemoteInfo)(remote),
 			Sema:            d.Sema,
+			MaxFileSize:     d.MaxTargetMegaBytes * 1_000_000,
 			MaxArchiveDepth: d.MaxArchiveDepth,
 		},
 	)
