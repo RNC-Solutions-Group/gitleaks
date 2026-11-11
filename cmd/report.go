@@ -201,6 +201,13 @@ func soleRegularFile(source, reportPath string) (bool, error) {
 		if entry.IsDir() {
 			return nil
 		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
 		count++
 		if count == 1 {
 			first = path
