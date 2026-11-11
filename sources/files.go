@@ -2,14 +2,14 @@ package sources
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/fatih/semgroup"
 	"github.com/zricethezav/gitleaks/v8/config"
+	"github.com/zricethezav/gitleaks/v8/internal/scanerr"
 	"github.com/zricethezav/gitleaks/v8/logging"
 )
 
@@ -36,6 +36,9 @@ func DirectoryTargets(sourcePath string, s *semgroup.Group, followSymlinks bool,
 	s.Go(func() error {
 		ctx := context.Background()
 		err := files.scanTargets(ctx, func(scanTarget ScanTarget, err error) error {
+			if err != nil {
+				return err
+			}
 			paths <- scanTarget
 			return nil
 		})
@@ -63,23 +66,12 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 		logger := logging.With().Str("path", path).Logger()
 
 		if err != nil {
-			if os.IsPermission(err) {
-				// This seems to only fail on directories at this stage.
-				logger.Warn().Err(errors.New("permission denied")).Msg("skipping directory")
-				return filepath.SkipDir
-			}
-			logger.Warn().Err(err).Msg("skipping")
-			return nil
+			return fmt.Errorf("could not walk %q: %w", path, err)
 		}
 
 		info, err := d.Info()
 		if err != nil {
-			if d.IsDir() {
-				logger.Error().Err(err).Msg("skipping directory: could not get info")
-				return filepath.SkipDir
-			}
-			logger.Error().Err(err).Msg("skipping file: could not get info")
-			return nil
+			return fmt.Errorf("could not inspect %q: %w", path, err)
 		}
 
 		if !d.IsDir() {
@@ -107,10 +99,13 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 			}
 			realPath, err := filepath.EvalSymlinks(path)
 			if err != nil {
-				logger.Error().Err(err).Msg("skipping symlink: could not evaluate")
-				return nil
+				return fmt.Errorf("could not resolve symlink %q: %w", path, err)
 			}
-			if realPathFileInfo, _ := os.Stat(realPath); realPathFileInfo.IsDir() {
+			realPathFileInfo, err := os.Stat(realPath)
+			if err != nil {
+				return fmt.Errorf("could not inspect symlink target %q: %w", realPath, err)
+			}
+			if realPathFileInfo.IsDir() {
 				logger.Debug().Str("target", realPath).Msgf("skipping symlink: target is directory")
 				return nil
 			}
@@ -134,58 +129,71 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 			return nil
 		}
 
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		return yield(scanTarget, nil)
 	})
 }
 
 // Fragments yields fragments from files discovered under the path
 func (s *Files) Fragments(ctx context.Context, yield FragmentsFunc) error {
-	var wg sync.WaitGroup
-
-	err := s.scanTargets(ctx, func(scanTarget ScanTarget, err error) error {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			wg.Add(1)
-			s.Sema.Go(func() error {
-				logger := logging.With().Str("path", scanTarget.Path).Logger()
-				logger.Trace().Msg("scanning path")
-
-				f, err := os.Open(scanTarget.Path)
-				if err != nil {
-					if os.IsPermission(err) {
-						logger.Warn().Msg("skipping file: permission denied")
-					}
-					wg.Done()
-					return nil
-				}
-
-				// Convert this to a file source
-				file := File{
-					Content:         f,
-					Path:            scanTarget.Path,
-					Symlink:         scanTarget.Symlink,
-					Config:          s.Config,
-					MaxArchiveDepth: s.MaxArchiveDepth,
-				}
-
-				err = file.Fragments(ctx, yield)
-				// Avoiding a defer in a hot loop
-				_ = f.Close()
-				wg.Done()
-				return err
-			})
-
-			return nil
-		}
-	})
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		wg.Wait()
-		return err
+	if s.Sema == nil {
+		s.Sema = semgroup.NewGroup(ctx, 40)
 	}
+	collector := scanerr.New(10)
+
+	walkErr := s.scanTargets(ctx, func(scanTarget ScanTarget, err error) error {
+		if err != nil {
+			return err
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		s.Sema.Go(func() error {
+			if err := s.scanFile(ctx, scanTarget, yield); err != nil {
+				collector.Add(fmt.Errorf("%s: %w", scanTarget.Path, err))
+			}
+			return nil
+		})
+		return nil
+	})
+	if walkErr != nil {
+		collector.Add(walkErr)
+	}
+
+	// Always join workers before returning, including after cancellation.
+	collector.Add(s.Sema.Wait())
+	if walkErr == nil {
+		collector.Add(ctx.Err())
+	}
+
+	return collector.Err()
+}
+
+func (s *Files) scanFile(ctx context.Context, scanTarget ScanTarget, yield FragmentsFunc) error {
+	f, err := os.Open(scanTarget.Path)
+	if err != nil {
+		return fmt.Errorf("could not open file: %w", err)
+	}
+
+	file := File{
+		Content:         f,
+		Path:            scanTarget.Path,
+		Symlink:         scanTarget.Symlink,
+		Config:          s.Config,
+		MaxArchiveDepth: s.MaxArchiveDepth,
+	}
+
+	fragmentsErr := file.Fragments(ctx, yield)
+	closeErr := f.Close()
+	if fragmentsErr != nil {
+		return fragmentsErr
+	}
+	if closeErr != nil {
+		return fmt.Errorf("could not close file: %w", closeErr)
+	}
+	return nil
 }

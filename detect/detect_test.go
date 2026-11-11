@@ -1531,12 +1531,13 @@ func TestDetectWithArchives(t *testing.T) {
 		cfgName          string
 		source           string
 		expireContext    bool
+		wantErr          bool
 		expectedFindings []report.Finding
 	}{
 		{
-			source:           filepath.Join(archivesBasePath, "this-path-does-not-exist"),
-			cfgName:          "archives",
-			expectedFindings: []report.Finding{},
+			source:  filepath.Join(archivesBasePath, "this-path-does-not-exist"),
+			cfgName: "archives",
+			wantErr: true,
 		},
 		{
 			source:  filepath.Join(archivesBasePath, "files"),
@@ -2081,6 +2082,7 @@ func TestDetectWithArchives(t *testing.T) {
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			if tt.expireContext {
 				cancel()
 			}
@@ -2098,6 +2100,10 @@ func TestDetectWithArchives(t *testing.T) {
 				},
 			)
 
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
 			if tt.expireContext {
 				require.EqualError(t, err, "context canceled")
 			} else {

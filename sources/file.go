@@ -93,8 +93,7 @@ func (s *File) extractorFragments(ctx context.Context, extractor archives.Extrac
 		case archives.SevenZip, archives.Zip:
 			tmpfile, err := os.CreateTemp("", "gitleaks-archive-")
 			if err != nil {
-				logging.Error().Str("path", s.FullPath()).Msg("could not create tmp file")
-				return nil
+				return fmt.Errorf("could not create temporary archive file: %w", err)
 			}
 			defer func() {
 				_ = tmpfile.Close()
@@ -103,8 +102,7 @@ func (s *File) extractorFragments(ctx context.Context, extractor archives.Extrac
 
 			_, err = io.Copy(tmpfile, reader)
 			if err != nil {
-				logging.Error().Str("path", s.FullPath()).Msg("could not copy archive file")
-				return nil
+				return fmt.Errorf("could not copy archive file: %w", err)
 			}
 
 			reader = tmpfile
@@ -118,8 +116,7 @@ func (s *File) extractorFragments(ctx context.Context, extractor archives.Extrac
 
 		innerReader, err := d.Open()
 		if err != nil {
-			logging.Error().Err(err).Str("path", s.FullPath()).Msg("could not open archive inner file")
-			return nil
+			return fmt.Errorf("could not open archive entry %q: %w", d.NameInArchive, err)
 		}
 		defer innerReader.Close()
 		path := filepath.Clean(d.NameInArchive)
@@ -150,8 +147,7 @@ func (s *File) extractorFragments(ctx context.Context, extractor archives.Extrac
 func (s *File) decompressorFragments(ctx context.Context, decompressor archives.Decompressor, reader io.Reader, yield FragmentsFunc) error {
 	innerReader, err := decompressor.OpenReader(reader)
 	if err != nil {
-		logging.Error().Str("path", s.FullPath()).Msg("could read compressed file")
-		return nil
+		return fmt.Errorf("could not open compressed file: %w", err)
 	}
 
 	if err := s.fileFragments(ctx, bufio.NewReader(innerReader), yield); err != nil {
@@ -172,6 +168,7 @@ func (s *File) fileFragments(ctx context.Context, reader *bufio.Reader, yield Fr
 
 	totalLines := 0
 	isFirstChunk := true
+	var readErr error
 	for {
 		select {
 		case <-ctx.Done():
@@ -184,10 +181,12 @@ func (s *File) fileFragments(ctx context.Context, reader *bufio.Reader, yield Fr
 			n, err := reader.Read(s.Buffer)
 			if n == 0 {
 				if err != nil && err != io.EOF {
-					return yield(fragment, fmt.Errorf("could not read file: %w", err))
+					if readErr == nil {
+						readErr = fmt.Errorf("could not read file: %w", err)
+					}
+					return readErr
 				}
-
-				return nil
+				return readErr
 			}
 
 			// Only check the filetype on the first chunk. totalLines stays zero
@@ -213,11 +212,11 @@ func (s *File) fileFragments(ctx context.Context, reader *bufio.Reader, yield Fr
 
 			// Try to split chunks across large areas of whitespace, if possible.
 			peekBuf := bytes.NewBuffer(s.Buffer[:n])
-			if err := readUntilSafeBoundary(reader, n, maxPeekSize, peekBuf); err != nil {
-				return yield(
-					fragment,
-					fmt.Errorf("could not read file: could not read until safe boundary: %w", err),
-				)
+			if boundaryErr := readUntilSafeBoundary(reader, n, maxPeekSize, peekBuf); boundaryErr != nil {
+				if readErr == nil {
+					readErr = fmt.Errorf("could not read file: could not read until safe boundary: %w", boundaryErr)
+				}
+				logging.Warn().Err(boundaryErr).Msgf("issue reading file")
 			}
 
 			fragment.Raw = peekBuf.String()
@@ -237,18 +236,20 @@ func (s *File) fileFragments(ctx context.Context, reader *bufio.Reader, yield Fr
 				fragment.WindowsFilePath = s.FullPath()
 			}
 
-			// log errors but continue since there's content
 			if err != nil && err != io.EOF {
+				if readErr == nil {
+					readErr = fmt.Errorf("could not read file: %w", err)
+				}
 				logging.Warn().Err(err).Msgf("issue reading file")
 			}
 
-			// Done with the file!
-			if err == io.EOF {
-				return yield(fragment, nil)
+			// Scan the content that was successfully read even if the reader
+			// reported an error alongside it; the error is returned below.
+			if yieldErr := yield(fragment, nil); yieldErr != nil {
+				return yieldErr
 			}
-
-			if err := yield(fragment, err); err != nil {
-				return err
+			if err == io.EOF {
+				return readErr
 			}
 		}
 	}
