@@ -216,6 +216,39 @@ func isFatalGitStderr(line string) bool {
 type blobReader struct {
 	io.ReadCloser
 	cmd *exec.Cmd
+	eof bool
+}
+
+// Read records complete exhaustion so callers that intentionally stop early
+// (for example after MIME classification) can terminate the producer instead
+// of draining the rest of a large object.
+func (br *blobReader) Read(p []byte) (int, error) {
+	n, err := br.ReadCloser.Read(p)
+	if err == io.EOF {
+		br.eof = true
+	}
+	return n, err
+}
+
+// CloseAfterSkip closes a reader whose caller has deliberately finished before
+// EOF. It terminates the producer rather than draining an arbitrarily large
+// remaining object, then waits for the process. A successfully issued kill is
+// intentional and its signal status is not a scan failure.
+func (br *blobReader) CloseAfterSkip() error {
+	if br.eof || br.cmd == nil || br.cmd.Process == nil {
+		return br.Close()
+	}
+
+	killErr := br.cmd.Process.Kill()
+	closeErr := br.ReadCloser.Close()
+	waitErr := br.cmd.Wait()
+	if closeErr != nil {
+		return closeErr
+	}
+	if killErr == nil {
+		return nil
+	}
+	return waitErr
 }
 
 // Close closes the underlying reader and then waits for the command to complete,
@@ -675,7 +708,15 @@ func (s *Git) processDiffFile(
 			return yield(fragment, err)
 		})
 
-		closeErr := blob.Close()
+		var closeErr error
+		if br, ok := blob.(*blobReader); ok && fragmentsErr == nil {
+			// File.Fragments intentionally stops after MIME exclusion (or an
+			// archive-depth skip) without consuming the rest of the object.
+			// Terminate the producer instead of reading every remaining byte.
+			closeErr = br.CloseAfterSkip()
+		} else {
+			closeErr = blob.Close()
+		}
 		if fragmentsErr != nil || closeErr != nil {
 			return fmt.Errorf("could not read blob content: %w", errors.Join(fragmentsErr, closeErr))
 		}

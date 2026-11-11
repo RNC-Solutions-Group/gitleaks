@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/gitleaks/go-gitdiff/gitdiff"
 	"github.com/stretchr/testify/assert"
@@ -118,4 +119,21 @@ func TestBlobReaderCloseReturnsReadError(t *testing.T) {
 	err := reader.Close()
 	require.Error(t, err)
 	assert.ErrorIs(t, err, readErr)
+}
+
+func TestBlobReaderCloseAfterSkipStopsProducer(t *testing.T) {
+	child := exec.Command(os.Args[0], "-test.run=^TestGitOutputHelper$")
+	child.Env = append(os.Environ(),
+		"GITLEAKS_GIT_OUTPUT_HELPER=1",
+		"GITLEAKS_GIT_SLEEP_MS=10000",
+		"GITLEAKS_GIT_EXIT_CODE=0",
+	)
+	stdout, err := child.StdoutPipe()
+	require.NoError(t, err)
+	require.NoError(t, child.Start())
+
+	reader := &blobReader{ReadCloser: stdout, cmd: child}
+	start := time.Now()
+	require.NoError(t, reader.CloseAfterSkip())
+	assert.Less(t, time.Since(start), 5*time.Second)
 }
