@@ -235,6 +235,8 @@ func maskSecret(secret string, percent uint) string {
 	if percent == 0 {
 		return secret
 	}
+	// Count runes so a partial mask cannot split a multibyte character. This
+	// rune-based masking follows gitleaks/gitleaks#2261 (@arpitjain099).
 	runes := []rune(secret)
 	length := float64(len(runes))
 	if length <= 0 {

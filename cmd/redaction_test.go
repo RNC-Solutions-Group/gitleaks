@@ -53,7 +53,7 @@ func TestCLIRedactionAdjacentSecrets(t *testing.T) {
 
 	cfg := redactionConfig(t, "")
 	source := redactionSource(t, map[string]string{
-		"adjacent.txt": "left=" + redactionAlpha + " right=" + redactionBeta + "\n",
+		"adjacent.txt": "left=" + redactionAlpha + " right=" + redactionBeta,
 	})
 	reportPath := filepath.Join(t.TempDir(), "report.json")
 
@@ -211,7 +211,7 @@ regex = '''pässwörd🔑'''
 	result := runReportCLI(t,
 		"dir", source,
 		"--config", cfg,
-		"--redact=45",
+		"--redact=50",
 		"--no-banner",
 		"--log-level", "error",
 		"--report-path", reportPath,
@@ -236,7 +236,7 @@ regex = '''pässwörd🔑'''
 	result = runReportCLI(t,
 		"dir", source,
 		"--config", cfg,
-		"--redact=45",
+		"--redact=50",
 		"--verbose",
 		"--no-banner",
 		"--log-level", "error",
