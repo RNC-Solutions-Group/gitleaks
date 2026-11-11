@@ -4,14 +4,16 @@
 
 **Project:** RNC Gitleaks fork (`RNC-Solutions-Group/gitleaks`)  
 **Working branch:** `fix/validation`  
-**Snapshot:** 2026-11-11; branch head before this document: `46488522cfa9c58dab9f31d7eb541443e56a642e`  
+**Snapshot:** 2026-11-11; CP-V3 implementation HEAD `b556701f46cf1955d9b18b107f8a771a28beebb5` (before this ledger-only update).  
 **Comparison baseline:** `dev/gitleaks-upgrade` at `c0516b4bd66c0dc3878d80283a267166f7b4fd09`  
 **Upstream reference reviewed for CP-V0:** `gitleaks/gitleaks` `master` at `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c`  
-**Primary evidence:** CP-V0 assessment, CP-V1 completion report, branch diff/tests, and linked upstream issues/PRs. PR state and head commits are snapshots, not permanent integration pins.
+**Primary evidence:** CP-V0 assessment; CP-V1, CP-V2, CP-V2A, and CP-V3 completion reports; inspected branch code and regression tests; GitHub Actions results; linked upstream issues/PRs. PR status/head SHAs are historical evidence, not permanent integration pins.
 
 **CP-V2 snapshot:** implementation at `452d1224afe57b68888b4e581ad70878758426ad`; CI [43075289894](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43075289894) passed all jobs.
 
 **CP-V2A snapshot:** implementation at `cf3007301441eaf1f7b449707c87c2e87cbfebc8`; CI [43084497923](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43084497923) passed all jobs.
+
+**CP-V3 snapshot:** implementation at `b556701f46cf1955d9b18b107f8a771a28beebb5` (four commits from `f56fd00`); CI [43094102089](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43094102089) passed all 10 jobs: Windows, Linux, both macOS architectures, standard/RE2 builds, module/vulnerability verification, Docker amd64/arm64, and container vulnerability assessment.
 
 ## 1. Project contract: improve Gitleaks without changing how people use it
 
@@ -45,6 +47,10 @@ Statuses: **Implemented** = code exists on `fix/validation`; **Validated** = spe
 | V2-E | Output simplicity | Experimental `--allow-in-tree-report-overwrite` added special handling incompatible with the simplified policy. | Retire this RNC-only experimental flag while retaining scan-input, symlink, and special-file protection. | **Implemented and validated.** | Flag removed; CLI test asserts exit 126 for the old flag; CI run above. |
 | V2-F | Publication correctness | Competing runs and OS-specific rename behavior can cause filename races. | Exclusive numbered destination allocation; atomic complete writes; real Windows/Linux/macOS validation; report actual output path. | **Implemented and validated.** | Exclusive-create reservation and temporary-file publication; Windows, macOS amd64/arm64, Linux, and Docker jobs passed in CI run above. |
 | V2A | Configuration collision protection | `Config(cmd)` reset `cfg.Path` to the possibly-empty `--config` value after loading. Report validation therefore missed active `GITLEAKS_CONFIG` and extended configuration files; auto-discovered configs relied on the source-path fallback. | Track every file actually loaded, including the main file and all `extend.path` files, in `Config.ConfigFiles`. Pass the full list to report collision validation. Inline `GITLEAKS_CONFIG_TOML` data remains pathless. | **Implemented and validated.** | `config/config_test.go` and `cmd/report_config_test.go` cover explicit, auto-discovered, environment, one-level, and nested extensions, relative/absolute paths, pre-scan rejection, unchanged bytes, and override attempts; CI run below. |
+| V3-A / CPV0-F01 | Source acquisition and worker errors | Directory walk, metadata, symlink, open, archive, and read failures could be silently dropped; semgroup errors were not joined. | Propagate path-aware failures, retain successfully read fragments, join workers, and aggregate errors with bounded `internal/scanerr` collector (default limit 10). Intentional exclusions remain non-errors. | **Implemented; cross-platform CI validated.** | `sources/files.go`, `sources/file.go`, `detect/detect.go`, `internal/scanerr`; Windows share-lock, partial-read, archive, and worker tests; [CI 43094102089](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43094102089). |
+| V3-B / CPV0-F01 | Git execution integrity | Nonzero Git exits, fatal stderr, malformed/truncated diff streams, and incomplete process cleanup could yield false-clean results. | Wait/reap Git processes, classify fatal stderr without treating warnings as failure, drain pipes, and compare raw diff-section counts with parser output to detect tested incomplete streams. | **Implemented; cross-platform CI validated.** | `sources/git.go`, `sources/git_test.go`; PR research #2339/#2246/#2080/#2292; [CI 43094102089](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43094102089). |
+| V3-C / CPV0-F19 | Worker lifecycle and cancellation | File and Git sources could return on cancellation before workers finished; deprecated `protect` lost caller context. | Wait for workers before returning; propagate command context through `DetectGitContext` and `protect`. Blocking OS reads remain a documented limitation. | **Worker lifecycle corrected; residual I/O limitation open.** | `detect/git.go`, `cmd/protect.go`, source/detector lifecycle tests; [CI 43094102089](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43094102089). |
+| V3-D / CPV0-F01 | CLI scan completeness and report preservation | Failed/partial scans could exit 0, honor `--exit-code 0`, and replace a valid report with `[]` or partial findings. | Preserve default statuses on completed scans; operational/incomplete scans exit nonzero regardless of findings override; failed scans preserve existing reports and do not publish partial reports. | **Implemented; CLI regressions and cross-platform CI validated.** | `cmd/scan_status_test.go`, `cmd/report_test.go`, `README.md`; upstream compatible valid scans; [CI 43094102089](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43094102089). |
 
 **Output decision table (when the requested destination exists):**
 
@@ -59,11 +65,11 @@ Neither `--overwrite` nor `--no-overwrite` was found in the reviewed upstream v8
 
 ## 3. Known issue disposition
 
-This section distinguishes an implemented fix from full release acceptance. Only the six V1 items below have been reported complete; **do not label the rest fixed based on design intent**.
+This section distinguishes an implemented correction from full release acceptance. Status reflects delivered code and specific verification evidence as of the 2026-11-11 CP-V3 baseline; it does not imply every edge case is closed.
 
 | CP-V0 finding | Severity | Description | Disposition |
 | --- | --- | --- | --- |
-| F01 | P0 | Source/Git/worker errors can be swallowed, creating false clean scans or reports. | **OPEN**; separate error-propagation project. |
+| F01 | P0 | Source/Git/worker errors can be swallowed, creating false clean scans or reports. | **CP-V3 corrected and CI-validated for documented CLI-used scan paths:** source/worker/Git/parser errors return nonzero, `--exit-code 0` cannot suppress operational failure, and prior reports survive failed scans. Deprecated `DetectFiles`/`DirectoryTargets`, non-cancelable reads, and pathological parser cases remain limitations. |
 | F02 | P0 | Report validation/truncation, symlink, partial output, and input-collision data loss. | **V1, V2, and V2A implemented; CP-V2/V2A cross-platform CI passed.** Residual final publication TOCTOU is documented in the CP-V2 report. |
 | F03 | P1 | Secret-bearing logs and incomplete redaction across multiple/empty/Unicode secrets. | **OPEN**; evaluate #2350/#2261 and broader log boundary. |
 | F04 | P1 | Untrusted local configuration can replace rules; malformed regex can panic. | **OPEN**; evaluate #2082/#2241. |
@@ -76,13 +82,21 @@ This section distinguishes an implemented fix from full release acceptance. Only
 | F11 | P1 | Merge-only Git changes can be missed in default history mode. | **OPEN / compatibility decision required**; #2301 changes behavior. |
 | F12 | P1 | `dir` silently scans the wrong directory on invalid positional args. | **V1 implemented;** release regression proof still required. |
 | F13 | P1 | Pre-commit helper lets nonzero scanner statuses pass. | **V1 implemented;** release regression proof still required. |
-| F14–F25 | P2/P3 | Archive identification, size limits, path identity, Unicode redaction, stdout contracts, cancellation, build/CI, and other lower-priority findings. | **Deferred / individually unverified**; retain CP-V0 details rather than claiming closure. |
+| F14–F18 | P2 | Archive identification, size budgets, path identity, Unicode redaction, stdout contracts. | **Open/deferred**; retain independent CP-V0 evidence. |
+| F19 | P2 | Returning before worker completion on cancellation. | **CP-V3 worker-join issue corrected and tested;** blocking OS reads can still outlast configured timeout. |
+| F20 | P2 | Report permissions and close/flush weaknesses. | **CP-V2 implemented major safeguards;** final-publication TOCTOU remains documented. |
+| F21 | P2 | Git stderr can contain and expose credentials through logs/error text. | **OPEN — security follow-up:** CP-V3 retains raw Git stderr for diagnostics; investigate sanitation under redaction work. |
+| F22–F25 | P2/P3 | Output contracts, extension state, performance, build/CI hygiene. | **Deferred or partially addressed:** CP-V3's test-only `defer cancel()` made `go vet` clean; full RE2 generator-graph limitation remains. |
 
 At CP-V1 completion, `go build`, normal tests, generation, targeted Linux race suites, RE2 build, and Docker smoke tests were reported passing; `go vet` had pre-existing test-only `lostcancel` warnings and some comprehensive tagged/race lanes had known limitations. Subsequent V1G branch CI had Windows/macOS report-path test failures. CP-V2 removed that path policy and the failures no longer reproduce.
 
 CP-V2 code at `452d1224afe57b68888b4e581ad70878758426ad` passed Windows, Linux, macOS amd64, macOS arm64, standard-build, RE2-build, module/vulnerability, and Docker amd64/arm64 CI jobs in [run 43075289894](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43075289894). Local validation also passed `go build ./...`, `go test -count=1 ./...` with Go 1.27.4, `go generate ./...` with unchanged generated configuration, Linux race tests for `./cmd`, `./config`, and `./report`, plus Docker CLI/report smoke tests. `go vet ./...` still reports only the two pre-existing `lostcancel` diagnostics in `detect/detect_test.go`.
 
 CP-V2A code at `cf3007301441eaf1f7b449707c87c2e87cbfebc8` preserves every configuration file loaded from disk in `Config.ConfigFiles` and passes the complete list into report collision validation. Regression coverage proves explicit, auto-discovered, `GITLEAKS_CONFIG`, one-level, and nested extended configuration collisions are rejected before scanning, remain byte-for-byte unchanged, and cannot be bypassed with `--overwrite` or `--aggregate`. [Run 43084497923](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43084497923) passed all Windows, Linux, macOS amd64/arm64, module/vulnerability, RE2, standard-build, and Docker amd64/arm64 jobs.
+
+CP-V3 delivered four commits: `105c0a8` (source errors), `56458e7` (Git process/diff integrity), `fd996ec` (detector error propagation and worker completion), and `b556701` (CLI regressions). [Final CI run 43094102089](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43094102089) passed all 10 jobs at `b556701`; independent review confirmed the four-commit diff, 20 changed files, and matching branch HEAD. Agent-reported local validation included Go 1.27.4 Windows build/tests/race, Linux race tests, generator hash unchanged (`256f6479…`), RE2 application build, Docker smoke, and clean `go vet`. The historical `lostcancel` test diagnostics were corrected incidentally in the updated archive-test path using `defer cancel()`.
+
+**Remaining scan-integrity limitations:** deprecated APIs still have error-dropping paths outside the CLI; blocking OS reads cannot always be promptly canceled; raw `diff --git` header counting is a conservative parser-integrity heuristic and can false-fail unusual custom Git formatting or miss a pathological complete-prefix truncation. Do not claim universal completeness or cancellation. CP-V2 publication TOCTOU and scan-included numbered reports also remain documented.
 
 ## 4. External contributor recognition and code provenance
 
@@ -110,9 +124,9 @@ All entries below are **reviewed/informed**, not confirmed cherry-picks. Head SH
 | F10 | [#2329](https://github.com/gitleaks/gitleaks/pull/2329) | [@cardene777](https://github.com/cardene777) | `21028d8858e31fd088029f2fdb6634c99a1d3563` | First-chunk-only MIME classification. | **Reviewed; inspect for code overlap before release.** |
 | F12 | [#2334](https://github.com/gitleaks/gitleaks/pull/2334), issue [#1979](https://github.com/gitleaks/gitleaks/issues/1979) | [@Shanmukh-l33t](https://github.com/Shanmukh-l33t) | `ad321b7d7aa9b1a1642bb56813fa7443d5412971` | `dir` positional argument validation and wrong-directory regression. | **Reviewed; inspect for code overlap before release.** |
 
-### 4B. Other inspected open PRs and future integration candidates
+### 4B. Previously inspected PRs and future integration candidates
 
-These are **research/deferred**, not delivered by CP-V1. SHAs marked here were recorded in CP-V0 (2026-11-10), except those explicitly rechecked above or below. Revalidate PR state, diff, author metadata, and final tip before integration.
+This is a historical research/candidate index, not an adoption record. CP-V3 decisions for F01 are summarized in §4D; entries below retain CP-V0-era SHAs where available and must be revalidated before actual code integration.
 
 | Scope | PR | Contributor | Historical PR head / note | Assessment / integration disposition |
 | --- | --- | --- | --- | --- |
@@ -153,6 +167,27 @@ Issue authors deserve recognition even when their proposed implementation is not
 | [#1651](https://github.com/gitleaks/gitleaks/issues/1651), [#1757](https://github.com/gitleaks/gitleaks/issues/1757) | [@rgmz](https://github.com/rgmz) | Decode/chunk boundary and input-coverage concerns. |
 | [#1243](https://github.com/gitleaks/gitleaks/issues/1243) | Reporter to verify | Secret exposure in verbose redaction. |
 
+### 4D. CP-V3 scan-completeness contribution review (2026-11-11)
+
+Flash reports reviewing each priority PR's implementation and tests at its then-current head, plus pre-existing merged #1711. **No external code was adopted verbatim or recorded as a separately authored commit.** The assessments below are research/influence classifications, not proof of direct code incorporation. The comprehensive CP-V3 report is maintained separately from this ledger; source SHAs in §4B are historical snapshots and should be checked again before clean-history reconstruction.
+
+| PR | Contributor | CP-V3 decision | Relation to RNC correction / remaining limitation |
+| --- | --- | --- | --- |
+| [#2339](https://github.com/gitleaks/gitleaks/pull/2339) | @delaysystem | **Reviewed/informed; independent implementation** | Git nonzero exit/Wait handling; RNC also handles stderr, parser integrity, and workers. |
+| [#2246](https://github.com/gitleaks/gitleaks/pull/2246) | @aron-intframe | **Informed; independent implementation** | Parser-drain/unparsed-output approach; RNC adds raw diff-section count verification. |
+| [#2080](https://github.com/gitleaks/gitleaks/pull/2080) | @Smeet23 | **Reviewed/informed** | Stderr error return; RNC distinguishes fatal diagnostics from warnings and checks process exit. |
+| [#2292](https://github.com/gitleaks/gitleaks/pull/2292) | @Saadanjum0 | **Reviewed/informed** | Alternative stderr reporting; no direct code adoption. |
+| [#2252](https://github.com/gitleaks/gitleaks/pull/2252) | @CAOShurong | **Reviewed/not selected as-is** | Immediate fragment-error return would abandon continued collection of readable findings. |
+| [#2253](https://github.com/gitleaks/gitleaks/pull/2253) | @arpitjain099 | **Informed; independent implementation** | Error accumulation informed bounded `internal/scanerr` collector; no direct patch adoption established. |
+| [#2249](https://github.com/gitleaks/gitleaks/pull/2249) | @vaibhav8a | **Informed; independent implementation** | Path-aware open errors; RNC covers broader walker/read/worker failures. |
+| [#2313](https://github.com/gitleaks/gitleaks/pull/2313) | @Varshith-Kali | **Reviewed/not selected as-is** | Alternative open-error reporting; RNC chose a broader integrated pipeline. |
+| [#2235](https://github.com/gitleaks/gitleaks/pull/2235) | @hamodywe | **Rejected as implementation** | Count-only error state loses useful file paths and lacks broader failure coverage. |
+| [#1711](https://github.com/gitleaks/gitleaks/pull/1711) | @dgn | **Merged upstream/pre-existing baseline** | Historical Git warning behavior contribution, reported merged as `3188ad6`; not a new RNC adoption. |
+
+Related research/issues #1464, #1981, #1338, and [#2232](https://github.com/gitleaks/gitleaks/issues/2232) were reviewed in CP-V3. Credit these sources when relevant in any future upstream submission; do not invent code authorship from research influence.
+
+**Current F01 provenance decision:** `internal/scanerr`, Git lifecycle/parser integrity, source error handling, and CLI regressions are recorded as RNC-implemented, informed by the above research. Reassess exact code overlap during the clean-release audit before asserting definitive independent authorship.
+
 **License:** Preserve upstream Gitleaks MIT `LICENSE` and notices. License permission to reuse code is not a substitute for accurate author credit. Do not invent email addresses or apply `Co-authored-by` merely because someone reported a problem.
 
 ## 5. Adopt-vs-adapt decision log (required before clean release)
@@ -167,6 +202,9 @@ For every outside PR potentially overlapping RNC work, add a decision row **afte
 | #2334 / `ad321b7` | F12 CLI arguments | **Undecided; reviewed, overlapping design** | Resolve before integration | — | V1 tests; revalidate | Pending |
 | #2307 / `0d1ae3e` | F02 report validation | **Undecided; reviewed, partial design overlap** | Resolve before integration | — | V1 tests; V2 pending | Pending |
 | #2300 / `2b08eb9`, #2312 / `2009273` | F02 permissions | **Alternative proposals; no adopted commit** | Resolve if borrowing specific patch | — | Permission tests; revalidate | Pending |
+| #2339, #2246, #2080, #2292 | F01 Git lifecycle/parser/stderr | **CP-V3 reviewed/informed; no external patch adopted** | Refer to §4D; preserve original author records during final reconciliation | — | Git process/parser regression tests; CI 43094102089 | Re-audit code overlap before clean release |
+| #2252, #2253 | F01 fragment/error propagation | **CP-V3 reviewed/informed; RNC implemented bounded collector** | Refer to §4D; no separate external commit recorded | — | `internal/scanerr`, detector tests; CI 43094102089 | Re-audit code overlap before clean release |
+| #2249, #2313, #2235 | F01 file source errors | **CP-V3 reviewed/informed or rejected as-is** | Refer to §4D; no separate external commit recorded | — | Source/lock/read tests; CI 43094102089 | Re-audit code overlap before clean release |
 
 Do **not** call a PR "adopted" simply because a similar fix was independently implemented. If code was actually carried over, record the evidence and correct attribution before final integration.
 
