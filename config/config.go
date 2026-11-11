@@ -33,6 +33,13 @@ type ViperConfig struct {
 	Title       string
 	Description string
 	Extend      Extend
+	// AutoOverwrite controls whether an existing report destination may be
+	// replaced. It is a pointer so an omitted setting retains the historical
+	// true default instead of becoming Go's zero value (false).
+	AutoOverwrite *bool `mapstructure:"auto-overwrite"`
+	// Aggregation controls whether an existing report destination causes a
+	// numbered report to be written instead of being replaced.
+	Aggregation *bool `mapstructure:"aggregation"`
 	Rules       []struct {
 		ID          string
 		Description string
@@ -95,6 +102,10 @@ type Config struct {
 	OrderedRules []string
 	Allowlists   []*Allowlist
 	MinVersion   string
+	// AutoOverwrite and Aggregation are the resolved report output policy.
+	// AutoOverwrite defaults to true and Aggregation defaults to false.
+	AutoOverwrite bool
+	Aggregation   bool
 }
 
 // Extend is a struct that allows users to define how they want their
@@ -202,6 +213,10 @@ func (vc *ViperConfig) Translate() (Config, error) {
 		Keywords:     keywords,
 		OrderedRules: orderedRules,
 		MinVersion:   vc.MinVersion,
+		// Preserve the historical behavior of replacing an existing report
+		// unless the operator explicitly opts into aggregation.
+		AutoOverwrite: vc.AutoOverwrite == nil || *vc.AutoOverwrite,
+		Aggregation:   vc.Aggregation != nil && *vc.Aggregation,
 	}
 
 	if extendDepth > 0 {

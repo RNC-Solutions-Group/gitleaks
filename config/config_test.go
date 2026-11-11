@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -572,6 +573,89 @@ func TestTranslateExtend(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.cfgName, func(t *testing.T) {
 			testTranslate(t, tt)
+		})
+	}
+}
+
+func TestTranslateReportPolicy(t *testing.T) {
+	tests := []struct {
+		name          string
+		config        string
+		autoOverwrite bool
+		aggregation   bool
+	}{
+		{
+			name:          "omitted settings use historical defaults",
+			config:        "",
+			autoOverwrite: true,
+			aggregation:   false,
+		},
+		{
+			name: "auto-overwrite true and aggregation false",
+			config: `
+auto-overwrite = true
+aggregation = false
+`,
+			autoOverwrite: true,
+			aggregation:   false,
+		},
+		{
+			name: "auto-overwrite true and aggregation true",
+			config: `
+auto-overwrite = true
+aggregation = true
+`,
+			autoOverwrite: true,
+			aggregation:   true,
+		},
+		{
+			name: "auto-overwrite false and aggregation true",
+			config: `
+auto-overwrite = false
+aggregation = true
+`,
+			autoOverwrite: false,
+			aggregation:   true,
+		},
+		{
+			name: "auto-overwrite false and aggregation false",
+			config: `
+auto-overwrite = false
+aggregation = false
+`,
+			autoOverwrite: false,
+			aggregation:   false,
+		},
+		{
+			name: "omitted auto-overwrite defaults to true",
+			config: `
+aggregation = true
+`,
+			autoOverwrite: true,
+			aggregation:   true,
+		},
+		{
+			name: "omitted aggregation defaults to false",
+			config: `
+auto-overwrite = false
+`,
+			autoOverwrite: false,
+			aggregation:   false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Cleanup(viper.Reset)
+			viper.SetConfigType("toml")
+			require.NoError(t, viper.ReadConfig(strings.NewReader(test.config)))
+
+			var vc ViperConfig
+			require.NoError(t, viper.Unmarshal(&vc))
+			cfg, err := vc.Translate()
+			require.NoError(t, err)
+			assert.Equal(t, test.autoOverwrite, cfg.AutoOverwrite)
+			assert.Equal(t, test.aggregation, cfg.Aggregation)
 		})
 	}
 }
