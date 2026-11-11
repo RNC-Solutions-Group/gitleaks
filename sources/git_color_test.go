@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gitleaks/go-gitdiff/gitdiff"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -130,19 +131,55 @@ func TestGitLogIgnoresForcedColor(t *testing.T) {
 	gitRun(t, gitPath, repo, "add", "secret.txt")
 	gitRun(t, gitPath, repo, "commit", "-q", "-m", "add secret")
 
-	t.Run("default log", func(t *testing.T) {
-		cmd, err := NewGitLogCmdContext(context.Background(), repo, "")
-		require.NoError(t, err)
-		files := collectGitFiles(t, cmd)
-		require.True(t, filesContain(files, "secret.txt", "AKIAQ7Z3R5T7Y9U2I4O6"),
-			"forced color must not hide history: %#v", files)
-	})
+	tests := []struct {
+		name    string
+		logOpts string
+	}{
+		{name: "default log"},
+		{name: "custom options", logOpts: "--all"},
+		{name: "explicit color", logOpts: "--all --color"},
+		{name: "explicit color always", logOpts: "--all --color=always"},
+		{name: "pathspec separator", logOpts: "--all -- ."},
+		{name: "color before pathspec separator", logOpts: "--all --color=always -- ."},
+	}
 
-	t.Run("custom log options", func(t *testing.T) {
-		cmd, err := NewGitLogCmdContext(context.Background(), repo, "--all")
-		require.NoError(t, err)
-		files := collectGitFiles(t, cmd)
-		require.True(t, filesContain(files, "secret.txt", "AKIAQ7Z3R5T7Y9U2I4O6"),
-			"forced color must not hide history with custom log options: %#v", files)
-	})
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cmd, err := NewGitLogCmdContext(context.Background(), repo, test.logOpts)
+			require.NoError(t, err)
+			files := collectGitFiles(t, cmd)
+			require.True(t, filesContain(files, "secret.txt", "AKIAQ7Z3R5T7Y9U2I4O6"),
+				"forced color or explicit color options must not hide history: %#v", files)
+		})
+	}
+}
+
+func TestForceNoColor(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{
+			name: "appends after options",
+			in:   []string{"log", "--color=always", "--all"},
+			want: []string{"log", "--color=always", "--all", "--no-color"},
+		},
+		{
+			name: "inserts before pathspec separator",
+			in:   []string{"log", "--color", "--all", "--", "src"},
+			want: []string{"log", "--color", "--all", "--no-color", "--", "src"},
+		},
+		{
+			name: "no user color still appends",
+			in:   []string{"log", "--all"},
+			want: []string{"log", "--all", "--no-color"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, forceNoColor(append([]string(nil), test.in...)))
+		})
+	}
 }

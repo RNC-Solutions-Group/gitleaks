@@ -25,6 +25,36 @@ import (
 
 var quotedOptPattern = regexp.MustCompile(`^(?:"[^"]+"|'[^']+')$`)
 
+// forceNoColor makes --no-color the effective color setting without treating
+// the option as a pathspec. A later --no-color wins over user-provided
+// --color/--color=... options; when the user supplied a "--" separator, it is
+// inserted immediately before the separator rather than after it.
+func forceNoColor(args []string) []string {
+	separator := len(args)
+	for i, arg := range args {
+		if arg == "--" {
+			separator = i
+			break
+		}
+	}
+
+	for _, arg := range args[:separator] {
+		if arg == "--color" || strings.HasPrefix(arg, "--color=") {
+			logging.Warn().Msg("overriding user-supplied --color option; machine-readable diff parsing requires --no-color")
+			break
+		}
+	}
+
+	if separator < len(args) {
+		out := make([]string, 0, len(args)+1)
+		out = append(out, args[:separator]...)
+		out = append(out, "--no-color")
+		out = append(out, args[separator:]...)
+		return out
+	}
+	return append(args, "--no-color")
+}
+
 // GitCmd helps to work with Git's output.
 type GitCmd struct {
 	cmd         *exec.Cmd
@@ -88,6 +118,7 @@ func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*G
 		}
 
 		args = append(args, userArgs...)
+		args = forceNoColor(args)
 		cmd = exec.CommandContext(ctx, "git", args...)
 	} else {
 		cmd = exec.CommandContext(ctx, "git", "-C", sourceClean, "log", "-p", "-U0", "--no-color",
