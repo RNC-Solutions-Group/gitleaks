@@ -225,10 +225,29 @@ func TestReportDestinationPreservedOnCLIError(t *testing.T) {
 		_, err := cmd.CombinedOutput()
 		data, readErr := os.ReadFile(dest)
 		if readErr != nil {
-			return nil, err
+			return nil, readErr
 		}
 		return data, err
 	}
+
+	t.Run("clean scan writes a new report", func(t *testing.T) {
+		source := t.TempDir()
+		dest := filepath.Join(t.TempDir(), "report.json")
+
+		data, err := runChild(t, source, dest, "json", "")
+		require.NoError(t, err)
+		assert.JSONEq(t, "[]", string(data))
+	})
+
+	t.Run("existing prior report inside source is replaceable", func(t *testing.T) {
+		source := t.TempDir()
+		dest := filepath.Join(source, "report.json")
+		require.NoError(t, os.WriteFile(dest, []byte("[]\n"), 0o600))
+
+		data, err := runChild(t, source, dest, "json", "")
+		require.NoError(t, err)
+		assert.JSONEq(t, "[]", string(data))
+	})
 
 	t.Run("invalid format preserves existing report", func(t *testing.T) {
 		source := t.TempDir()

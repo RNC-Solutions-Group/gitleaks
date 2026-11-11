@@ -31,7 +31,7 @@ func gitRun(t *testing.T, gitPath, repo string, args ...string) {
 	require.NoError(t, err, "git %v: %s", args, output)
 }
 
-func initColorRepo(t *testing.T) (string, string) {
+func initColorRepo(t *testing.T, colorKeys ...string) (string, string) {
 	t.Helper()
 	gitPath := requireGit(t)
 	repo := t.TempDir()
@@ -39,8 +39,9 @@ func initColorRepo(t *testing.T) (string, string) {
 	gitRun(t, gitPath, repo, "config", "user.email", "cpv1@example.com")
 	gitRun(t, gitPath, repo, "config", "user.name", "CPV1")
 	gitRun(t, gitPath, repo, "config", "core.autocrlf", "false")
-	gitRun(t, gitPath, repo, "config", "color.ui", "always")
-	gitRun(t, gitPath, repo, "config", "color.diff", "always")
+	for _, key := range colorKeys {
+		gitRun(t, gitPath, repo, "config", key, "always")
+	}
 	return repo, gitPath
 }
 
@@ -84,19 +85,47 @@ func filesContain(files []*gitdiff.File, name, content string) bool {
 }
 
 func TestGitDiffIgnoresForcedColor(t *testing.T) {
-	repo, gitPath := initColorRepo(t)
-	require.NoError(t, os.WriteFile(filepath.Join(repo, "secret.txt"), []byte(colorTestSecret+"\n"), 0o600))
-	gitRun(t, gitPath, repo, "add", "secret.txt")
+	tests := []struct {
+		name      string
+		colorKeys []string
+	}{
+		{name: "default color behavior"},
+		{name: "color.ui always", colorKeys: []string{"color.ui"}},
+		{name: "color.diff always", colorKeys: []string{"color.diff"}},
+	}
 
-	cmd, err := NewGitDiffCmdContext(context.Background(), repo, true)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			repo, gitPath := initColorRepo(t, test.colorKeys...)
+			require.NoError(t, os.WriteFile(filepath.Join(repo, "secret.txt"), []byte(colorTestSecret+"\n"), 0o600))
+			gitRun(t, gitPath, repo, "add", "secret.txt")
+
+			cmd, err := NewGitDiffCmdContext(context.Background(), repo, true)
+			require.NoError(t, err)
+			files := collectGitFiles(t, cmd)
+			require.True(t, filesContain(files, "secret.txt", "AKIAQ7Z3R5T7Y9U2I4O6"),
+				"git color settings must not hide the staged diff: %#v", files)
+		})
+	}
+}
+
+func TestGitUnstagedDiffIgnoresForcedColor(t *testing.T) {
+	repo, gitPath := initColorRepo(t, "color.ui", "color.diff")
+	path := filepath.Join(repo, "secret.txt")
+	require.NoError(t, os.WriteFile(path, []byte("clean\n"), 0o600))
+	gitRun(t, gitPath, repo, "add", "secret.txt")
+	gitRun(t, gitPath, repo, "commit", "-q", "-m", "base")
+	require.NoError(t, os.WriteFile(path, []byte(colorTestSecret+"\n"), 0o600))
+
+	cmd, err := NewGitDiffCmdContext(context.Background(), repo, false)
 	require.NoError(t, err)
 	files := collectGitFiles(t, cmd)
 	require.True(t, filesContain(files, "secret.txt", "AKIAQ7Z3R5T7Y9U2I4O6"),
-		"forced color must not hide the staged diff: %#v", files)
+		"forced color must not hide the unstaged diff: %#v", files)
 }
 
 func TestGitLogIgnoresForcedColor(t *testing.T) {
-	repo, gitPath := initColorRepo(t)
+	repo, gitPath := initColorRepo(t, "color.ui", "color.diff")
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "secret.txt"), []byte(colorTestSecret+"\n"), 0o600))
 	gitRun(t, gitPath, repo, "add", "secret.txt")
 	gitRun(t, gitPath, repo, "commit", "-q", "-m", "add secret")
