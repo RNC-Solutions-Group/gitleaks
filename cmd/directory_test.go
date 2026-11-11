@@ -25,7 +25,7 @@ func TestResolveDirSource(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "no arguments uses current directory", want: "."},
-		{name: "empty argument uses current directory", args: []string{""}, want: "."},
+		{name: "explicitly empty argument is rejected", args: []string{""}, wantErr: true},
 		{name: "one directory", args: []string{dir}, want: dir},
 		{name: "one file", args: []string{file}, want: file},
 		{name: "unicode path", args: []string{unicodeDir}, want: unicodeDir},

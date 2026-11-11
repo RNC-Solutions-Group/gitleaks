@@ -32,7 +32,10 @@ func resolveDirSource(args []string) (string, error) {
 		return "", fmt.Errorf("expected at most one path argument, got %d", len(args))
 	}
 	source := "."
-	if len(args) == 1 && args[0] != "" {
+	if len(args) == 1 {
+		if args[0] == "" {
+			return "", fmt.Errorf("scan path cannot be explicitly empty")
+		}
 		source = args[0]
 	}
 	if _, err := os.Stat(source); err != nil {
