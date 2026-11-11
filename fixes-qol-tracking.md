@@ -11,6 +11,8 @@
 
 **CP-V2 snapshot:** implementation at `452d1224afe57b68888b4e581ad70878758426ad`; CI [43075289894](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43075289894) passed all jobs.
 
+**CP-V2A snapshot:** implementation at `cf3007301441eaf1f7b449707c87c2e87cbfebc8`; CI [43084497923](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43084497923) passed all jobs.
+
 ## 1. Project contract: improve Gitleaks without changing how people use it
 
 1. **Backward compatibility is a release gate.** Preserve upstream commands, flags, configuration interpretation, default scanning behavior, exit codes, finding content, output formats, and automation contracts unless correcting a demonstrated defect requires a change.
@@ -42,6 +44,7 @@ Statuses: **Implemented** = code exists on `fix/validation`; **Validated** = spe
 | V2-D | Collision rejection | Users may prohibit both overwrite and aggregation. | If both settings are false and the destination exists, error **before scanning**; absent destination writes normally. | **Implemented and validated.** | CLI tests assert no scan summary, preserved report, and both overrides named; CI run above. |
 | V2-E | Output simplicity | Experimental `--allow-in-tree-report-overwrite` added special handling incompatible with the simplified policy. | Retire this RNC-only experimental flag while retaining scan-input, symlink, and special-file protection. | **Implemented and validated.** | Flag removed; CLI test asserts exit 126 for the old flag; CI run above. |
 | V2-F | Publication correctness | Competing runs and OS-specific rename behavior can cause filename races. | Exclusive numbered destination allocation; atomic complete writes; real Windows/Linux/macOS validation; report actual output path. | **Implemented and validated.** | Exclusive-create reservation and temporary-file publication; Windows, macOS amd64/arm64, Linux, and Docker jobs passed in CI run above. |
+| V2A | Configuration collision protection | `Config(cmd)` reset `cfg.Path` to the possibly-empty `--config` value after loading. Report validation therefore missed active `GITLEAKS_CONFIG` and extended configuration files; auto-discovered configs relied on the source-path fallback. | Track every file actually loaded, including the main file and all `extend.path` files, in `Config.ConfigFiles`. Pass the full list to report collision validation. Inline `GITLEAKS_CONFIG_TOML` data remains pathless. | **Implemented and validated.** | `config/config_test.go` and `cmd/report_config_test.go` cover explicit, auto-discovered, environment, one-level, and nested extensions, relative/absolute paths, pre-scan rejection, unchanged bytes, and override attempts; CI run below. |
 
 **Output decision table (when the requested destination exists):**
 
@@ -61,7 +64,7 @@ This section distinguishes an implemented fix from full release acceptance. Only
 | CP-V0 finding | Severity | Description | Disposition |
 | --- | --- | --- | --- |
 | F01 | P0 | Source/Git/worker errors can be swallowed, creating false clean scans or reports. | **OPEN**; separate error-propagation project. |
-| F02 | P0 | Report validation/truncation, symlink, partial output, and input-collision data loss. | **V1 and V2 implemented; CP-V2 cross-platform CI passed.** Residual final publication TOCTOU is documented in the CP-V2 report. |
+| F02 | P0 | Report validation/truncation, symlink, partial output, and input-collision data loss. | **V1, V2, and V2A implemented; CP-V2/V2A cross-platform CI passed.** Residual final publication TOCTOU is documented in the CP-V2 report. |
 | F03 | P1 | Secret-bearing logs and incomplete redaction across multiple/empty/Unicode secrets. | **OPEN**; evaluate #2350/#2261 and broader log boundary. |
 | F04 | P1 | Untrusted local configuration can replace rules; malformed regex can panic. | **OPEN**; evaluate #2082/#2241. |
 | F05 | P1 | Unsafe `.gitleaksignore` file types, blocking FIFO, scan errors, lack of limits. | **OPEN**; issue #1572. |
@@ -78,6 +81,8 @@ This section distinguishes an implemented fix from full release acceptance. Only
 At CP-V1 completion, `go build`, normal tests, generation, targeted Linux race suites, RE2 build, and Docker smoke tests were reported passing; `go vet` had pre-existing test-only `lostcancel` warnings and some comprehensive tagged/race lanes had known limitations. Subsequent V1G branch CI had Windows/macOS report-path test failures. CP-V2 removed that path policy and the failures no longer reproduce.
 
 CP-V2 code at `452d1224afe57b68888b4e581ad70878758426ad` passed Windows, Linux, macOS amd64, macOS arm64, standard-build, RE2-build, module/vulnerability, and Docker amd64/arm64 CI jobs in [run 43075289894](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43075289894). Local validation also passed `go build ./...`, `go test -count=1 ./...` with Go 1.27.4, `go generate ./...` with unchanged generated configuration, Linux race tests for `./cmd`, `./config`, and `./report`, plus Docker CLI/report smoke tests. `go vet ./...` still reports only the two pre-existing `lostcancel` diagnostics in `detect/detect_test.go`.
+
+CP-V2A code at `cf3007301441eaf1f7b449707c87c2e87cbfebc8` preserves every configuration file loaded from disk in `Config.ConfigFiles` and passes the complete list into report collision validation. Regression coverage proves explicit, auto-discovered, `GITLEAKS_CONFIG`, one-level, and nested extended configuration collisions are rejected before scanning, remain byte-for-byte unchanged, and cannot be bypassed with `--overwrite` or `--aggregate`. [Run 43084497923](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43084497923) passed all Windows, Linux, macOS amd64/arm64, module/vulnerability, RE2, standard-build, and Docker amd64/arm64 jobs.
 
 ## 4. External contributor recognition and code provenance
 
