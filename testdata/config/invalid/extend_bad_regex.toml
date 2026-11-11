@@ -1,0 +1,2 @@
+[extend]
+path="../testdata/config/invalid/rule_bad_regex.toml"

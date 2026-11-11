@@ -19,10 +19,6 @@ import (
 var (
 	//go:embed gitleaks.toml
 	DefaultConfig string
-
-	// use to keep track of how many configs we can extend
-	// yea I know, globals bad
-	extendDepth int
 )
 
 const maxExtendDepth = 2
@@ -123,6 +119,10 @@ type Extend struct {
 }
 
 func (vc *ViperConfig) Translate() (Config, error) {
+	return vc.translate(0)
+}
+
+func (vc *ViperConfig) translate(depth int) (Config, error) {
 	var (
 		keywords       = make(map[string]struct{})
 		orderedRules   []string
@@ -137,10 +137,18 @@ func (vc *ViperConfig) Translate() (Config, error) {
 			regexPat *regexp.Regexp
 		)
 		if vr.Path != "" {
-			pathPat = regexp.MustCompile(vr.Path)
+			var err error
+			pathPat, err = regexp.Compile(vr.Path)
+			if err != nil {
+				return Config{}, fmt.Errorf("%s: invalid rule path regex %q: %w", vr.ID, vr.Path, err)
+			}
 		}
 		if vr.Regex != "" {
-			regexPat = regexp.MustCompile(vr.Regex)
+			var err error
+			regexPat, err = regexp.Compile(vr.Regex)
+			if err != nil {
+				return Config{}, fmt.Errorf("%s: invalid rule regex %q: %w", vr.ID, vr.Regex, err)
+			}
 		}
 		if vr.Keywords == nil {
 			vr.Keywords = []string{}
@@ -224,9 +232,9 @@ func (vc *ViperConfig) Translate() (Config, error) {
 		Aggregation:   vc.Aggregation != nil && *vc.Aggregation,
 	}
 
-	if extendDepth > 0 {
+	if depth > 0 {
 		// annoying hack to set the current config with the extended path
-		// since if extendDepth > 0 we are operating an extended config.
+		// since if depth > 0 we are operating an extended config.
 		c.Path = vc.configPath
 	} else {
 		// I don't love this
@@ -262,25 +270,25 @@ func (vc *ViperConfig) Translate() (Config, error) {
 		}
 	}
 
-	currentExtendDepth := extendDepth
-	if maxExtendDepth != currentExtendDepth {
+	currentDepth := depth
+	if currentDepth < maxExtendDepth {
 		// disallow both usedefault and path from being set
 		if c.Extend.Path != "" && c.Extend.UseDefault {
 			return Config{}, errors.New("unable to load config due to extend.path and extend.useDefault being set")
 		}
 		if c.Extend.UseDefault {
-			if err := c.extendDefault(vc); err != nil {
+			if err := c.extendDefault(currentDepth); err != nil {
 				return Config{}, err
 			}
 		} else if c.Extend.Path != "" {
-			if err := c.extendPath(vc); err != nil {
+			if err := c.extendPath(currentDepth); err != nil {
 				return Config{}, err
 			}
 		}
 	}
 
 	// Validate the rules after everything has been assembled (including extended configs).
-	if currentExtendDepth == 0 {
+	if currentDepth == 0 {
 		for _, rule := range c.Rules {
 			if err := rule.Validate(); err != nil {
 				return Config{}, err
@@ -360,12 +368,20 @@ func (vc *ViperConfig) parseAllowlist(a *viperRuleAllowlist) (*Allowlist, error)
 		}
 	}
 	var allowlistRegexes []*regexp.Regexp
-	for _, a := range a.Regexes {
-		allowlistRegexes = append(allowlistRegexes, regexp.MustCompile(a))
+	for _, pattern := range a.Regexes {
+		compiled, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("invalid allowlist regex %q: %w", pattern, err)
+		}
+		allowlistRegexes = append(allowlistRegexes, compiled)
 	}
 	var allowlistPaths []*regexp.Regexp
-	for _, a := range a.Paths {
-		allowlistPaths = append(allowlistPaths, regexp.MustCompile(a))
+	for _, pattern := range a.Paths {
+		compiled, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("invalid allowlist path regex %q: %w", pattern, err)
+		}
+		allowlistPaths = append(allowlistPaths, compiled)
 	}
 
 	allowlist := &Allowlist{
@@ -393,8 +409,7 @@ func (c *Config) GetOrderedRules() []Rule {
 	return orderedRules
 }
 
-func (c *Config) extendDefault(parent *ViperConfig) error {
-	extendDepth++
+func (c *Config) extendDefault(depth int) error {
 	viper.SetConfigType("toml")
 	if err := viper.ReadConfig(strings.NewReader(DefaultConfig)); err != nil {
 		return fmt.Errorf("failed to load extended default config, err: %w", err)
@@ -403,7 +418,7 @@ func (c *Config) extendDefault(parent *ViperConfig) error {
 	if err := viper.Unmarshal(&defaultViperConfig); err != nil {
 		return fmt.Errorf("failed to load extended default config, err: %w", err)
 	}
-	cfg, err := defaultViperConfig.Translate()
+	cfg, err := defaultViperConfig.translate(depth + 1)
 	if err != nil {
 		return fmt.Errorf("failed to load extended default config, err: %w", err)
 
@@ -413,8 +428,7 @@ func (c *Config) extendDefault(parent *ViperConfig) error {
 	return nil
 }
 
-func (c *Config) extendPath(parent *ViperConfig) error {
-	extendDepth++
+func (c *Config) extendPath(depth int) error {
 	viper.SetConfigFile(c.Extend.Path)
 	if err := viper.ReadInConfig(); err != nil {
 		return fmt.Errorf("failed to load extended config, err: %w", err)
@@ -426,7 +440,7 @@ func (c *Config) extendPath(parent *ViperConfig) error {
 
 	extensionViperConfig.configPath = c.Extend.Path
 	logging.Debug().Msgf("extending config with %s", c.Extend.Path)
-	cfg, err := extensionViperConfig.Translate()
+	cfg, err := extensionViperConfig.translate(depth + 1)
 	if err != nil {
 		return fmt.Errorf("failed to load extended config, err: %w", err)
 	}
