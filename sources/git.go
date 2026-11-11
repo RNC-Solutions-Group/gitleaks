@@ -65,6 +65,9 @@ type GitCmd struct {
 	repoPath    string
 	stderr      *gitStderr
 	tracker     *gitOutputTracker
+	// staged is true for `git diff --staged`; binary-marked text must then be
+	// read from the index rather than skipped or read from the worktree.
+	staged bool
 
 	drainOnce sync.Once
 	unparsed  int64
@@ -277,7 +280,12 @@ func NewGitDiffCmdContext(ctx context.Context, source string, staged bool) (*Git
 	}
 	logging.Debug().Msgf("executing: %s", cmd.String())
 
-	return newGitCmd(cmd, sourceClean)
+	gitCmd, err := newGitCmd(cmd, sourceClean)
+	if err != nil {
+		return nil, err
+	}
+	gitCmd.staged = staged
+	return gitCmd, nil
 }
 
 // newGitCmd starts cmd, connects its output to the diff parser, and records
@@ -396,7 +404,17 @@ func (c *GitCmd) NewBlobReader(commit, path string) (io.ReadCloser, error) {
 // NewBlobReaderContext is the same as NewBlobReader but supports passing in a
 // context to use for timeouts
 func (c *GitCmd) NewBlobReaderContext(ctx context.Context, commit, path string) (io.ReadCloser, error) {
-	gitArgs := []string{"-C", c.repoPath, "cat-file", "blob", commit + ":" + path}
+	return c.newBlobReaderContext(ctx, commit+":"+path)
+}
+
+// NewIndexBlobReaderContext returns the staged index content for path. The
+// explicit stage-zero prefix uses the index rather than the worktree.
+func (c *GitCmd) NewIndexBlobReaderContext(ctx context.Context, path string) (io.ReadCloser, error) {
+	return c.newBlobReaderContext(ctx, ":0:"+path)
+}
+
+func (c *GitCmd) newBlobReaderContext(ctx context.Context, object string) (io.ReadCloser, error) {
+	gitArgs := []string{"-C", c.repoPath, "cat-file", "blob", object}
 	cmd := exec.CommandContext(ctx, "git", gitArgs...)
 	cmd.Stderr = io.Discard
 	stdout, err := cmd.StdoutPipe()
@@ -529,13 +547,20 @@ func (s *Git) Fragments(ctx context.Context, yield FragmentsFunc) error {
 				continue
 			}
 
-			// skip non-archive binary files
-			yieldAsArchive := false
+			// Git marks staged text as binary when attributes or
+			// core.bigFileThreshold prevent a textual diff. Staged scans must
+			// fall back to the index blob; history scans retain the established
+			// skip for non-archive binary files. File.Fragments still applies
+			// MIME classification to the blob content. The staged-index approach
+			// follows gitleaks/gitleaks#2338 (@VISHNU0906); this implementation
+			// uses the CP-V3 error and lifecycle path.
+			yieldFromBlob := false
 			if gitdiffFile.IsBinary {
-				if !isArchive(ctx, gitdiffFile.NewName) {
+				if isArchive(ctx, gitdiffFile.NewName) || s.Cmd.staged {
+					yieldFromBlob = true
+				} else {
 					continue
 				}
-				yieldAsArchive = true
 			}
 
 			// Check if commit is allowed
@@ -564,11 +589,11 @@ func (s *Git) Fragments(ctx context.Context, yield FragmentsFunc) error {
 			}
 
 			diffFile := gitdiffFile
-			archive := yieldAsArchive
+			fromBlob := yieldFromBlob
 			sha := commitSHA
 			info := commitInfo
 			s.Sema.Go(func() error {
-				if err := s.processDiffFile(ctx, diffFile, archive, sha, info, yield); err != nil {
+				if err := s.processDiffFile(ctx, diffFile, fromBlob, sha, info, yield); err != nil {
 					collector.Add(fmt.Errorf("%s: %w", diffFile.NewName, err))
 				}
 				return nil
@@ -600,15 +625,23 @@ func (s *Git) Fragments(ctx context.Context, yield FragmentsFunc) error {
 func (s *Git) processDiffFile(
 	ctx context.Context,
 	diffFile *gitdiff.File,
-	yieldAsArchive bool,
+	fromBlob bool,
 	commitSHA string,
 	commitInfo *CommitInfo,
 	yield FragmentsFunc,
 ) error {
-	if yieldAsArchive {
-		blob, err := s.Cmd.NewBlobReaderContext(ctx, commitSHA, diffFile.NewName)
+	if fromBlob {
+		var (
+			blob io.ReadCloser
+			err  error
+		)
+		if s.Cmd.staged {
+			blob, err = s.Cmd.NewIndexBlobReaderContext(ctx, diffFile.NewName)
+		} else {
+			blob, err = s.Cmd.NewBlobReaderContext(ctx, commitSHA, diffFile.NewName)
+		}
 		if err != nil {
-			return fmt.Errorf("could not read archive blob: %w", err)
+			return fmt.Errorf("could not read blob: %w", err)
 		}
 
 		file := File{
@@ -627,7 +660,7 @@ func (s *Git) processDiffFile(
 
 		closeErr := blob.Close()
 		if fragmentsErr != nil || closeErr != nil {
-			return errors.Join(fragmentsErr, closeErr)
+			return fmt.Errorf("could not read blob content: %w", errors.Join(fragmentsErr, closeErr))
 		}
 		return nil
 	}
