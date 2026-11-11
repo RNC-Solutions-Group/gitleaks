@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -157,24 +157,76 @@ func NewDetectorDefaultConfig() (*Detector, error) {
 
 func (d *Detector) AddGitleaksIgnore(gitleaksIgnorePath string) error {
 	logging.Debug().Str("path", gitleaksIgnorePath).Msgf("found .gitleaksignore file")
-	file, err := os.Open(gitleaksIgnorePath)
+	file, err := openIgnoreFile(gitleaksIgnorePath)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		// https://github.com/securego/gosec/issues/512
-		if err := file.Close(); err != nil {
-			logging.Warn().Err(err).Msgf("Error closing .gitleaksignore file")
-		}
-	}()
 
-	scanner := bufio.NewScanner(file)
+	info, statErr := file.Stat()
+	if statErr != nil {
+		_ = file.Close()
+		return fmt.Errorf("could not stat .gitleaksignore %q: %w", gitleaksIgnorePath, statErr)
+	}
+	if info.Size() > maxGitleaksIgnoreBytes {
+		_ = file.Close()
+		return fmt.Errorf(".gitleaksignore %q is %d bytes, exceeds limit of %d bytes", gitleaksIgnorePath, info.Size(), maxGitleaksIgnoreBytes)
+	}
+
+	entries, parseErr := parseGitleaksIgnore(file)
+	closeErr := file.Close()
+	if parseErr != nil {
+		return fmt.Errorf("could not read .gitleaksignore %q: %w", gitleaksIgnorePath, parseErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("could not close .gitleaksignore %q: %w", gitleaksIgnorePath, closeErr)
+	}
+
+	// Merge only after the complete file has been parsed successfully so an
+	// incomplete read cannot leave a partially loaded suppression set.
+	for entry := range entries {
+		d.gitleaksIgnore[entry] = struct{}{}
+	}
+	return nil
+}
+
+const (
+	maxGitleaksIgnoreBytes   = 16 << 20
+	maxGitleaksIgnoreEntries = 100_000
+	maxGitleaksIgnoreLine    = 1 << 20
+)
+
+type countingReader struct {
+	reader io.Reader
+	bytes  int64
+}
+
+func (r *countingReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	r.bytes += int64(n)
+	return n, err
+}
+
+func parseGitleaksIgnore(reader io.Reader) (map[string]struct{}, error) {
+	entries := make(map[string]struct{})
+	counted := &countingReader{reader: reader}
+	scanner := bufio.NewScanner(counted)
+	scanner.Buffer(make([]byte, 64*1024), maxGitleaksIgnoreLine)
 	replacer := strings.NewReplacer("\\", "/")
+	entryCount := 0
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		// Skip lines that start with a comment
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
+		}
+
+		entryCount++
+		if entryCount > maxGitleaksIgnoreEntries {
+			return nil, fmt.Errorf("contains more than %d entries", maxGitleaksIgnoreEntries)
+		}
+		if counted.bytes > maxGitleaksIgnoreBytes {
+			return nil, fmt.Errorf("exceeds limit of %d bytes", maxGitleaksIgnoreBytes)
 		}
 
 		// Normalize the path.
@@ -192,9 +244,15 @@ func (d *Detector) AddGitleaksIgnore(gitleaksIgnorePath string) error {
 		default:
 			logging.Warn().Str("fingerprint", line).Msg("Invalid .gitleaksignore entry")
 		}
-		d.gitleaksIgnore[strings.Join(s, ":")] = struct{}{}
+		entries[strings.Join(s, ":")] = struct{}{}
 	}
-	return nil
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	if counted.bytes > maxGitleaksIgnoreBytes {
+		return nil, fmt.Errorf("exceeds limit of %d bytes", maxGitleaksIgnoreBytes)
+	}
+	return entries, nil
 }
 
 // DetectBytes scans the given bytes and returns a list of findings

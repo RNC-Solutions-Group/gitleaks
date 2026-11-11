@@ -303,22 +303,15 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		logging.Fatal().Err(err).Msg("could not get .gitleaksignore path")
 	}
 
-	if fileExists(gitleaksIgnorePath) {
-		if err = detector.AddGitleaksIgnore(gitleaksIgnorePath); err != nil {
-			logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
-		}
+	// The flag path may be a file or a directory containing .gitleaksignore.
+	// An explicitly requested path must exist; an auto-discovered source file
+	// is optional. Both paths reject directories and special files before
+	// opening them.
+	if err = loadGitleaksIgnorePath(detector, gitleaksIgnorePath, cmd.Flags().Changed("gitleaks-ignore-path")); err != nil {
+		logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
 	}
-
-	if fileExists(filepath.Join(gitleaksIgnorePath, ".gitleaksignore")) {
-		if err = detector.AddGitleaksIgnore(filepath.Join(gitleaksIgnorePath, ".gitleaksignore")); err != nil {
-			logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
-		}
-	}
-
-	if fileExists(filepath.Join(source, ".gitleaksignore")) {
-		if err = detector.AddGitleaksIgnore(filepath.Join(source, ".gitleaksignore")); err != nil {
-			logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
-		}
+	if err = loadGitleaksIgnoreFile(detector, filepath.Join(source, ".gitleaksignore")); err != nil {
+		logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
 	}
 
 	// ignore findings from the baseline (an existing report in json format generated earlier)
@@ -514,19 +507,50 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 	}
 }
 
-func fileExists(fileName string) bool {
-	// check for a .gitleaksignore file
-	info, err := os.Stat(fileName)
-	if err != nil && !os.IsNotExist(err) {
-		return false
+func loadGitleaksIgnorePath(detector *detect.Detector, path string, required bool) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) && !required {
+			return nil
+		}
+		return fmt.Errorf("could not inspect .gitleaksignore path %q: %w", path, err)
 	}
 
-	if info != nil && err == nil {
-		if !info.IsDir() {
-			return true
+	if info.Mode()&os.ModeSymlink != 0 {
+		info, err = os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("could not resolve .gitleaksignore path %q: %w", path, err)
 		}
 	}
-	return false
+
+	if info.IsDir() {
+		return loadGitleaksIgnoreFile(detector, filepath.Join(path, ".gitleaksignore"))
+	}
+	return detector.AddGitleaksIgnore(path)
+}
+
+func loadGitleaksIgnoreFile(detector *detect.Detector, path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("could not inspect .gitleaksignore file %q: %w", path, err)
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		info, err = os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("could not resolve .gitleaksignore file %q: %w", path, err)
+		}
+	}
+
+	// A directory named .gitleaksignore is not an ignore file. Preserve the
+	// historical absence behavior for auto-discovered source files.
+	if info.IsDir() {
+		return nil
+	}
+	return detector.AddGitleaksIgnore(path)
 }
 
 func FormatDuration(d time.Duration) string {
