@@ -40,6 +40,7 @@ func initColorRepo(t *testing.T, colorKeys ...string) (string, string) {
 	gitRun(t, gitPath, repo, "config", "user.email", "cpv1@example.com")
 	gitRun(t, gitPath, repo, "config", "user.name", "CPV1")
 	gitRun(t, gitPath, repo, "config", "core.autocrlf", "false")
+	gitRun(t, gitPath, repo, "config", "core.fsmonitor", "false")
 	for _, key := range colorKeys {
 		gitRun(t, gitPath, repo, "config", key, "always")
 	}

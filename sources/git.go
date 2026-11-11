@@ -20,6 +20,7 @@ import (
 
 	"github.com/zricethezav/gitleaks/v8/cmd/scm"
 	"github.com/zricethezav/gitleaks/v8/config"
+	"github.com/zricethezav/gitleaks/v8/internal/scanerr"
 	"github.com/zricethezav/gitleaks/v8/logging"
 )
 
@@ -58,9 +59,136 @@ func forceNoColor(args []string) []string {
 // GitCmd helps to work with Git's output.
 type GitCmd struct {
 	cmd         *exec.Cmd
+	stdout      *bufio.Reader
 	diffFilesCh <-chan *gitdiff.File
 	errCh       <-chan error
 	repoPath    string
+	stderr      *gitStderr
+	tracker     *gitOutputTracker
+
+	drainOnce sync.Once
+	unparsed  int64
+	waitOnce  sync.Once
+	waitErr   error
+}
+
+// gitOutputTracker counts complete "diff --git " section headers in the raw
+// output. The diff parser silently stops on some malformed or truncated input,
+// so comparing raw section count with parsed file count is the only way to
+// notice that the tail of the stream was never scanned.
+type gitOutputTracker struct {
+	mu        sync.Mutex
+	prefix    [16]byte
+	prefixLen int
+	sections  int64
+}
+
+func (t *gitOutputTracker) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for _, b := range p {
+		if b == '\n' {
+			t.countLine()
+			continue
+		}
+		if t.prefixLen < len(t.prefix) {
+			t.prefix[t.prefixLen] = b
+			t.prefixLen++
+		}
+	}
+	return len(p), nil
+}
+
+func (t *gitOutputTracker) finish() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.countLine()
+}
+
+func (t *gitOutputTracker) countLine() {
+	if t.prefixLen >= len("diff --git ") &&
+		string(t.prefix[:len("diff --git ")]) == "diff --git " {
+		t.sections++
+	}
+	t.prefixLen = 0
+}
+
+func (t *gitOutputTracker) sectionCount() int64 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.sections
+}
+
+const maxGitStderrLines = 20
+
+// gitStderr records bounded stderr output and whether it contained an explicit
+// Git error. Nonempty stderr alone is not a failure: Git emits warnings and
+// progress messages there during successful commands.
+type gitStderr struct {
+	mu      sync.Mutex
+	lines   []string
+	total   int
+	fatal   bool
+	readErr error
+}
+
+func (g *gitStderr) add(line string, fatal bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.total++
+	if len(g.lines) < maxGitStderrLines {
+		g.lines = append(g.lines, line)
+	}
+	if fatal {
+		g.fatal = true
+	}
+}
+
+func (g *gitStderr) setReadErr(err error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.readErr = err
+	g.fatal = true
+}
+
+func (g *gitStderr) summary() string {
+	if g == nil {
+		return ""
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	parts := append([]string(nil), g.lines...)
+	if g.total > len(g.lines) {
+		parts = append(parts, fmt.Sprintf("%d additional stderr line(s) omitted", g.total-len(g.lines)))
+	}
+	if g.readErr != nil {
+		parts = append(parts, fmt.Sprintf("could not read stderr: %v", g.readErr))
+	}
+	return strings.Join(parts, "; ")
+}
+
+func (g *gitStderr) err() error {
+	if g == nil {
+		return nil
+	}
+	g.mu.Lock()
+	fatal := g.fatal
+	readErr := g.readErr
+	g.mu.Unlock()
+	if !fatal && readErr == nil {
+		return nil
+	}
+	if summary := g.summary(); summary != "" {
+		return fmt.Errorf("git reported an error on stderr: %s", summary)
+	}
+	return errors.New("git reported an error on stderr")
+}
+
+func isFatalGitStderr(line string) bool {
+	lower := strings.ToLower(strings.TrimSpace(line))
+	return strings.HasPrefix(lower, "fatal:") ||
+		strings.HasPrefix(lower, "error:") ||
+		strings.HasPrefix(lower, "panic:")
 }
 
 // blobReader provides a ReadCloser interface git cat-file blob to fetch
@@ -127,32 +255,7 @@ func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*G
 
 	logging.Debug().Msgf("executing: %s", cmd.String())
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, err
-	}
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-
-	errCh := make(chan error)
-	go listenForStdErr(stderr, errCh)
-
-	gitdiffFiles, err := gitdiff.Parse(stdout)
-	if err != nil {
-		return nil, err
-	}
-
-	return &GitCmd{
-		cmd:         cmd,
-		diffFilesCh: gitdiffFiles,
-		errCh:       errCh,
-		repoPath:    sourceClean,
-	}, nil
+	return newGitCmd(cmd, sourceClean)
 }
 
 // NewGitDiffCmd returns `*DiffFilesCmd` with two channels: `<-chan *gitdiff.File` and `<-chan error`.
@@ -174,6 +277,12 @@ func NewGitDiffCmdContext(ctx context.Context, source string, staged bool) (*Git
 	}
 	logging.Debug().Msgf("executing: %s", cmd.String())
 
+	return newGitCmd(cmd, sourceClean)
+}
+
+// newGitCmd starts cmd, connects its output to the diff parser, and records
+// stderr separately from the parsed diff stream.
+func newGitCmd(cmd *exec.Cmd, repoPath string) (*GitCmd, error) {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -186,19 +295,32 @@ func NewGitDiffCmdContext(ctx context.Context, source string, staged bool) (*Git
 		return nil, err
 	}
 
-	errCh := make(chan error)
-	go listenForStdErr(stderr, errCh)
+	stderrInfo := &gitStderr{}
+	errCh := make(chan error, 1)
+	go listenForStdErr(stderr, stderrInfo, errCh)
 
-	gitdiffFiles, err := gitdiff.Parse(stdout)
+	tracker := &gitOutputTracker{}
+	buffered := bufio.NewReader(io.TeeReader(stdout, tracker))
+	diffFiles, err := gitdiff.Parse(buffered)
 	if err != nil {
-		return nil, err
+		// The command is running but its output never reached the parser.
+		// Kill it, drain both pipes, and reap it before returning the error.
+		_ = cmd.Process.Kill()
+		_, _ = io.Copy(io.Discard, buffered)
+		for range errCh {
+		}
+		_ = cmd.Wait()
+		return nil, fmt.Errorf("could not parse git diff: %w", err)
 	}
 
 	return &GitCmd{
 		cmd:         cmd,
-		diffFilesCh: gitdiffFiles,
+		stdout:      buffered,
+		diffFilesCh: diffFiles,
 		errCh:       errCh,
-		repoPath:    sourceClean,
+		repoPath:    repoPath,
+		stderr:      stderrInfo,
+		tracker:     tracker,
 	}, nil
 }
 
@@ -207,17 +329,55 @@ func (c *GitCmd) DiffFilesCh() <-chan *gitdiff.File {
 	return c.diffFilesCh
 }
 
-// ErrCh returns a channel that could produce an error if there is something in stderr.
+// ErrCh returns a channel that produces an error when Git reports an explicit
+// fatal/error diagnostic on stderr. Warnings and progress messages do not
+// produce errors; process exit status is checked by Wait.
 func (c *GitCmd) ErrCh() <-chan error {
 	return c.errCh
 }
 
-// Wait waits for the command to exit and waits for any copying to
-// stdin or copying from stdout or stderr to complete.
-//
-// Wait also closes underlying stdout and stderr.
+// Wait drains any stdout left by the parser, waits for the command to exit, and
+// returns the command's exit error. It is safe to call more than once.
 func (c *GitCmd) Wait() error {
-	return c.cmd.Wait()
+	c.drain()
+	c.waitOnce.Do(func() {
+		c.waitErr = c.cmd.Wait()
+	})
+	return c.waitErr
+}
+
+func (c *GitCmd) drain() {
+	c.drainOnce.Do(func() {
+		if c.stdout == nil {
+			return
+		}
+		c.unparsed, _ = io.Copy(io.Discard, c.stdout)
+		if c.tracker != nil {
+			c.tracker.finish()
+		}
+	})
+}
+
+// unparsedBytes reports how much Git output remained after the parser closed
+// its output channel. It must be called after DiffFilesCh is closed.
+func (c *GitCmd) unparsedBytes() int64 {
+	c.drain()
+	return c.unparsed
+}
+
+func (c *GitCmd) sectionCount() int64 {
+	c.drain()
+	if c.tracker == nil {
+		return 0
+	}
+	return c.tracker.sectionCount()
+}
+
+func (c *GitCmd) commandError(err error) error {
+	if summary := c.stderr.summary(); summary != "" {
+		return fmt.Errorf("git command failed: %w; stderr: %s", err, summary)
+	}
+	return fmt.Errorf("git command failed: %w", err)
 }
 
 // String displays the command used for GitCmd
@@ -252,52 +412,38 @@ func (c *GitCmd) NewBlobReaderContext(ctx context.Context, commit, path string) 
 	}, nil
 }
 
-// listenForStdErr listens for stderr output from git, prints it to stdout,
-// sends to errCh and closes it.
-func listenForStdErr(stderr io.ReadCloser, errCh chan<- error) {
+// listenForStdErr records and logs Git's stderr. Known warnings and progress
+// messages are not failures; explicit fatal/error diagnostics are signalled on
+// errCh and rechecked against the process exit status by Git.Fragments.
+func listenForStdErr(stderr io.ReadCloser, info *gitStderr, errCh chan<- error) {
 	defer close(errCh)
 
-	var errEncountered bool
-
+	var signalled bool
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
-		// if git throws one of the following errors:
-		//
-		//  exhaustive rename detection was skipped due to too many files.
-		//  you may want to set your diff.renameLimit variable to at least
-		//  (some large number) and retry the command.
-		//
-		//	inexact rename detection was skipped due to too many files.
-		//  you may want to set your diff.renameLimit variable to at least
-		//  (some large number) and retry the command.
-		//
-		//  Auto packing the repository in background for optimum performance.
-		//  See "git help gc" for manual housekeeping.
-		//
-		// we skip exiting the program as git log -p/git diff will continue
-		// to send data to stdout and finish executing. This next bit of
-		// code prevents gitleaks from stopping mid scan if this error is
-		// encountered
-		if strings.Contains(scanner.Text(),
-			"exhaustive rename detection was skipped") ||
-			strings.Contains(scanner.Text(),
-				"inexact rename detection was skipped") ||
-			strings.Contains(scanner.Text(),
-				"you may want to set your diff.renameLimit") ||
-			strings.Contains(scanner.Text(),
-				"See \"git help gc\" for manual housekeeping") ||
-			strings.Contains(scanner.Text(),
-				"Auto packing the repository in background for optimum performance") {
-			logging.Warn().Msg(scanner.Text())
-		} else {
-			logging.Error().Msgf("[git] %s", scanner.Text())
-			errEncountered = true
+		line := scanner.Text()
+		fatal := isFatalGitStderr(line)
+		info.add(line, fatal)
+		if fatal {
+			logging.Error().Msgf("[git] %s", line)
+			if !signalled {
+				select {
+				case errCh <- errors.New("git reported an error on stderr"):
+					signalled = true
+				default:
+				}
+			}
+			continue
 		}
+		logging.Warn().Msgf("[git] %s", line)
 	}
 
-	if errEncountered {
-		errCh <- errors.New("stderr is not empty")
-		return
+	if err := scanner.Err(); err != nil {
+		info.setReadErr(err)
+		select {
+		case errCh <- fmt.Errorf("could not read git stderr: %w", err):
+		default:
+		}
 	}
 }
 
@@ -328,29 +474,57 @@ type CommitInfo struct {
 
 // Fragments yields fragments from a git repo
 func (s *Git) Fragments(ctx context.Context, yield FragmentsFunc) error {
-	defer func() {
-		if err := s.Cmd.Wait(); err != nil {
-			logging.Debug().Err(err).Str("cmd", s.Cmd.String()).Msg("command aborted")
-		}
-	}()
+	if s.Cmd == nil {
+		return errors.New("git source has no command")
+	}
+	if s.Sema == nil {
+		s.Sema = semgroup.NewGroup(ctx, 40)
+	}
+
+	collector := scanerr.New(10)
+	diffFilesCh := s.Cmd.DiffFilesCh()
+	errCh := s.Cmd.ErrCh()
+	ctxDone := ctx.Done()
 
 	var (
-		diffFilesCh = s.Cmd.DiffFilesCh()
-		errCh       = s.Cmd.ErrCh()
-		wg          sync.WaitGroup
+		ctxErr      error
+		parseErr    error
+		parsedDiffs int64
 	)
 
-	// loop to range over both DiffFiles (stdout) and ErrCh (stderr)
+	// Drain both Git channels before waiting for the process. Returning early
+	// would leave the parser and stderr goroutines blocked on their pipes.
 	for diffFilesCh != nil || errCh != nil {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
+		case <-ctxDone:
+			ctxErr = ctx.Err()
+			ctxDone = nil
 		case gitdiffFile, open := <-diffFilesCh:
 			if !open {
 				diffFilesCh = nil
-				break
+				if unparsed := s.Cmd.unparsedBytes(); unparsed > 0 {
+					parseErr = fmt.Errorf(
+						"diff parsing stopped early, leaving %d bytes of git output unscanned: results are incomplete",
+						unparsed,
+					)
+				}
+				if expected := s.Cmd.sectionCount(); expected > parsedDiffs {
+					sectionErr := fmt.Errorf(
+						"diff parsing stopped early: parsed %d of %d diff sections; results are incomplete",
+						parsedDiffs, expected,
+					)
+					parseErr = errors.Join(parseErr, sectionErr)
+				}
+				continue
 			}
+			if gitdiffFile == nil {
+				continue
+			}
+			parsedDiffs++
 
+			if ctxErr != nil {
+				continue
+			}
 			if gitdiffFile.IsDelete {
 				continue
 			}
@@ -389,76 +563,94 @@ func (s *Git) Fragments(ctx context.Context, yield FragmentsFunc) error {
 				}
 			}
 
-			wg.Add(1)
+			diffFile := gitdiffFile
+			archive := yieldAsArchive
+			sha := commitSHA
+			info := commitInfo
 			s.Sema.Go(func() error {
-				defer wg.Done()
-
-				if yieldAsArchive {
-					blob, err := s.Cmd.NewBlobReaderContext(ctx, commitSHA, gitdiffFile.NewName)
-					if err != nil {
-						logging.Error().Err(err).Msg("could not read archive blob")
-						return nil
-					}
-
-					file := File{
-						Content:         blob,
-						Path:            gitdiffFile.NewName,
-						MaxArchiveDepth: s.MaxArchiveDepth,
-						Config:          s.Config,
-					}
-
-					// enrich and yield fragments
-					err = file.Fragments(ctx, func(fragment Fragment, err error) error {
-						fragment.CommitSHA = commitSHA
-						fragment.CommitInfo = commitInfo
-						return yield(fragment, err)
-					})
-
-					// Close the blob reader and log any issues
-					if err := blob.Close(); err != nil {
-						logging.Debug().Err(err).Msg("blobReader.Close() returned an error")
-					}
-
-					return err
+				if err := s.processDiffFile(ctx, diffFile, archive, sha, info, yield); err != nil {
+					collector.Add(fmt.Errorf("%s: %w", diffFile.NewName, err))
 				}
-
-				for _, textFragment := range gitdiffFile.TextFragments {
-					if textFragment == nil {
-						return nil
-					}
-
-					fragment := Fragment{
-						CommitSHA:  commitSHA,
-						FilePath:   gitdiffFile.NewName,
-						Raw:        textFragment.Raw(gitdiff.OpAdd),
-						StartLine:  int(textFragment.NewPosition),
-						CommitInfo: commitInfo,
-					}
-
-					if err := yield(fragment, nil); err != nil {
-						return err
-					}
-				}
-
 				return nil
 			})
-		case err, open := <-errCh:
+		case _, open := <-errCh:
 			if !open {
 				errCh = nil
-				break
 			}
-
-			return yield(Fragment{}, err)
 		}
 	}
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		wg.Wait()
+	// Join workers before checking process completion so findings from readable
+	// input are complete and no worker can run after this function returns.
+	collector.Add(s.Sema.Wait())
+
+	waitErr := s.Cmd.Wait()
+	if waitErr != nil {
+		collector.Add(s.Cmd.commandError(waitErr))
+	} else {
+		// A fatal stderr diagnostic with a zero exit status is still a failure.
+		collector.Add(s.Cmd.stderr.err())
+	}
+	collector.Add(parseErr)
+	collector.Add(ctxErr)
+
+	return collector.Err()
+}
+
+func (s *Git) processDiffFile(
+	ctx context.Context,
+	diffFile *gitdiff.File,
+	yieldAsArchive bool,
+	commitSHA string,
+	commitInfo *CommitInfo,
+	yield FragmentsFunc,
+) error {
+	if yieldAsArchive {
+		blob, err := s.Cmd.NewBlobReaderContext(ctx, commitSHA, diffFile.NewName)
+		if err != nil {
+			return fmt.Errorf("could not read archive blob: %w", err)
+		}
+
+		file := File{
+			Content:         blob,
+			Path:            diffFile.NewName,
+			MaxArchiveDepth: s.MaxArchiveDepth,
+			Config:          s.Config,
+		}
+
+		// enrich and yield fragments
+		fragmentsErr := file.Fragments(ctx, func(fragment Fragment, err error) error {
+			fragment.CommitSHA = commitSHA
+			fragment.CommitInfo = commitInfo
+			return yield(fragment, err)
+		})
+
+		closeErr := blob.Close()
+		if fragmentsErr != nil || closeErr != nil {
+			return errors.Join(fragmentsErr, closeErr)
+		}
 		return nil
 	}
+
+	for _, textFragment := range diffFile.TextFragments {
+		if textFragment == nil {
+			continue
+		}
+
+		fragment := Fragment{
+			CommitSHA:  commitSHA,
+			FilePath:   diffFile.NewName,
+			Raw:        textFragment.Raw(gitdiff.OpAdd),
+			StartLine:  int(textFragment.NewPosition),
+			CommitInfo: commitInfo,
+		}
+
+		if err := yield(fragment, nil); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // NewRemoteInfo builds a new RemoteInfo for generating finding links
