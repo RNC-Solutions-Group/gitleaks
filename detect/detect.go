@@ -102,6 +102,10 @@ type Detector struct {
 	// report-related settings.
 	ReportPath string
 	Reporter   report.Reporter
+	// ReportWriter, when set, validates and writes the report for a completed
+	// scan. The CLI sets it so destination policy and atomic replacement stay
+	// in the command layer.
+	ReportWriter func([]report.Finding) error
 
 	TotalBytes atomic.Uint64
 }

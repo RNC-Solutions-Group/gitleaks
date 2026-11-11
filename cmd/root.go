@@ -76,6 +76,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("report-path", "r", "", "report file (use \"-\" for stdout)")
 	rootCmd.PersistentFlags().StringP("report-format", "f", "", "output format (json, csv, junit, sarif, template)")
 	rootCmd.PersistentFlags().StringP("report-template", "", "", "template file used to generate the report (implies --report-format=template)")
+	rootCmd.PersistentFlags().Bool("allow-in-tree-report-overwrite", false, "allow replacing an existing report file inside the scan target")
 	rootCmd.PersistentFlags().StringP("baseline-path", "b", "", "path to baseline with issues that can be ignored")
 	rootCmd.PersistentFlags().StringP("log-level", "l", "info", "log level (trace, debug, info, warn, error, fatal)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "show verbose output from scan")
@@ -391,19 +392,26 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 			logging.Fatal().Msgf("Report format must be 'template' if --report-template is specified")
 		}
 
-		if err := validateReportDestination(
+		allowInTreeOverwrite := mustGetBoolFlag(cmd, "allow-in-tree-report-overwrite")
+		destination, err := validateReportDestination(
 			reportPath,
-			reportFormat,
 			source,
 			detector.Config.Path,
 			baselinePath,
 			gitleaksIgnorePath,
-		); err != nil {
+			allowInTreeOverwrite,
+		)
+		if err != nil {
 			logging.Fatal().Err(err).Msg("invalid report destination")
 		}
 
 		detector.ReportPath = reportPath
 		detector.Reporter = reporter
+		if reportPath != report.StdoutReportPath {
+			detector.ReportWriter = func(findings []report.Finding) error {
+				return writeReportAtomic(destination, reporter, findings)
+			}
+		}
 	}
 
 	return detector
@@ -471,8 +479,10 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 			var reportErr error
 			if detector.ReportPath == report.StdoutReportPath {
 				reportErr = detector.Reporter.Write(os.Stdout, findings)
+			} else if detector.ReportWriter != nil {
+				reportErr = detector.ReportWriter(findings)
 			} else {
-				reportErr = writeReportAtomic(detector.ReportPath, detector.Reporter, findings)
+				reportErr = fmt.Errorf("report writer is not configured")
 			}
 			if reportErr != nil {
 				logging.Fatal().Err(reportErr).Msg("failed to write report")

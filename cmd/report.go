@@ -1,12 +1,9 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/csv"
-	"encoding/json"
-	"encoding/xml"
+	"errors"
 	"fmt"
-	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -15,86 +12,211 @@ import (
 	"github.com/zricethezav/gitleaks/v8/report"
 )
 
-const maxPriorReportSize = 10 * 1_000 * 1_000
+// reportDestination captures the destination policy established before the
+// scan. Revalidate is called again immediately before replacement so a file
+// that appeared in the scan target during the scan is not silently replaced.
+type reportDestination struct {
+	path                 string
+	source               string
+	inTree               bool
+	existedAtValidation  bool
+	allowInTreeOverwrite bool
+	sourceIsFile         bool
+	soleSourceFile       bool
+	protectedInputs      []string
+}
 
 // validateReportDestination checks a report path without creating, truncating,
-// or removing it. It rejects destinations that are symlinks, directories, or
-// special files, and it rejects existing files inside the scan target unless
-// they are recognizable prior reports for the selected format.
-//
-// The report writer performs the actual open/write/replace only after a
-// successful scan. This function deliberately has no side effects on the
-// destination.
-func validateReportDestination(reportPath, reportFormat, source, configPath, baselinePath, gitleaksIgnorePath string) error {
+// or removing it. It deliberately does not inspect report-like content: a file
+// that resembles a report is not proof that Gitleaks owns it.
+func validateReportDestination(
+	reportPath string,
+	source string,
+	configPath string,
+	baselinePath string,
+	gitleaksIgnorePath string,
+	allowInTreeOverwrite bool,
+) (reportDestination, error) {
+	dest := reportDestination{
+		path:                 reportPath,
+		source:               source,
+		allowInTreeOverwrite: allowInTreeOverwrite,
+	}
 	if reportPath == "" || reportPath == report.StdoutReportPath {
-		return nil
+		return dest, nil
 	}
 
 	info, err := os.Lstat(reportPath)
 	switch {
 	case err == nil:
 		if info.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("report path %q is a symbolic link; refusing to replace its target", reportPath)
+			return dest, fmt.Errorf("report path %q is a symbolic link; refusing to replace its target", reportPath)
 		}
 		if info.IsDir() {
-			return fmt.Errorf("report path %q is a directory", reportPath)
+			return dest, fmt.Errorf("report path %q is a directory", reportPath)
 		}
 		if !info.Mode().IsRegular() {
-			return fmt.Errorf("report path %q is not a regular file", reportPath)
+			return dest, fmt.Errorf("report path %q is not a regular file", reportPath)
 		}
+		dest.existedAtValidation = true
 	case os.IsNotExist(err):
 		info = nil
 	default:
-		return fmt.Errorf("could not inspect report path %q: %w", reportPath, err)
+		return dest, fmt.Errorf("could not inspect report path %q: %w", reportPath, err)
 	}
 
-	parent := filepath.Dir(reportPath)
-	parentInfo, err := os.Stat(parent)
-	if err != nil {
-		return fmt.Errorf("report directory %q is not accessible: %w", parent, err)
-	}
-	if !parentInfo.IsDir() {
-		return fmt.Errorf("report directory %q is not a directory", parent)
+	if err := validateReportParent(reportPath); err != nil {
+		return dest, err
 	}
 
 	if source != "" {
 		sourceInfo, statErr := os.Stat(source)
 		if statErr == nil {
 			if !sourceInfo.IsDir() {
+				dest.sourceIsFile = true
 				if samePath(reportPath, source) {
-					return fmt.Errorf("report path %q collides with the scan target", reportPath)
+					return dest, fmt.Errorf("report path %q collides with the scan target", reportPath)
 				}
-			} else if info != nil && pathWithin(reportPath, source) {
-				if reportFormat == "template" {
-					return fmt.Errorf("report path %q is inside the scan target and cannot be identified as a prior report", reportPath)
-				}
-				ok, priorErr := looksLikePriorReport(reportPath, reportFormat)
-				if priorErr != nil {
-					return fmt.Errorf("could not inspect existing report %q: %w", reportPath, priorErr)
-				}
-				if !ok {
-					return fmt.Errorf("report path %q is inside the scan target and does not look like a prior %s report", reportPath, reportFormat)
-				}
+			} else {
+				dest.inTree = pathWithin(reportPath, source)
 			}
 		}
 	}
 
-	for _, input := range []string{
+	dest.protectedInputs = []string{
 		configPath,
 		baselinePath,
 		gitleaksIgnorePath,
 		filepath.Join(gitleaksIgnorePath, ".gitleaksignore"),
 		filepath.Join(source, ".gitleaksignore"),
-	} {
+	}
+	for _, input := range dest.protectedInputs {
 		if input == "" {
 			continue
 		}
 		if samePath(reportPath, input) {
-			return fmt.Errorf("report path %q collides with scan input %q", reportPath, input)
+			return dest, fmt.Errorf("report path %q collides with scan input %q", reportPath, input)
 		}
 	}
 
+	if dest.inTree && info != nil {
+		if !allowInTreeOverwrite {
+			return dest, fmt.Errorf(
+				"report path %q already exists inside the scan target; use --allow-in-tree-report-overwrite to replace it",
+				reportPath,
+			)
+		}
+		sole, err := soleRegularFile(source, reportPath)
+		if err != nil {
+			return dest, fmt.Errorf("could not inspect scan target %q: %w", source, err)
+		}
+		if sole {
+			dest.soleSourceFile = true
+			return dest, fmt.Errorf("report path %q is the sole file in the scan target and cannot be replaced", reportPath)
+		}
+	}
+
+	return dest, nil
+}
+
+// revalidate re-checks the destination immediately before it is replaced.
+func (d reportDestination) revalidate() error {
+	if d.path == "" || d.path == report.StdoutReportPath {
+		return nil
+	}
+
+	info, err := os.Lstat(d.path)
+	switch {
+	case err == nil:
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("report path %q became a symbolic link", d.path)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("report path %q is a directory", d.path)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("report path %q is not a regular file", d.path)
+		}
+		if d.inTree && !d.allowInTreeOverwrite {
+			return fmt.Errorf("report path %q exists inside the scan target and overwrite was not authorized", d.path)
+		}
+		if d.inTree && !d.existedAtValidation {
+			return fmt.Errorf("report path %q appeared inside the scan target after validation", d.path)
+		}
+		if d.inTree && d.soleSourceFile {
+			return fmt.Errorf("report path %q is the sole file in the scan target", d.path)
+		}
+	case os.IsNotExist(err):
+		// A destination that was new inside the scan target is still new. A
+		// previously existing destination may have been removed; writing a new
+		// file at the authorized path is safe.
+	default:
+		return fmt.Errorf("could not inspect report path %q: %w", d.path, err)
+	}
+
+	if err := validateReportParent(d.path); err != nil {
+		return err
+	}
+
+	for _, input := range d.protectedInputs {
+		if input == "" {
+			continue
+		}
+		if samePath(d.path, input) {
+			return fmt.Errorf("report path %q collides with scan input %q", d.path, input)
+		}
+	}
+
+	if d.sourceIsFile && samePath(d.path, d.source) {
+		return fmt.Errorf("report path %q collides with the scan target", d.path)
+	}
+
 	return nil
+}
+
+func validateReportParent(reportPath string) error {
+	parent := filepath.Dir(reportPath)
+	info, err := os.Stat(parent)
+	if err != nil {
+		return fmt.Errorf("report directory %q is not accessible: %w", parent, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("report directory %q is not a directory", parent)
+	}
+	return nil
+}
+
+// soleRegularFile reports whether reportPath is the only regular file beneath
+// source. It is used to avoid replacing the only file being scanned.
+func soleRegularFile(source, reportPath string) (bool, error) {
+	var (
+		count int
+		first string
+	)
+	stop := errors.New("more than one file")
+	err := filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		count++
+		if count == 1 {
+			first = path
+		}
+		if count > 1 {
+			return stop
+		}
+		return nil
+	})
+	if errors.Is(err, stop) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return count == 1 && samePath(first, reportPath), nil
 }
 
 // samePath compares two paths lexically and, when both exist, by file identity.
@@ -118,7 +240,7 @@ func samePath(a, b string) bool {
 }
 
 // pathWithin reports whether path is a child of root. The root itself is not
-// considered a child; a destination equal to the root is handled separately.
+// considered a child.
 func pathWithin(path, root string) bool {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -146,83 +268,17 @@ func pathWithin(path, root string) bool {
 	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-// looksLikePriorReport recognizes a prior output for the selected format. It is
-// intentionally conservative: a file inside the scan target that cannot be
-// recognized is treated as a possible input and rejected.
-func looksLikePriorReport(path, format string) (bool, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return false, err
-	}
-	defer file.Close()
-
-	data, err := io.ReadAll(io.LimitReader(file, maxPriorReportSize+1))
-	if err != nil {
-		return false, err
-	}
-	if len(data) > maxPriorReportSize {
-		return false, fmt.Errorf("existing file is larger than %d bytes", maxPriorReportSize)
-	}
-
-	switch format {
-	case "json":
-		trimmed := bytes.TrimSpace(data)
-		if len(trimmed) == 0 || trimmed[0] != '[' {
-			return false, nil
-		}
-		var findings []report.Finding
-		if err := json.Unmarshal(trimmed, &findings); err != nil {
-			return false, nil
-		}
-		return true, nil
-
-	case "csv":
-		if len(bytes.TrimSpace(data)) == 0 {
-			// The CSV reporter intentionally writes an empty file when there
-			// are no findings, so a prior empty CSV is recognizable output.
-			return true, nil
-		}
-		reader := csv.NewReader(bytes.NewReader(data))
-		header, err := reader.Read()
-		if err != nil {
-			return false, nil
-		}
-		fields := make(map[string]bool, len(header))
-		for _, field := range header {
-			fields[field] = true
-		}
-		return fields["RuleID"] && fields["File"] && fields["Secret"], nil
-
-	case "junit":
-		var suites struct {
-			XMLName xml.Name `xml:"testsuites"`
-			Suites  []struct {
-				Name string `xml:"name,attr"`
-			} `xml:"testsuite"`
-		}
-		if err := xml.Unmarshal(data, &suites); err != nil {
-			return false, nil
-		}
-		return len(suites.Suites) == 1 && suites.Suites[0].Name == "gitleaks", nil
-
-	case "sarif":
-		var sarif report.Sarif
-		if err := json.Unmarshal(data, &sarif); err != nil {
-			return false, nil
-		}
-		return sarif.Version == "2.1.0" && sarif.Runs != nil, nil
-
-	default:
-		return false, nil
-	}
-}
-
 // writeReportAtomic writes the report to a uniquely created temporary file in
-// the destination directory, syncs and closes it, and then replaces the
-// destination. Any failure before the rename preserves the prior destination.
-func writeReportAtomic(reportPath string, reporter report.Reporter, findings []report.Finding) error {
-	dir := filepath.Dir(reportPath)
-	base := filepath.Base(reportPath)
+// the destination directory, syncs and closes it, revalidates the destination,
+// and then replaces it. Any failure before the rename preserves the prior
+// destination.
+func writeReportAtomic(destination reportDestination, reporter report.Reporter, findings []report.Finding) error {
+	if err := destination.revalidate(); err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(destination.path)
+	base := filepath.Base(destination.path)
 	temp, err := os.CreateTemp(dir, "."+base+".tmp-*")
 	if err != nil {
 		return fmt.Errorf("could not create temporary report: %w", err)
@@ -252,7 +308,14 @@ func writeReportAtomic(reportPath string, reporter report.Reporter, findings []r
 	if err := temp.Close(); err != nil {
 		return fmt.Errorf("could not close report: %w", err)
 	}
-	if err := os.Rename(tempName, reportPath); err != nil {
+
+	// Revalidate immediately before replacement. In particular, a new in-tree
+	// destination that appeared during the scan is not overwritten.
+	if err := destination.revalidate(); err != nil {
+		return err
+	}
+
+	if err := os.Rename(tempName, destination.path); err != nil {
 		return fmt.Errorf("could not replace report destination: %w", err)
 	}
 	renamed = true

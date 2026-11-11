@@ -156,6 +156,7 @@ Flags:
   -f, --report-format string          output format (json, csv, junit, sarif, template)
   -r, --report-path string            report file
       --report-template string        template file used to generate the report (implies --report-format=template)
+      --allow-in-tree-report-overwrite  allow replacing an existing report file inside the scan target
       --timeout int                   set a timeout for gitleaks commands in seconds (default "0", no timeout is set)
   -v, --verbose                       show verbose output from scan
       --version                       version for gitleaks
@@ -571,6 +572,8 @@ are supported.
 Gitleaks has built-in support for several report formats: [`json`](https://github.com/gitleaks/gitleaks/blob/master/testdata/expected/report/json_simple.json), [`csv`](https://github.com/gitleaks/gitleaks/blob/master/testdata/expected/report/csv_simple.csv?plain=1), [`junit`](https://github.com/gitleaks/gitleaks/blob/master/testdata/expected/report/junit_simple.xml), and [`sarif`](https://github.com/gitleaks/gitleaks/blob/master/testdata/expected/report/sarif_simple.sarif).
 
 If none of these formats fit your need, you can create your own report format with a [Go `text/template` .tmpl file](https://www.digitalocean.com/community/tutorials/how-to-use-templates-in-go#step-4-writing-a-template) and the `--report-template` flag. The template can use [extended functionality from the `Masterminds/sprig` template library](https://masterminds.github.io/sprig/).
+
+Report files inside the scan target are protected. A new report path is allowed, but an existing file inside the scan target is not replaced unless `--allow-in-tree-report-overwrite` is supplied explicitly. Destinations outside the scan target retain normal overwrite behavior. Symlink and special-file destinations are always rejected, and reports are written through a temporary file before atomic replacement.
 
 For example, the following template provides a custom JSON output:
 ```gotemplate
