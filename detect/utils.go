@@ -168,23 +168,44 @@ func filter(findings []report.Finding, redact uint) []report.Finding {
 					strings.Contains(fPrime.Secret, f.Secret) &&
 					!strings.Contains(strings.ToLower(fPrime.RuleID), "generic") {
 
-					genericMatch := strings.ReplaceAll(f.Match, f.Secret, "REDACTED")
-					betterMatch := strings.ReplaceAll(fPrime.Match, fPrime.Secret, "REDACTED")
-					logging.Trace().Msgf("skipping %s finding (%s), %s rule takes precedence (%s)", f.RuleID, genericMatch, fPrime.RuleID, betterMatch)
+					logging.Trace().
+						Str("generic-rule", f.RuleID).
+						Str("preferred-rule", fPrime.RuleID).
+						Int("line", f.StartLine).
+						Msg("skipping generic finding")
 					include = false
 					break
 				}
 			}
 		}
-
-		if redact > 0 {
-			f.Redact(redact)
-		}
 		if include {
 			retFindings = append(retFindings, f)
 		}
 	}
+
+	if redact == 0 {
+		return retFindings
+	}
+
+	// A finding's Line contains the whole source line. Redact every secret that
+	// was identified on that line, not just the selected finding's Secret, so
+	// verbose output cannot reveal an adjacent credential.
+	secretsByLine := make(map[string][]string)
+	for _, f := range findings {
+		if f.Secret == "" {
+			continue
+		}
+		key := findingLineKey(f)
+		secretsByLine[key] = append(secretsByLine[key], f.Secret)
+	}
+	for i := range retFindings {
+		retFindings[i].RedactWith(redact, secretsByLine[findingLineKey(retFindings[i])])
+	}
 	return retFindings
+}
+
+func findingLineKey(f report.Finding) string {
+	return fmt.Sprintf("%s\x00%s\x00%d\x00%d", f.File, f.Commit, f.StartLine, f.EndLine)
 }
 
 func printFinding(f report.Finding, noColor bool) {
@@ -209,16 +230,16 @@ func printFinding(f report.Finding, noColor bool) {
 
 		skipColor = false
 
-		if matchInLineIDX == -1 || noColor {
+		if matchInLineIDX == -1 || secretInMatchIdx == -1 || noColor {
 			skipColor = true
 			matchInLineIDX = 0
+			secretInMatchIdx = 0
 		}
 
 		start := f.Line[0:matchInLineIDX]
-		startMatchIdx := 0
-		if matchInLineIDX > 20 {
-			startMatchIdx = matchInLineIDX - 20
-			start = "..." + f.Line[startMatchIdx:matchInLineIDX]
+		startRunes := []rune(start)
+		if len(startRunes) > 20 {
+			start = "..." + string(startRunes[len(startRunes)-20:])
 		}
 
 		matchBeginning := lipgloss.NewStyle().SetString(f.Match[0:secretInMatchIdx]).Foreground(lipgloss.Color("#f5d445"))
@@ -226,7 +247,11 @@ func printFinding(f report.Finding, noColor bool) {
 			Bold(true).
 			Italic(true).
 			Foreground(lipgloss.Color("#f05c07"))
-		matchEnd := lipgloss.NewStyle().SetString(f.Match[secretInMatchIdx+len(f.Secret):]).Foreground(lipgloss.Color("#f5d445"))
+		matchEndIdx := secretInMatchIdx + len(f.Secret)
+		if matchEndIdx > len(f.Match) {
+			matchEndIdx = len(f.Match)
+		}
+		matchEnd := lipgloss.NewStyle().SetString(f.Match[matchEndIdx:]).Foreground(lipgloss.Color("#f5d445"))
 
 		lineEndIdx := matchInLineIDX + len(f.Match)
 		if len(f.Line)-1 <= lineEndIdx {
@@ -235,14 +260,14 @@ func printFinding(f report.Finding, noColor bool) {
 
 		lineEnd := f.Line[lineEndIdx:]
 
-		if len(f.Secret) > 100 {
-			secret = lipgloss.NewStyle().SetString(f.Secret[0:100] + "...").
+		if len([]rune(f.Secret)) > 100 {
+			secret = lipgloss.NewStyle().SetString(truncateRunes(f.Secret, 100)).
 				Bold(true).
 				Italic(true).
 				Foreground(lipgloss.Color("#f05c07"))
 		}
-		if len(lineEnd) > 20 {
-			lineEnd = lineEnd[0:20] + "..."
+		if len([]rune(lineEnd)) > 20 {
+			lineEnd = string([]rune(lineEnd)[:20]) + "..."
 		}
 
 		finding = fmt.Sprintf("%s%s%s%s%s\n", strings.TrimPrefix(strings.TrimLeft(start, " "), "\n"), matchBeginning, secret, matchEnd, lineEnd)
@@ -286,4 +311,15 @@ func printFinding(f report.Finding, noColor bool) {
 
 	f.PrintRequiredFindings()
 	fmt.Fprintln(out, "")
+}
+
+func truncateRunes(value string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	runes := []rune(value)
+	if len(runes) <= max {
+		return value
+	}
+	return string(runes[:max-3]) + "..."
 }

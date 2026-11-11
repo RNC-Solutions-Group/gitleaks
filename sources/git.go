@@ -124,6 +124,23 @@ func (t *gitOutputTracker) sectionCount() int64 {
 
 const maxGitStderrLines = 20
 
+var (
+	gitURLUserinfoPattern = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^/@\s]+@`)
+	gitSensitiveQuery     = regexp.MustCompile(`(?i)([?&](?:access_token|token|password|passwd|secret|api[_-]?key|apikey|auth|key)=)[^&\s'":,)\]]+`)
+	gitCredentialToken    = regexp.MustCompile(`[A-Za-z0-9_+/=-]{16,}`)
+)
+
+// sanitizeGitDiagnostic keeps Git's diagnostic shape while removing URL
+// userinfo, sensitive query values, and token-shaped runs. Git stderr is not a
+// credential channel, but remotes and authentication helpers can place secrets
+// there; raw stderr must not become an additional disclosure surface.
+func sanitizeGitDiagnostic(line string) string {
+	line = gitURLUserinfoPattern.ReplaceAllString(line, "${1}REDACTED@")
+	line = gitSensitiveQuery.ReplaceAllString(line, "${1}REDACTED")
+	line = gitCredentialToken.ReplaceAllString(line, "REDACTED")
+	return line
+}
+
 // gitStderr records bounded stderr output and whether it contained an explicit
 // Git error. Nonempty stderr alone is not a failure: Git emits warnings and
 // progress messages there during successful commands.
@@ -140,7 +157,7 @@ func (g *gitStderr) add(line string, fatal bool) {
 	defer g.mu.Unlock()
 	g.total++
 	if len(g.lines) < maxGitStderrLines {
-		g.lines = append(g.lines, line)
+		g.lines = append(g.lines, sanitizeGitDiagnostic(line))
 	}
 	if fatal {
 		g.fatal = true
@@ -443,7 +460,7 @@ func listenForStdErr(stderr io.ReadCloser, info *gitStderr, errCh chan<- error) 
 		fatal := isFatalGitStderr(line)
 		info.add(line, fatal)
 		if fatal {
-			logging.Error().Msgf("[git] %s", line)
+			logging.Error().Msgf("[git] %s", sanitizeGitDiagnostic(line))
 			if !signalled {
 				select {
 				case errCh <- errors.New("git reported an error on stderr"):
@@ -453,7 +470,7 @@ func listenForStdErr(stderr io.ReadCloser, info *gitStderr, errCh chan<- error) 
 			}
 			continue
 		}
-		logging.Warn().Msgf("[git] %s", line)
+		logging.Warn().Msgf("[git] %s", sanitizeGitDiagnostic(line))
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -747,7 +764,8 @@ func getRemoteUrl(ctx context.Context, source string) (*url.URL, error) {
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			return nil, fmt.Errorf("command failed (%d): %w, stderr: %s", exitError.ExitCode(), err, string(bytes.TrimSpace(exitError.Stderr)))
+			return nil, fmt.Errorf("command failed (%d): %w, stderr: %s", exitError.ExitCode(), err,
+				sanitizeGitDiagnostic(string(bytes.TrimSpace(exitError.Stderr))))
 		}
 		return nil, err
 	}
@@ -760,7 +778,7 @@ func getRemoteUrl(ctx context.Context, source string) (*url.URL, error) {
 
 	parsedUrl, err := url.Parse(remoteUrl)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse remote URL: %w", err)
+		return nil, fmt.Errorf("unable to parse remote URL: %s", sanitizeGitDiagnostic(err.Error()))
 	}
 
 	// Remove any user info.

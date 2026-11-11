@@ -534,7 +534,6 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 		}
 		if !d.IgnoreGitleaksAllow && strings.Contains(finding.Line, gitleaksAllowSignature) {
 			logger.Trace().
-				Str("finding", finding.Secret).
 				Msg("skipping finding: 'gitleaks:allow' signature")
 			continue
 		}
@@ -571,7 +570,6 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 			// entropy is too low, skip this finding
 			if entropy <= r.Entropy {
 				logger.Trace().
-					Str("finding", finding.Secret).
 					Float32("entropy", finding.Entropy).
 					Msg("skipping finding: low entropy")
 				continue
@@ -742,7 +740,7 @@ func (d *Detector) AddFinding(finding report.Finding) {
 	}
 
 	// check if we should ignore this finding
-	logger := logging.With().Str("finding", finding.Secret).Logger()
+	logger := logging.With().Str("path", finding.File).Str("rule-id", finding.RuleID).Logger()
 	if _, ok := d.gitleaksIgnore[globalFingerprint]; ok {
 		logger.Debug().
 			Str("fingerprint", globalFingerprint).
@@ -862,13 +860,13 @@ func checkFindingAllowed(
 		}
 
 		var (
-			checks                 []bool
-			isAllowed              bool
-			commitAllowed          bool
-			commit                 string
-			pathAllowed            bool
-			regexAllowed           = a.RegexAllowed(allowlistTarget)
-			containsStopword, word = a.ContainsStopWord(finding.Secret)
+			checks              []bool
+			isAllowed           bool
+			commitAllowed       bool
+			commit              string
+			pathAllowed         bool
+			regexAllowed        = a.RegexAllowed(allowlistTarget)
+			containsStopword, _ = a.ContainsStopWord(finding.Secret)
 		)
 		// If the condition is "AND" we need to check all conditions.
 		if a.MatchCondition == config.AllowlistMatchAnd {
@@ -895,7 +893,6 @@ func checkFindingAllowed(
 
 		if isAllowed {
 			event := logger.Trace().
-				Str("finding", finding.Secret).
 				Str("condition", a.MatchCondition.String())
 			if commitAllowed {
 				event.Str("allowed-commit", commit)
@@ -907,7 +904,7 @@ func checkFindingAllowed(
 				event.Bool("allowed-regex", regexAllowed)
 			}
 			if containsStopword {
-				event.Str("allowed-stopword", word)
+				event.Bool("allowed-stopword", true)
 			}
 			return true, event
 		}

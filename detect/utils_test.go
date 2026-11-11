@@ -248,3 +248,50 @@ func Test_printFinding_colorOutput(t *testing.T) {
 	assert.Contains(t, noColor, "abcdef123456")
 	assert.NotContains(t, noColor, "\x1b[", "--no-color output must not contain ANSI escape sequences")
 }
+
+func TestFilterRedactsAdjacentSecrets(t *testing.T) {
+	findings := []report.Finding{
+		{
+			RuleID:    "alpha",
+			StartLine: 1,
+			EndLine:   1,
+			Match:     "ALPHA_12345678",
+			Line:      "left=ALPHA_12345678 right=BETA_87654321",
+			Secret:    "ALPHA_12345678",
+		},
+		{
+			RuleID:    "beta",
+			StartLine: 1,
+			EndLine:   1,
+			Match:     "BETA_87654321",
+			Line:      "left=ALPHA_12345678 right=BETA_87654321",
+			Secret:    "BETA_87654321",
+		},
+	}
+
+	got := filter(findings, 100)
+	if assert.Len(t, got, 2) {
+		for _, finding := range got {
+			assert.NotContains(t, finding.Line, "ALPHA_12345678")
+			assert.NotContains(t, finding.Line, "BETA_87654321")
+			assert.Equal(t, "REDACTED", finding.Secret)
+			assert.Equal(t, "REDACTED", finding.Match)
+		}
+	}
+}
+
+func TestFilterNoRedactPreservesFinding(t *testing.T) {
+	findings := []report.Finding{{
+		RuleID:    "alpha",
+		StartLine: 1,
+		EndLine:   1,
+		Match:     "ALPHA_12345678",
+		Line:      "left=ALPHA_12345678",
+		Secret:    "ALPHA_12345678",
+	}}
+	got := filter(findings, 0)
+	if assert.Len(t, got, 1) {
+		assert.Equal(t, "ALPHA_12345678", got[0].Secret)
+		assert.Equal(t, "left=ALPHA_12345678", got[0].Line)
+	}
+}

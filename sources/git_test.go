@@ -250,3 +250,26 @@ func TestGitOutputTrackerCountsDiffSections(t *testing.T) {
 	tracker.finish()
 	require.Equal(t, int64(2), tracker.sectionCount())
 }
+
+func TestSanitizeGitDiagnostic(t *testing.T) {
+	tests := map[string]string{
+		"fatal: synthetic git failure": "fatal: synthetic git failure",
+		"fatal: unable to access 'https://user:ghp_SECRETTOKEN@example.com/repo?token=QUERYVALUE': denied": "fatal: unable to access 'https://REDACTED@example.com/repo?token=REDACTED': denied",
+		"fatal: bad token AKIAABCDEFGHIJKLMNOP": "fatal: bad token REDACTED",
+	}
+	for input, expected := range tests {
+		assert.Equal(t, expected, sanitizeGitDiagnostic(input))
+	}
+}
+
+func TestGitFragmentsSanitizesStderrSecrets(t *testing.T) {
+	gitCmd := newControlledGitCmd(t, context.Background(), "",
+		"fatal: unable to access 'https://user:ghp_SECRETTOKEN@example.com/repo?token=QUERYVALUE': denied\n",
+		128, 0)
+	_, err := collectGitFragments(t, context.Background(), gitCmd)
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "ghp_SECRETTOKEN")
+	assert.NotContains(t, err.Error(), "QUERYVALUE")
+	assert.Contains(t, err.Error(), "https://REDACTED@example.com")
+	assert.Contains(t, err.Error(), "token=REDACTED")
+}
