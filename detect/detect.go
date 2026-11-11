@@ -12,6 +12,7 @@ import (
 
 	"github.com/zricethezav/gitleaks/v8/config"
 	"github.com/zricethezav/gitleaks/v8/detect/codec"
+	"github.com/zricethezav/gitleaks/v8/internal/scanerr"
 	"github.com/zricethezav/gitleaks/v8/logging"
 	"github.com/zricethezav/gitleaks/v8/regexp"
 	"github.com/zricethezav/gitleaks/v8/report"
@@ -210,6 +211,7 @@ func (d *Detector) DetectString(content string) []report.Finding {
 
 // DetectSource scans the given source and returns a list of findings
 func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]report.Finding, error) {
+	collector := scanerr.New(10)
 	err := source.Fragments(ctx, func(fragment sources.Fragment, err error) error {
 		logContext := logging.With()
 
@@ -230,8 +232,10 @@ func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]r
 		logger := logContext.Logger()
 
 		if err != nil {
-			// Log the error and move on to the next fragment
+			// Log the error but keep scanning so findings from readable input
+			// are preserved. The error is returned after the source completes.
 			logger.Error().Err(err).Send()
+			collector.Add(err)
 			return nil
 		}
 
@@ -261,13 +265,22 @@ func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]r
 
 		return nil
 	})
+	if err != nil {
+		collector.Add(err)
+	}
+
+	// Sources may return before their semgroup workers have finished. Waiting
+	// here both joins those workers and preserves any errors they accumulated.
+	if d.Sema != nil {
+		collector.Add(d.Sema.Wait())
+	}
 
 	if _, isGit := source.(*sources.Git); isGit {
 		logging.Info().Msgf("%d commits scanned.", len(d.commitMap))
 		logging.Debug().Msg("Note: this number might be smaller than expected due to commits with no additions")
 	}
 
-	return d.Findings(), err
+	return d.Findings(), collector.Err()
 }
 
 // Detect scans the given fragment and returns a list of findings

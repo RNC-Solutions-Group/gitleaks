@@ -58,7 +58,7 @@ func runProtect(cmd *cobra.Command, args []string) {
 	}
 	remote = &detect.RemoteInfo{Platform: scm.NoPlatform}
 
-	if findings, err = detector.DetectGit(gitCmd, remote); err != nil {
+	if findings, err = detector.DetectGitContext(cmd.Context(), gitCmd, remote); err != nil {
 		// don't exit on error, just log it
 		logging.Error().Err(err).Msg("failed to scan Git repository")
 	}
