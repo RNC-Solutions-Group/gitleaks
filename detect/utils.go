@@ -4,6 +4,7 @@ import (
 	// "encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -14,6 +15,27 @@ import (
 
 	"charm.land/lipgloss/v2"
 )
+
+// sameFileOrPath compares two paths lexically and, when both exist, by file
+// identity. It is used to avoid scanning the report destination as an input.
+func sameFileOrPath(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	if filepath.Clean(a) == filepath.Clean(b) {
+		return true
+	}
+
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	if errA == nil && errB == nil && filepath.Clean(absA) == filepath.Clean(absB) {
+		return true
+	}
+
+	infoA, errA := os.Stat(a)
+	infoB, errB := os.Stat(b)
+	return errA == nil && errB == nil && os.SameFile(infoA, infoB)
+}
 
 var linkCleaner = strings.NewReplacer(
 	" ", "%20",

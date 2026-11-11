@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -344,23 +343,14 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		detector.Config.Rules = ruleOverride
 	}
 
-	// Validate report settings.
+	// Validate report settings. Build and validate the reporter before
+	// inspecting the destination: an invalid format or template must not
+	// create, truncate, or remove an existing report.
 	reportPath := mustGetStringFlag(cmd, "report-path")
 	if reportPath != "" {
-		if reportPath != report.StdoutReportPath {
-			// Ensure the path is writable.
-			if f, err := os.Create(reportPath); err != nil {
-				logging.Fatal().Err(err).Msgf("Report path is not writable: %s", reportPath)
-			} else {
-				_ = f.Close()
-				_ = os.Remove(reportPath)
-			}
-		}
-
-		// Build report writer.
 		var (
 			reporter       report.Reporter
-			reportFormat   = mustGetStringFlag(cmd, "report-format")
+			reportFormat   = strings.TrimSpace(strings.ToLower(mustGetStringFlag(cmd, "report-format")))
 			reportTemplate = mustGetStringFlag(cmd, "report-template")
 		)
 		if reportFormat == "" {
@@ -377,7 +367,7 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 			}
 			logging.Debug().Msgf("No report format specified, inferred %q from %q", reportFormat, ext)
 		}
-		switch strings.TrimSpace(strings.ToLower(reportFormat)) {
+		switch reportFormat {
 		case "csv":
 			reporter = &report.CsvReporter{}
 		case "json":
@@ -399,6 +389,17 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		// Sanity check.
 		if reportTemplate != "" && reportFormat != "template" {
 			logging.Fatal().Msgf("Report format must be 'template' if --report-template is specified")
+		}
+
+		if err := validateReportDestination(
+			reportPath,
+			reportFormat,
+			source,
+			detector.Config.Path,
+			baselinePath,
+			gitleaksIgnorePath,
+		); err != nil {
+			logging.Fatal().Err(err).Msg("invalid report destination")
 		}
 
 		detector.ReportPath = reportPath
@@ -460,33 +461,22 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 		}
 	}
 
-	// write report if desired
+	// Write the report only for a scan that completed without a propagated
+	// error. The destination is never touched during validation, and an
+	// existing report is preserved if the scan or the write fails.
 	if detector.Reporter != nil {
-		var (
-			file      io.WriteCloser
-			reportErr error
-		)
-
-		if detector.ReportPath == report.StdoutReportPath {
-			file = os.Stdout
+		if err != nil {
+			logging.Warn().Msg("report not written because the scan was incomplete")
 		} else {
-			// Open the file.
-			if file, reportErr = os.Create(detector.ReportPath); reportErr != nil {
-				goto ReportEnd
+			var reportErr error
+			if detector.ReportPath == report.StdoutReportPath {
+				reportErr = detector.Reporter.Write(os.Stdout, findings)
+			} else {
+				reportErr = writeReportAtomic(detector.ReportPath, detector.Reporter, findings)
 			}
-			defer func() {
-				_ = file.Close()
-			}()
-		}
-
-		// Write to the file.
-		if reportErr = detector.Reporter.Write(file, findings); reportErr != nil {
-			goto ReportEnd
-		}
-
-	ReportEnd:
-		if reportErr != nil {
-			logging.Fatal().Err(reportErr).Msg("failed to write report")
+			if reportErr != nil {
+				logging.Fatal().Err(reportErr).Msg("failed to write report")
+			}
 		}
 	}
 

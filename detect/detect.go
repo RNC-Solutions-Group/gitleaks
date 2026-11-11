@@ -292,6 +292,14 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 
 	// check if filepath is allowed
 	if fragment.FilePath != "" {
+		// Do not scan the report destination. An existing report inside the
+		// scan target is allowed only after it has been identified as a prior
+		// report; scanning it would re-report its embedded findings.
+		if d.ReportPath != "" && d.ReportPath != report.StdoutReportPath &&
+			sameFileOrPath(fragment.FilePath, d.ReportPath) {
+			logging.Trace().Msg("skipping file: matches report path")
+			return findings
+		}
 		// is the path our config or baseline file?
 		if fragment.FilePath == d.Config.Path || (d.baselinePath != "" && fragment.FilePath == d.baselinePath) {
 			logging.Trace().Msg("skipping file: matches config or baseline path")
