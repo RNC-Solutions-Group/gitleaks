@@ -20,7 +20,8 @@ permissions:
 
 env:
   # Pinned build/test toolchain. The go.mod minimum supported version is lower.
-  GO_VERSION: "1.27.3"
+  # 1.27.4 includes the fix for GO-2026-6859 in net/http.
+  GO_VERSION: "1.27.4"
   # Gitleaks parses build versions as SemVer. Keep the SHA in build metadata,
   # using the default config's minimum supported version as a non-release base.
   CI_VERSION: "v8.25.0+ci.${{ github.sha }}"

@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # ---- build stage -------------------------------------------------------------
-# The pinned build toolchain (Go 1.27.3). The module's minimum supported Go
+# The pinned build toolchain (Go 1.27.4). The module's minimum supported Go
 # version is declared in go.mod and is deliberately lower than this pin.
-FROM golang:1.27.3-alpine3.24 AS build
+FROM golang:1.27.4-alpine3.24 AS build
 
 # git is only needed in the build stage: it supplies the version stamp below.
 RUN apk add --no-cache git
