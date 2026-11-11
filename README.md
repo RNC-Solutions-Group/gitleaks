@@ -678,4 +678,6 @@ You can always set the exit code when leaks are encountered with the --exit-code
 126 - unknown flag
 ```
 
+A scan that could not be completed is an operational failure, not a clean result. Unreadable files or directories, failed Git commands, malformed or incomplete diff output, and cancellation exit nonzero and are reported as partial scans. `--exit-code` applies only to findings from completed scans; `--exit-code 0` does not suppress an operational failure. When a scan fails, an existing report is preserved and no misleading replacement report is written.
+
 ### Join the Discord! [![Discord](https://img.shields.io/discord/1102689410522284044.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/8Hzbrnkr7E)

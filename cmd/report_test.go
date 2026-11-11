@@ -670,8 +670,16 @@ func runReportCLIWithEnv(t *testing.T, extraEnv map[string]string, args ...strin
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestReportCLIChild$")
 	env := make([]string, 0, len(os.Environ())+2+len(extraEnv))
+	extraKeys := make(map[string]struct{}, len(extraEnv))
+	for name := range extraEnv {
+		extraKeys[strings.ToUpper(name)] = struct{}{}
+	}
 	for _, value := range os.Environ() {
 		if strings.HasPrefix(strings.ToUpper(value), "GITLEAKS_") {
+			continue
+		}
+		name := strings.SplitN(value, "=", 2)[0]
+		if _, replaced := extraKeys[strings.ToUpper(name)]; replaced {
 			continue
 		}
 		env = append(env, value)
