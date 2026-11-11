@@ -167,6 +167,18 @@ func TestStagedBinaryMarkedUsesIndexNotWorktree(t *testing.T) {
 	require.Len(t, findings, 1)
 	assert.Equal(t, stagedTestPAT, findings[0].Secret)
 }
+func TestStagedBinaryMarkedCleanIndexIgnoresWorktreeSecret(t *testing.T) {
+	repo := initStagedTestRepo(t)
+	stageFile(t, repo, ".gitattributes", "secret.txt -diff\n")
+	stageFile(t, repo, "secret.txt", "clean index\n")
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "secret.txt"), []byte("token = \""+stagedTestPAT+"\"\n"), 0o600))
+
+	diff := runGitInRepo(t, repo, "diff", "-U0", "--no-ext-diff", "--staged", ".")
+	require.Contains(t, diff, "Binary files")
+	findings, err := stagedDetector(t, repo, true, 0)
+	require.NoError(t, err)
+	assert.Empty(t, findings)
+}
 func TestStagedDeletionDoesNotReadBlob(t *testing.T) {
 	repo := initStagedTestRepo(t)
 	stageFile(t, repo, "secret.txt", "token = \""+stagedTestPAT+"\"\n")
