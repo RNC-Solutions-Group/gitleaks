@@ -117,7 +117,7 @@ func TestNewReportOutput(t *testing.T) {
 
 	t.Run("absent destination is accepted by every mode", func(t *testing.T) {
 		for _, mode := range []reportMode{reportOverwrite, reportAggregate, reportReject} {
-			_, err := newReportOutput(filepath.Join(root, "new-"+mode.String()+".json"), mode, source, "", "", ".", "")
+			_, err := newReportOutput(filepath.Join(root, "new-"+mode.String()+".json"), mode, source, nil, "", ".", "")
 			require.NoError(t, err, mode)
 		}
 	})
@@ -126,7 +126,7 @@ func TestNewReportOutput(t *testing.T) {
 		dest := filepath.Join(root, "existing.json")
 		require.NoError(t, os.WriteFile(dest, []byte("UNRELATED"), 0o600))
 		for _, mode := range []reportMode{reportOverwrite, reportAggregate} {
-			_, err := newReportOutput(dest, mode, source, "", "", ".", "")
+			_, err := newReportOutput(dest, mode, source, nil, "", ".", "")
 			require.NoError(t, err, mode)
 		}
 	})
@@ -134,7 +134,7 @@ func TestNewReportOutput(t *testing.T) {
 	t.Run("existing destination is rejected without overwrite or aggregation", func(t *testing.T) {
 		dest := filepath.Join(root, "reject.json")
 		require.NoError(t, os.WriteFile(dest, []byte("UNRELATED"), 0o600))
-		_, err := newReportOutput(dest, reportReject, source, "", "", ".", "")
+		_, err := newReportOutput(dest, reportReject, source, nil, "", ".", "")
 		require.Error(t, err)
 		assert.True(t, containsPath(err.Error(), dest), err.Error())
 		assert.Contains(t, err.Error(), "auto-overwrite")
@@ -147,14 +147,14 @@ func TestNewReportOutput(t *testing.T) {
 		dest := filepath.Join(source, "in-tree.json")
 		require.NoError(t, os.WriteFile(dest, []byte("UNRELATED"), 0o600))
 		for _, mode := range []reportMode{reportOverwrite, reportAggregate} {
-			_, err := newReportOutput(dest, mode, source, "", "", ".", "")
+			_, err := newReportOutput(dest, mode, source, nil, "", ".", "")
 			require.NoError(t, err, mode)
 		}
 	})
 
 	t.Run("source file collision is rejected", func(t *testing.T) {
 		for _, mode := range []reportMode{reportOverwrite, reportAggregate, reportReject} {
-			_, err := newReportOutput(input, mode, input, "", "", ".", "")
+			_, err := newReportOutput(input, mode, input, nil, "", ".", "")
 			require.Error(t, err, mode)
 			assert.Contains(t, err.Error(), "collides with the scan target")
 		}
@@ -189,7 +189,7 @@ func TestNewReportOutput(t *testing.T) {
 					test.reportPath,
 					reportOverwrite,
 					source,
-					test.configPath,
+					[]string{test.configPath},
 					test.baseline,
 					test.ignore,
 					test.template,
@@ -208,7 +208,7 @@ func TestNewReportOutput(t *testing.T) {
 			t.Skipf("symlinks are not available: %v", err)
 		}
 		for _, mode := range []reportMode{reportOverwrite, reportAggregate, reportReject} {
-			_, err := newReportOutput(link, mode, source, "", "", ".", "")
+			_, err := newReportOutput(link, mode, source, nil, "", ".", "")
 			require.Error(t, err, mode)
 			assert.Contains(t, err.Error(), "symbolic link")
 		}
@@ -217,13 +217,13 @@ func TestNewReportOutput(t *testing.T) {
 	t.Run("directory destination is rejected", func(t *testing.T) {
 		dir := filepath.Join(root, "destination-dir")
 		require.NoError(t, os.Mkdir(dir, 0o700))
-		_, err := newReportOutput(dir, reportOverwrite, source, "", "", ".", "")
+		_, err := newReportOutput(dir, reportOverwrite, source, nil, "", ".", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "is a directory")
 	})
 
 	t.Run("missing parent is rejected before scanning", func(t *testing.T) {
-		_, err := newReportOutput(filepath.Join(root, "missing", "report.json"), reportOverwrite, source, "", "", ".", "")
+		_, err := newReportOutput(filepath.Join(root, "missing", "report.json"), reportOverwrite, source, nil, "", ".", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not accessible")
 	})
@@ -252,7 +252,7 @@ func TestNumberedReportPath(t *testing.T) {
 func TestReportOutputWrite(t *testing.T) {
 	newOutput := func(t *testing.T, path string, mode reportMode) *reportOutput {
 		t.Helper()
-		out, err := newReportOutput(path, mode, "", "", "", ".", "")
+		out, err := newReportOutput(path, mode, "", nil, "", ".", "")
 		require.NoError(t, err)
 		return out
 	}
@@ -449,7 +449,7 @@ func TestAggregateSupportsAllReporters(t *testing.T) {
 			dir := t.TempDir()
 			dest := filepath.Join(dir, test.filename)
 			require.NoError(t, os.WriteFile(dest, []byte("SENTINEL"), 0o600))
-			out, err := newReportOutput(dest, reportAggregate, "", "", "", ".", "")
+			out, err := newReportOutput(dest, reportAggregate, "", nil, "", ".", "")
 			require.NoError(t, err)
 
 			outputPath, err := out.write(test.reporter, []report.Finding{{RuleID: "test", Description: "test"}})
@@ -465,7 +465,7 @@ func TestAggregateConcurrentAllocation(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "report.json")
 	require.NoError(t, os.WriteFile(dest, []byte("SENTINEL"), 0o600))
-	out, err := newReportOutput(dest, reportAggregate, "", "", "", ".", "")
+	out, err := newReportOutput(dest, reportAggregate, "", nil, "", ".", "")
 	require.NoError(t, err)
 
 	const workers = 16
@@ -530,7 +530,7 @@ func TestReportWriteUnwritableDirectory(t *testing.T) {
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "report.json")
-	out, err := newReportOutput(dest, reportOverwrite, "", "", "", ".", "")
+	out, err := newReportOutput(dest, reportOverwrite, "", nil, "", ".", "")
 	require.NoError(t, err)
 	require.NoError(t, os.Chmod(dir, 0o500))
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
@@ -588,7 +588,7 @@ func TestReportPartialScanChild(t *testing.T) {
 	}
 
 	dest := os.Getenv("GITLEAKS_TEST_REPORT")
-	output, err := newReportOutput(dest, reportOverwrite, "", "", "", ".", "")
+	output, err := newReportOutput(dest, reportOverwrite, "", nil, "", ".", "")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
@@ -660,11 +660,16 @@ type reportCLIResult struct {
 
 func runReportCLI(t *testing.T, args ...string) reportCLIResult {
 	t.Helper()
+	return runReportCLIWithEnv(t, nil, args...)
+}
+
+func runReportCLIWithEnv(t *testing.T, extraEnv map[string]string, args ...string) reportCLIResult {
+	t.Helper()
 	encoded, err := json.Marshal(args)
 	require.NoError(t, err)
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestReportCLIChild$")
-	env := make([]string, 0, len(os.Environ())+2)
+	env := make([]string, 0, len(os.Environ())+2+len(extraEnv))
 	for _, value := range os.Environ() {
 		if strings.HasPrefix(strings.ToUpper(value), "GITLEAKS_") {
 			continue
@@ -672,6 +677,9 @@ func runReportCLI(t *testing.T, args ...string) reportCLIResult {
 		env = append(env, value)
 	}
 	env = append(env, "GITLEAKS_REPORT_CHILD=1", "GITLEAKS_TEST_ARGS="+string(encoded))
+	for name, value := range extraEnv {
+		env = append(env, name+"="+value)
+	}
 	cmd.Env = env
 
 	var stdout, stderr bytes.Buffer

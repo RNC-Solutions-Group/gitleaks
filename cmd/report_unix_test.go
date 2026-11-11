@@ -18,7 +18,7 @@ func TestNewReportOutputRejectsSpecialFile(t *testing.T) {
 		t.Skipf("could not create a FIFO: %v", err)
 	}
 
-	_, err := newReportOutput(fifo, reportOverwrite, "", "", "", ".", "")
+	_, err := newReportOutput(fifo, reportOverwrite, "", nil, "", ".", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not a regular file")
 }

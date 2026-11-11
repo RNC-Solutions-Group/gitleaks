@@ -93,7 +93,7 @@ func newReportOutput(
 	reportPath string,
 	mode reportMode,
 	source string,
-	configPath string,
+	configPaths []string,
 	baselinePath string,
 	gitleaksIgnorePath string,
 	reportTemplatePath string,
@@ -104,7 +104,7 @@ func newReportOutput(
 		source: source,
 		rename: os.Rename,
 	}
-	out.protectedInputs = reportInputPaths(configPath, baselinePath, gitleaksIgnorePath, reportTemplatePath, source)
+	out.protectedInputs = reportInputPaths(configPaths, baselinePath, gitleaksIgnorePath, reportTemplatePath, source)
 
 	if sourceInfo, err := os.Stat(source); err == nil && !sourceInfo.IsDir() {
 		out.sourceIsFile = true
@@ -116,8 +116,10 @@ func newReportOutput(
 	return out, nil
 }
 
-func reportInputPaths(configPath, baselinePath, gitleaksIgnorePath, reportTemplatePath, source string) []string {
-	inputs := []string{configPath, baselinePath, reportTemplatePath}
+func reportInputPaths(configPaths []string, baselinePath, gitleaksIgnorePath, reportTemplatePath, source string) []string {
+	inputs := make([]string, 0, len(configPaths)+5)
+	inputs = append(inputs, configPaths...)
+	inputs = append(inputs, baselinePath, reportTemplatePath)
 	if gitleaksIgnorePath != "" {
 		inputs = append(inputs, gitleaksIgnorePath, filepath.Join(gitleaksIgnorePath, ".gitleaksignore"))
 	}

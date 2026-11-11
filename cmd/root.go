@@ -400,11 +400,19 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		detector.ReportPath = reportPath
 		detector.Reporter = reporter
 		if reportPath != report.StdoutReportPath {
+			// Protect every configuration file loaded from disk, including
+			// auto-discovered, GITLEAKS_CONFIG, and extended configurations.
+			// cfg.Path alone is not sufficient because it is reset from the
+			// --config flag elsewhere in the command layer.
+			configFiles := append([]string(nil), cfg.ConfigFiles...)
+			if len(configFiles) == 0 && cfg.Path != "" {
+				configFiles = append(configFiles, cfg.Path)
+			}
 			output, err := newReportOutput(
 				reportPath,
 				mode,
 				source,
-				detector.Config.Path,
+				configFiles,
 				baselinePath,
 				gitleaksIgnorePath,
 				reportTemplate,
