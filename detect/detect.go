@@ -103,9 +103,9 @@ type Detector struct {
 	ReportPath string
 	Reporter   report.Reporter
 	// ReportWriter, when set, validates and writes the report for a completed
-	// scan. The CLI sets it so destination policy and atomic replacement stay
-	// in the command layer.
-	ReportWriter func([]report.Finding) error
+	// scan, returning the actual output filename. The CLI sets it so
+	// destination policy and atomic publication stay in the command layer.
+	ReportWriter func([]report.Finding) (string, error)
 
 	TotalBytes atomic.Uint64
 }
@@ -296,9 +296,9 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 
 	// check if filepath is allowed
 	if fragment.FilePath != "" {
-		// Do not scan the report destination. An existing report inside the
-		// scan target is allowed only after it has been identified as a prior
-		// report; scanning it would re-report its embedded findings.
+		// Do not scan the requested report destination. Scanning it would
+		// re-report findings embedded in a previous report. Aggregated reports
+		// use newly allocated filenames and are not existing scan inputs.
 		if d.ReportPath != "" && d.ReportPath != report.StdoutReportPath &&
 			sameFileOrPath(fragment.FilePath, d.ReportPath) {
 			logging.Trace().Msg("skipping file: matches report path")

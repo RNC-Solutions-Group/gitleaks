@@ -156,7 +156,8 @@ Flags:
   -f, --report-format string          output format (json, csv, junit, sarif, template)
   -r, --report-path string            report file
       --report-template string        template file used to generate the report (implies --report-format=template)
-      --allow-in-tree-report-overwrite  allow replacing an existing report file inside the scan target
+      --overwrite                     replace an existing report file (overrides configured report policy)
+      --aggregate                     write a numbered report instead of replacing an existing one (overrides configured report policy)
       --timeout int                   set a timeout for gitleaks commands in seconds (default "0", no timeout is set)
   -v, --verbose                       show verbose output from scan
       --version                       version for gitleaks
@@ -573,7 +574,54 @@ Gitleaks has built-in support for several report formats: [`json`](https://githu
 
 If none of these formats fit your need, you can create your own report format with a [Go `text/template` .tmpl file](https://www.digitalocean.com/community/tutorials/how-to-use-templates-in-go#step-4-writing-a-template) and the `--report-template` flag. The template can use [extended functionality from the `Masterminds/sprig` template library](https://masterminds.github.io/sprig/).
 
-Report files inside the scan target are protected. A new report path is allowed, but an existing file inside the scan target is not replaced unless `--allow-in-tree-report-overwrite` is supplied explicitly. Destinations outside the scan target retain normal overwrite behavior. Symlink and special-file destinations are always rejected, and reports are written through a temporary file before atomic replacement.
+#### Report output policy
+
+File reports replace an existing destination by default. This preserves the original Gitleaks behavior and keeps existing automation working without new flags. Report output can be configured with two top-level settings:
+
+```toml
+# Replace an existing report after a successful scan.
+# Default: true
+auto-overwrite = true
+
+# Write a numbered report instead of replacing an existing one.
+# Default: false
+aggregation = false
+```
+
+When both settings are omitted, Gitleaks uses `auto-overwrite = true` and `aggregation = false`.
+
+| `auto-overwrite` | `aggregation` | Existing destination |
+| --- | --- | --- |
+| `true` | `true` | Write a numbered report (aggregation takes precedence) |
+| `true` | `false` | Replace the existing report |
+| `false` | `true` | Write a numbered report |
+| `false` | `false` | Fail before scanning |
+
+When the requested destination does not exist, every combination writes to that requested path.
+
+The `--overwrite` and `--aggregate` flags override the configuration for one run. Supplying both flags is an error and is rejected before scanning. The flags may appear before or after other options.
+
+```sh
+# Replace the existing report even if the configuration disables overwrite.
+gitleaks dir . --report-path report.json --overwrite
+
+# Create numbered reports even if the configuration does not enable aggregation.
+gitleaks dir . --report-path report.json --aggregate
+```
+
+Aggregation does not merge findings and does not manage report retention. It writes separate files with the same directory, filename stem, and extension. The first scan writes the requested path when it is available; later scans use `_001`, `_002`, and so on:
+
+```text
+reports/report.json
+reports/report_001.json
+reports/report_002.json
+```
+
+Numbering starts at `_001` and advances until an available filename is found. Existing reports are never replaced in aggregation mode, including when several scans allocate filenames concurrently. The actual output filename is logged as diagnostic output; when `--report-path -` is used, report data on stdout is not contaminated by those diagnostics.
+
+If both settings are false and the destination already exists, Gitleaks exits before scanning and leaves the file untouched. The error identifies the conflicting path and recommends `auto-overwrite`/`aggregation` or the `--overwrite`/`--aggregate` flags.
+
+Report writing still validates the format and template first, writes through a temporary file, publishes atomically, rejects symlink and special-file destinations, prevents collisions with a direct scan-target file, configuration, baseline, ignore file, or report template, and preserves an existing report when the scan or report write fails. Reports inside the scan target are ordinary destinations under this policy; the experimental `--allow-in-tree-report-overwrite` flag has been removed.
 
 For example, the following template provides a custom JSON output:
 ```gotemplate
