@@ -42,6 +42,9 @@ func shouldSkipPath(cfg *config.Config, path string) bool {
 	}
 
 	for _, a := range cfg.Allowlists {
+		if !pathIsSufficientToSkip(a) {
+			continue
+		}
 		if a.PathAllowed(path) ||
 			// TODO: Remove this in v9.
 			// This is an awkward hack to mitigate https://github.com/gitleaks/gitleaks/issues/1641.
@@ -51,6 +54,23 @@ func shouldSkipPath(cfg *config.Config, path string) bool {
 	}
 
 	return false
+}
+
+// pathIsSufficientToSkip reports whether a path match alone is enough to
+// exclude a file without reading its contents.
+//
+// With the default OR condition, any one matching criterion suppresses the
+// finding, so a path match is sufficient. With AND, content and commit checks
+// must also be evaluated by the detector. Commits cannot be evaluated during
+// enumeration, so a path plus commit allowlist is deferred as well.
+func pathIsSufficientToSkip(a *config.Allowlist) bool {
+	if a == nil {
+		return false
+	}
+	if a.MatchCondition != config.AllowlistMatchAnd {
+		return true
+	}
+	return len(a.Regexes) == 0 && len(a.StopWords) == 0 && len(a.Commits) == 0
 }
 
 // readUntilSafeBoundary consumes |f| until it finds two consecutive `\n` characters, up to |maxPeekSize|.

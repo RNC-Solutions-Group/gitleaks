@@ -7,7 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zricethezav/gitleaks/v8/config"
+	"github.com/zricethezav/gitleaks/v8/regexp"
 )
 
 func Test_readUntilSafeBoundary(t *testing.T) {
@@ -69,4 +73,96 @@ func Test_readUntilSafeBoundary(t *testing.T) {
 			require.Equal(t, c.expected, peekBuf.String())
 		})
 	}
+}
+
+func TestShouldSkipPath(t *testing.T) {
+	mustCompile := func(pattern string) []*regexp.Regexp {
+		return []*regexp.Regexp{regexp.MustCompile(pattern)}
+	}
+
+	tests := map[string]struct {
+		allowlist *config.Allowlist
+		path      string
+		want      bool
+	}{
+		"or path matches": {
+			allowlist: &config.Allowlist{
+				MatchCondition: config.AllowlistMatchOr,
+				Paths:          mustCompile(`\.md$`),
+			},
+			path: "docs/README.md",
+			want: true,
+		},
+		"or path does not match": {
+			allowlist: &config.Allowlist{
+				MatchCondition: config.AllowlistMatchOr,
+				Paths:          mustCompile(`\.md$`),
+			},
+			path: "main.go",
+			want: false,
+		},
+		"or path alone is sufficient with regexes": {
+			allowlist: &config.Allowlist{
+				MatchCondition: config.AllowlistMatchOr,
+				Paths:          mustCompile(`\.md$`),
+				Regexes:        mustCompile(`PLACEHOLDER`),
+			},
+			path: "docs/README.md",
+			want: true,
+		},
+		"and path with nonmatching regex must be evaluated": {
+			allowlist: &config.Allowlist{
+				MatchCondition: config.AllowlistMatchAnd,
+				Paths:          mustCompile(`\.md$`),
+				Regexes:        mustCompile(`PLACEHOLDER`),
+			},
+			path: "docs/README.md",
+			want: false,
+		},
+		"and path with stopword must be evaluated": {
+			allowlist: &config.Allowlist{
+				MatchCondition: config.AllowlistMatchAnd,
+				Paths:          mustCompile(`\.md$`),
+				StopWords:      []string{"example"},
+			},
+			path: "docs/README.md",
+			want: false,
+		},
+		"and path with commit must be evaluated": {
+			allowlist: &config.Allowlist{
+				MatchCondition: config.AllowlistMatchAnd,
+				Paths:          mustCompile(`\.md$`),
+				Commits:        []string{"0000000000000000000000000000000000000000"},
+			},
+			path: "docs/README.md",
+			want: false,
+		},
+		"and path only is sufficient": {
+			allowlist: &config.Allowlist{
+				MatchCondition: config.AllowlistMatchAnd,
+				Paths:          mustCompile(`\.md$`),
+			},
+			path: "docs/README.md",
+			want: true,
+		},
+		"nil allowlist is safe": {
+			allowlist: nil,
+			path:      "docs/README.md",
+			want:      false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if test.allowlist != nil {
+				require.NoError(t, test.allowlist.Validate())
+			}
+			cfg := &config.Config{Allowlists: []*config.Allowlist{test.allowlist}}
+			assert.Equal(t, test.want, shouldSkipPath(cfg, test.path))
+		})
+	}
+
+	t.Run("nil config", func(t *testing.T) {
+		assert.False(t, shouldSkipPath(nil, "any/path.md"))
+	})
 }
