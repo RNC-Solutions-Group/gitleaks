@@ -139,6 +139,7 @@ func TestGitLogIgnoresForcedColor(t *testing.T) {
 		{name: "custom options", logOpts: "--all"},
 		{name: "explicit color", logOpts: "--all --color"},
 		{name: "explicit color always", logOpts: "--all --color=always"},
+		{name: "revision plus color", logOpts: "--all HEAD --color=always"},
 		{name: "pathspec separator", logOpts: "--all -- ."},
 		{name: "color before pathspec separator", logOpts: "--all --color=always -- ."},
 	}
