@@ -12,6 +12,101 @@ CI and by the container image is pinned to **Go 1.27.4**:
 Building with a Go release older than the `go.mod` requirement fails at the
 module version gate before compilation.
 
+## Build and test commands
+
+Routine commands are non-mutating. They do not format, generate, tidy, fetch
+remote tags, or rewrite tracked configuration:
+
+| Command | Purpose |
+| --- | --- |
+| `make build` | Compile the scanner with the resolved version stamp. |
+| `make test` | Run the full test suite without the race detector. |
+| `make test-race` | Run the full test suite with the race detector. |
+| `make test-cover` | Run race tests with coverage and open the HTML report. |
+| `make failfast` | Stop at the first test failure. |
+| `make verify` | Run `go vet`, compare generated configuration, and check module consistency on Linux/macOS. |
+| `make lint` | Run `golangci-lint`. |
+| `make version` | Print the resolved version and its source. |
+| `make help` | Show the command contract. |
+
+`make test` intentionally does not imply `-race`; use `make test-race` for the
+racy build. The same commands work from a cached module set with network access
+disabled. On a Windows CRLF checkout, `make verify` skips `go mod tidy -diff`
+because Git's line-ending conversion makes the diff a false positive; the Linux
+CI job performs that check.
+
+Mutating maintenance is explicit:
+
+| Command | Purpose |
+| --- | --- |
+| `make format` | Rewrite Go sources with `go fmt`. |
+| `make tidy` | Rewrite `go.mod`/`go.sum` with `go mod tidy`. |
+| `make generate` | Regenerate `config/gitleaks.toml`. |
+| `make clean` | Remove profiles and test artifacts. |
+
+Do not make routine builds or tests depend on these commands. `make verify`
+checks generated configuration by running the generator into a temporary file;
+it fails rather than repairing a stale tracked configuration.
+
+### Version resolution
+
+The build version is resolved in this order:
+
+1. `VERSION` supplied on the command line or in the environment.
+2. An exact local Git tag, with `+dirty` when tracked files are modified.
+3. The nearest local tag plus `+dev.<commit>` build metadata.
+4. `v8.25.0+dev.source` when Git metadata is unavailable.
+
+No remote fetch is performed. The fallback base is the minimum version accepted
+by the embedded default configuration, so tagless source builds remain valid
+SemVer. Pass an explicit release version when producing a release artifact:
+
+```bash
+make build VERSION=v8.30.0
+```
+
+### Regex backends
+
+The application uses the standard library regexp package by default. The
+`gore2regex` build tag selects the RE2 backend:
+
+```bash
+go build ./...
+go test -count=1 ./...
+
+go build -tags gore2regex ./...
+go test -count=1 -tags gore2regex ./...
+```
+
+Both the generator packages and the application must compile and test under
+both backends. The generated configuration is identical; run `make verify` (or
+`go test ./cmd/generate/config -run TestGeneratedConfigMatchesTracked`) after
+changing generator code.
+
+### Pre-commit integration
+
+The Linux development CI installs a pinned pre-commit version and runs
+`TestPreCommitHookIntegration` with `REQUIRE_PRE_COMMIT=1`. In that mode a
+missing Python or pre-commit installation fails the job instead of skipping it.
+The test builds the current scanner and exercises the real `try-repo` flow for
+zero, one, multiple, and space-containing staged files, `--all-files`, clean
+changes, synthetic findings, and scanner configuration errors. The manifest
+structure test runs on every platform even when pre-commit is unavailable.
+
+### CI coverage and intentional skips
+
+The Linux job runs the full race suite and real pre-commit integration. Windows
+and both macOS jobs run the full race suite; pre-commit is not provisioned
+there, so that integration test skips. Windows also skips tests that
+require POSIX permission semantics, FIFO or special filename support, or
+unprivileged symlink creation. The Windows relative-root path fixtures now
+derive a relative root from the fixture's parent when the temporary directory is
+on another volume, so those F16 cases execute instead of skipping. The separate
+`gore2regex` job builds the application and runs the complete tagged test
+suite. Docker jobs cover the default root image and the opt-in non-root target
+on `linux/amd64` and `linux/arm64`. The upstream Gitleaks Action workflow is not
+part of this fork's CI.
+
 ## General
 
 ### Issues
@@ -107,7 +202,7 @@ If you want to add a new rule to the [default Gitleaks configuration](https://gi
    the `rules.Beamer(),` in `main()`. Try and keep
    this alphabetically pretty please.
 
-1. Run `make config/gitleaks.toml`
+1. Run `make generate`
 
 1. Check out your new rules in `config/gitleaks.toml` and see if everything looks good.
 

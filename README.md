@@ -85,6 +85,35 @@ cd gitleaks
 make build
 ```
 
+### Docker runtime identities
+
+A plain `docker build` continues to produce the established root-based image. The optional non-root image is a separate, explicitly selected build target; it is not the default:
+
+```bash
+# Established default (runs as root)
+docker build -t gitleaks:latest .
+
+# Optional non-root variant (stable UID/GID 10001:10001)
+docker build --target runtime-nonroot -t gitleaks:nonroot .
+```
+
+Both variants contain the same scanner and runtime packages. The non-root image has a writable home directory at `/home/gitleaks`, runs with `HOME=/home/gitleaks`, and retains `safe.directory '*'` so it can scan repositories whose bind-mounted ownership does not match the container user. A narrower trust list is possible by supplying an operator-managed Git global configuration, but an arbitrary mount path then has to be listed explicitly.
+
+Source mounts can stay read-only. A report destination must be writable by the runtime user:
+
+```bash
+mkdir -p reports
+# On Linux, make the destination writable by the stable non-root UID.
+sudo chown 10001:10001 reports
+
+docker run --rm \
+  -v "$PWD:/scan:ro" \
+  -v "$PWD/reports:/reports" \
+  gitleaks:nonroot dir /scan --report-path /reports/report.json
+```
+
+The non-root image cannot read a `0700` repository owned by a different host UID unless the host grants access through group ownership or ACLs. Likewise, it cannot write a report into a host directory owned by another user. These are expected permission failures and produce a nonzero scanner result, not a clean scan. The root image remains available for cases that require root-owned mount access. For console-only read-only containers, `--read-only --tmpfs /tmp` works with both images.
+
 ### Pre-Commit
 
 1. Install pre-commit from https://pre-commit.com/#install
@@ -640,7 +669,7 @@ Numbering starts at `_001` and advances until an available filename is found. Ex
 
 If both settings are false and the destination already exists, Gitleaks exits before scanning and leaves the file untouched. The error identifies the conflicting path and recommends `auto-overwrite`/`aggregation` or the `--overwrite`/`--aggregate` flags.
 
-Report writing still validates the format and template first, writes through a temporary file, publishes each file atomically, rejects symlink and special-file destinations, prevents collisions with a direct scan-target file, configuration, baseline, ignore file, or report template, and preserves an existing report when the scan or report write fails. A primary report and its optional informative companion are two independent filesystem paths and are not atomic as a pair. Reports inside the scan target are ordinary destinations under this policy; the experimental `--allow-in-tree-report-overwrite` flag has been removed.
+Report writing still validates the format and template first, writes through a temporary file, publishes each file atomically, rejects symlink and special-file destinations, prevents collisions with a direct scan-target file, configuration, baseline, ignore file, or report template, and preserves an existing report when the scan or report write fails. A primary report and its optional informative companion are two independent filesystem paths and are not atomic as a pair. Reports inside the scan target are ordinary destinations under this policy; the experimental `--allow-in-tree-report-overwrite` flag has been removed. Validation is repeated immediately before publication, but validation and rename are separate filesystem operations. A local actor that replaces the destination with a symlink, hardlink, directory, or another file cannot redirect publication into the substituted target; a temporary report can remain in a parent directory that is renamed during publication, which is a cleanup limitation of the two-step filesystem operation.
 
 For example, the following template provides a custom JSON output:
 ```gotemplate
