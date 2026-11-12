@@ -4,10 +4,10 @@
 
 **Project:** RNC Gitleaks fork (`RNC-Solutions-Group/gitleaks`)  
 **Working branch:** `fix/validation`  
-**Snapshot:** 2026-11-12; CP-V7 implementation at `cccdef68731e2c59fa4af2d246a5927a111ffacd` reviewed and CI-validated. F09 accepted within tested scope; F15 remains partially open for nonseekable ZIP/7z outer-container behavior. Previous ledger-only commit `96e5f0991011ee64c234805a93998fc9881a1831`.
+**Snapshot:** 2026-11-12; CP-V7A opt-in informative reporting delivered at `57931abf68eb9eff799732962562ddab2156ced8` with independently verified CI 10/10. CP-V7 nonseekable ZIP/7z outer-container cap is an **operator-accepted, documented intentional exclusion**; CP-V7A exposes observed skips without changing the scanner verdict. No additional Gitleaks archive-processing work is authorized.
 **Comparison baseline:** `dev/gitleaks-upgrade` at `c0516b4bd66c0dc3878d80283a267166f7b4fd09`  
 **Upstream reference reviewed for CP-V0:** `gitleaks/gitleaks` `master` at `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c`  
-**Primary evidence:** CP-V0 and CP-V1–V3 evidence; now additionally **full operator-uploaded CP-V4, CP-V5, CP-V6, and CP-V7 reports**, GitHub source and commit comparisons, CI job verification, and upstream PRs/issues. Agent-reported local tests/performance remain distinct from independently verified source/CI results; historical PR SHAs are not release pins.
+**Primary evidence:** CP-V0 through CP-V3 work; full uploaded CP-V4, V5, V6, V7 and **CP-V7A** reports; GitHub commit comparisons, source inspection and independent CI job verification; linked upstream PRs/issues. Local performance, differential fixture, and validation results from the build-agent report are distinguished from independently inspected GitHub CI/source evidence. PR statuses are historical observations.
 
 **CP-V2 snapshot:** implementation at `452d1224afe57b68888b4e581ad70878758426ad`; CI [43075289894](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43075289894) passed all jobs.
 
@@ -22,7 +22,9 @@
 
 **CP-V6 snapshot:** configuration/ignore-file fix at [`d0795f59af188284c6e146d97cd0bd1452389689`](https://github.com/RNC-Solutions-Group/gitleaks/commit/d0795f59af188284c6e146d97cd0bd1452389689); two commits from CP-V5; [CI 43114548814](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43114548814), **10/10 jobs successful**. The configuration-trust policy decision remains open.
 
-**CP-V7 snapshot:** [implementation `cccdef6`](https://github.com/RNC-Solutions-Group/gitleaks/commit/cccdef68731e2c59fa4af2d246a5927a111ffacd) (13 changed files, +862/−41); [CI 43121770371](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43121770371) independently verified **10/10 successful jobs**. **F09 accepted for tested false-negative behavior; F15 not fully closed** pending the oversized nonseekable ZIP/7z policy and regression decision.
+**CP-V7 snapshot:** [implementation `cccdef6`](https://github.com/RNC-Solutions-Group/gitleaks/commit/cccdef68731e2c59fa4af2d246a5927a111ffacd) (13 files, +862/−41); [CI 43121770371](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43121770371) independently verified 10/10. F09 accepted for tested defect; F15 accepted within operator-approved resource policy with the nonseekable ZIP/7z outer-container skip documented as intentional, not a scan failure.
+
+**CP-V7A snapshot:** [implementation `57931ab`](https://github.com/RNC-Solutions-Group/gitleaks/commit/57931abf68eb9eff799732962562ddab2156ced8), four commits from `4b944dc`, 26 files (+3031/−32); [CI 43278900115](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115), **10/10 jobs independently verified successful**. Disabled-by-default `informative-report` and `console-only`, exclusion accounting, stderr summary, safe paired JSON/aggregation, and Unix single-file ignore-discovery fix. Default findings/output semantics are preserved within supplied differential fixtures.
 
 ## 1. Project contract: improve Gitleaks without changing how people use it
 
@@ -72,8 +74,13 @@ Statuses: **Implemented** = code exists on `fix/validation`; **Validated** = spe
 | V6-E / CPV0-F05 | Ignore-file bounded parsing/discovery | Unbounded lines/files/entry counts and silent missing explicit paths could undermine reliable scans. | Enforce 16 MiB/file, 1 MiB/line, 100,000 non-comment entries; explicit missing paths error; optional absent files remain optional; regular-file symlinks retained; malformed fingerprint warning semantics unchanged. | **Implemented; CP-V6 CI 10/10 validated; extreme legitimate inputs may be rejected.** | `cmd/root.go`, `detect/detect.go`, ignore security tests; [CI 43114548814](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43114548814). |
 
 | V7-A / CPV0-F09 | Archive identification | Filename-only archive classification silently missed ordinary plaintext with archive-like filenames. | Require content signature within 64 KB before extraction, restore consumed bytes on seekable/nonseekable readers; propagate inspection/read failures. | **Implemented; CI 10/10 validated; F09 accepted within tested scope.** | `sources/file.go`, source/CLI regressions; [#2317](https://github.com/gitleaks/gitleaks/pull/2317) (@Varshith-Kali; adapted), [#2316](https://github.com/gitleaks/gitleaks/issues/2316); [CI 43121770371](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43121770371). |
-| V7-B / CPV0-F15 | Source/archive size limits | Size policy did not cover many compressed/reader/Git paths and had a rounded-limit legacy check. | Propagate `File.MaxFileSize` and `Size` in exact bytes; bound unknown/decompressed streams by temp spooling; zero limit remains unlimited; preserve Git-history textual diffs. | **Implemented; CI 10/10 validated; F15 partially OPEN.** | `sources/file.go`, `sources/files.go`, `sources/git.go`, CLI/source/reader tests; [#2099](https://github.com/gitleaks/gitleaks/pull/2099) (@alephnull-sh; partially adapted/informed); [CI 43121770371](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43121770371). |
-| V7-C / CPV0-F09 / F15 | Coverage compatibility / resource budget | Nonseekable ZIP/7z temp seekable copy is capped by the member limit, potentially excluding a large compressed container with small valid members. Leading-only signatures can miss self-extracting/prefixed archives. | Reproduce Git/nonseekable oversized outer ZIP with ≤limit member; decide independent spool budget versus explicit incomplete-scan error. Keep unknown-extension archive discovery (#2010) separate. | **OPEN operator decision; do not close F15 fully.** | CP-V7 report §§6.2/12; `sources/file.go` temp-copy branch; [#2010](https://github.com/gitleaks/gitleaks/issues/2010). |
+| V7-B / CPV0-F15 | Source/archive size limits | Size policy did not cover many compressed/reader/Git paths and had a rounded-limit legacy check. | Propagate `File.MaxFileSize` and `Size` in exact bytes; bound unknown/decompressed streams by temp spooling; zero limit remains unlimited; preserve Git-history textual diffs. | **Implemented/validated under operator-approved size policy; nonseekable ZIP/7z outer-container cap is a documented intentional skip.** | `sources/file.go`, `sources/files.go`, `sources/git.go`, CLI/source/reader tests; [#2099](https://github.com/gitleaks/gitleaks/pull/2099) (@alephnull-sh; partially adapted/informed); [CI 43121770371](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43121770371). |
+| V7-C / CPV0-F09 / F15 | Accepted archive resource limitation | Nonseekable ZIP/7z containers can exceed the per-member size limit while containing small members; leading-prefix signatures may not recognize self-extracting archives. | **Operator accepted current size/depth rules:** preserve intentional exclusion, record observed skip in informative reporting; do not change archives. Unknown-extension discovery #2010 deferred. | **ACCEPTED DOCUMENTED LIMITATION — not a pending CP-V7A change.** | CP-V7 report §§6.2/12; CP-V7A code records `size_limit` for nonseekable archive copy; [CI 43278900115](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115). |
+
+| V7A-A | Informative output contract | Existing findings reports cannot show observed intentionally skipped targets. | Opt-in `informative-report` and `console-only` (false defaults); no path → informative stderr; file primary → companion JSON unless console-only; stdout report unaffected. | **Implemented and CI 10/10 validated.** | `config/config.go`, `cmd/root.go`, README, output-mode tests; [CI 43278900115](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115). |
+| V7A-B | Coverage accounting | No consolidated skipped-target inventory and no reason summary. | Concurrency-safe `internal/informative` collector with schema version 1; target identity, reason, size/limit/commit; 10k deterministic detail cap plus exact aggregate counts; no content rereads. | **Implemented, source inspected, CI 10/10 validated; counts scoped to encountered targets, not complete repository inventory.** | `internal/informative/informative.go`, sources/detect hooks, CLI/unit tests; [CI 43278900115](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115). |
+| V7A-C | Paired output safety | Optional sidecar must not corrupt existing primary report behavior or aggregation. | Pair-aware `*-informative.json` naming, overwrite/aggregate/reject policies, collision checks, temp-file publication, reservation cleanup. | **Implemented and CI 10/10 validated; explicit residual:** overwrite-mode late primary publication failure can leave newer companion alongside older primary. | `cmd/report_pair.go` (349 lines), `cmd/report_pair_test.go`, `cmd/report.go`; [CI 43278900115](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115). |
+| V7A-D | Focused QOL | Unix single-file `gitleaks dir <file>` could inspect `<file>/.gitleaksignore` and fail `ENOTDIR`; stale archive-size comment. | Guard auto-ignore discovery for non-directory source parents; fix 25 KB peek comment; preserve generated config and old commits. | **Implemented and CI-validated.** | `cmd/root.go`, `sources/common.go`, CP-V7A report §18, [CI 43278900115](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115). |
 
 **Output decision table (when the requested destination exists):**
 
@@ -88,7 +95,7 @@ Neither `--overwrite` nor `--no-overwrite` was found in the reviewed upstream v8
 
 ## 3. Known issue disposition
 
-This section distinguishes an implemented correction from full release acceptance. Status reflects delivered code and verification through CP-V7 implementation/CI (2026-11-12); it does not imply universal coverage or release acceptance. F09 accepted within tested scope; F15 conditional.
+This section distinguishes an implemented correction from full release acceptance. Status reflects delivered code and verification through CP-V7A implementation/CI (2026-11-12); it does not imply universal coverage or release acceptance. F09 accepted within tested scope; F15's nonseekable ZIP/7z size exception is accepted as intentional and disclosed; it is not a new scan failure.
 
 | CP-V0 finding | Severity | Description | Disposition |
 | --- | --- | --- | --- |
@@ -105,7 +112,7 @@ This section distinguishes an implemented correction from full release acceptanc
 | F11 | P1 | Merge-only Git changes can be missed in default history mode. | **OPEN / compatibility decision required**; #2301 changes behavior. |
 | F12 | P1 | `dir` silently scans the wrong directory on invalid positional args. | **V1 implemented;** release regression proof still required. |
 | F13 | P1 | Pre-commit helper lets nonzero scanner statuses pass. | **V1 implemented;** release regression proof still required. |
-| F14–F18 | P2 | Archive identification, size budgets, path identity, Unicode redaction, stdout contracts. | **Partially addressed:** F17 Unicode masking corrected in CP-V5; F15 byte-accurate limits improved in CP-V7 but the nonseekable ZIP/7z outer-container skip remains unresolved. F14/F16/F18 and residual path/stdout items remain open/deferred. |
+| F14–F18 | P2 | Archive identification, size budgets, path identity, Unicode redaction, stdout contracts. | **Partially addressed:** F17 Unicode masking corrected in CP-V5; F15 byte-accurate limits improved in CP-V7 but the nonseekable ZIP/7z outer-container skip is an accepted/documented resource limitation. F14/F16/F18 and residual path/stdout items remain open/deferred. |
 | F19 | P2 | Returning before worker completion on cancellation. | **CP-V3 worker-join issue corrected and tested;** blocking OS reads can still outlast configured timeout. |
 | F20 | P2 | Report permissions and close/flush weaknesses. | **CP-V2 implemented major safeguards;** final-publication TOCTOU remains documented. |
 | F21 | P2 | Git stderr can contain and expose credentials through logs/error text. | **CP-V5 implemented and CI-validated for known Git stderr credential patterns:** sanitized URL userinfo, sensitive query values, and token-shaped runs in logs/error strings. **PARTIALLY OPEN:** unknown/short formats may escape heuristic sanitization and benign SHA/path values can be over-redacted; consider structured diagnostic boundary. |
@@ -127,7 +134,7 @@ CP-V3 delivered four commits: `105c0a8` (source errors), `56458e7` (Git process/
 - **CP-V6 / F04, F05, extension state:** commits `ed74f7e`, `d0795f5`. Invalid user regex now returns an error rather than a panic; extension depth is explicit; unsafe ignore inputs are rejected with bounded, atomic-in-memory parsing. Flash reports valid default/custom/extended/ignore scans maintain expected findings; config trust boundary deliberately unchanged; generation hash `256f6479…` unchanged. [Run 43114548814](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43114548814) independently verified **10/10 successful**.
 - **Full CP-V4, CP-V5, CP-V6 and CP-V7 reports are now uploaded and reviewed.** Agent-reported local results are distinguished from independently verified GitHub source/CI evidence. No claim of universal secret-safe logs, all scan paths being cancelable, or release certification is made.
 
-**Residual technical gates after CP-V7:** F02 final-publication TOCTOU; F03 unknown adjacent secret/template exposure; F04 untrusted local config policy, Viper concurrency, and sensitive regex diagnostics; F05 file-replacement race; F11 merge-history default behavior; F15 nonseekable ZIP/7z container budget (CP-V7 conditional); F16 path identity; F19 blocking reads/deprecated APIs; F21 imperfect Git stderr sanitization. Existing experimental/default report compatibility and contributor-provenance reviews remain release gates.
+**Residual technical gates after CP-V7:** F02 final-publication TOCTOU; F03 unknown adjacent secret/template exposure; F04 untrusted local config policy, Viper concurrency, and sensitive regex diagnostics; F05 file-replacement race; F11 merge-history default behavior; F15 nonseekable ZIP/7z outer-container budget (accepted intentional limitation, not an active redesign gate); F16 path identity; F19 blocking reads/deprecated APIs; F21 imperfect Git stderr sanitization. Existing experimental/default report compatibility and contributor-provenance reviews remain release gates.
 
 
 ### CP-V7 acceptance evidence and residual decisions (2026-11-12)
@@ -143,6 +150,20 @@ CP-V3 delivered four commits: `105c0a8` (source errors), `56458e7` (Git process/
 **Provenance:** [PR #2317](https://github.com/gitleaks/gitleaks/pull/2317) @Varshith-Kali SHA `71e91200afb2415b283bb1721709b19c2fddd8aa` **adapted** 64 KB prefix verification/replay; [PR #2099](https://github.com/gitleaks/gitleaks/pull/2099) @alephnull-sh SHA `1b3896fd7df9a667a09568b751dce6143613319e` **partially adapted/informed** size propagation, not its memory-heavy buffer; [issue #2316](https://github.com/gitleaks/gitleaks/issues/2316) @bhandrigan and [issue #2010](https://github.com/gitleaks/gitleaks/issues/2010) @grodriguezl credited. No external commit cherry-picked; release code-overlap audit pending. Full CP-V4 report additionally establishes that #2338 was **adapted**, not only reviewed/informed.
 
 **Remaining scan-integrity limitations:** deprecated APIs still have error-dropping paths outside the CLI; blocking OS reads cannot always be promptly canceled; raw `diff --git` header counting is a conservative parser-integrity heuristic and can false-fail unusual custom Git formatting or miss a pathological complete-prefix truncation. Do not claim universal completeness or cancellation. CP-V2 publication TOCTOU and scan-included numbered reports also remain documented.
+
+### CP-V7A assessment and operator disposition (2026-11-12)
+
+**Implemented behavior:** `informative-report = true` enables skipped-target reporting; `console-only = true` routes informative output to stderr regardless of primary report file. When neither is enabled, the original CLI, reports, and scan logic remain unchanged. With no report path, informative information is console-only; with a primary file path, a `*-informative.json` companion is generated unless console-only; with `--report-path -`, primary remains machine-readable stdout, informative is stderr.
+
+**Source-based verification:** `internal/informative` implements a per-scan, mutex/atomic-safe exclusion collector and deterministic JSON serialization. Exclusions are emitted from actual source/detect branches; no debug-log parsing or second scan. `observed_targets` counts encountered entries/diff targets/members, `inspected_targets` is observed minus intentional exclusions, and unknown skipped subtree contents are never invented. Per-target details cap at 10,000 (exact reason totals retained); console detail cap 20. Finding-level suppression is not misclassified as skipped file.
+
+**Publication and known limitation:** `cmd/report_pair.go` reserves consistent aggregate pairs, validates both destinations, uses temp-file publication and protects scan inputs. Two paths are not atomic as a pair; in overwrite mode, late primary publication failure can leave a new companion beside the previous primary. Clearly disclosed by Flash. This is a residual publication-consistency risk for potential release hardening, not a source-scan failure.
+
+**Operator archive policy:** No further archive-processing changes in Gitleaks. Nonseekable ZIP/7z outer-size exclusions remain successful intentional skips when properly executed and are reported under `size_limit` in the optional informative output. A distinct RNC Scanner archive-focused mode is outside this fork's workstream.
+
+**Agent report / independent evidence:** Uploaded CP-V7A report includes a 612-byte synthetic findings fixture whose primary SHA-256 matched upstream, pre, post-disabled, console, and paired modes; clean fixture and stdout also matched. These are agent-run comparisons, not independently reproduced. GitHub [CI 43278900115](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115) at `57931ab` was independently checked and **10/10 jobs passed** (all OS builds, standard/RE2, Docker, dependency and vulnerability assessment). Agent reports local Windows Go tests/vet/mod/generate and RE2 app/targeted tests passed; native Windows race blocked locally by missing compiler, and local Linux-on-Windows bind mount showed known Git testdata issues; native GitHub CI race lanes passed per report. Full `go test -tags gore2regex ./...` remains blocked by the known generator-only type mismatch.
+
+**Performance and QOL:** Uncontrolled small text sample median 76.9→88.6 ms pre/post-disabled with heavily overlapping ranges; insufficient to prove negligible overhead or a sustained regression. Mixed informative console vs paired medians ~1036 vs ~1031 ms. No separate serialization measurement. Unix single-file `.gitleaksignore` auto-discovery corrected; stale archive peek size comment fixed. No default rule/config hash change or new archive-processing functionality.
 
 ## 4. External contributor recognition and code provenance
 
@@ -269,6 +290,16 @@ These are checkpoint decisions, **not** automatic permission to adopt any upstre
 
 **CP-V4 provenance correction:** The uploaded V4 report classifies [#2338](https://github.com/gitleaks/gitleaks/pull/2338) (@VISHNU0906) as **adapted**, specifically the staged-flag/binary-fallback design. RNC independently implemented stage-zero index resolution, errors, lifecycle, and regression tests. No external PR was cherry-picked in CP-V4–V7.
 
+### 4G. CP-V7A upstream research and attribution
+
+| Item | Contributor | Relationship |
+| --- | --- | --- |
+| [PR #2249](https://github.com/gitleaks/gitleaks/pull/2249) | @vaibhav8a | Reviewed, **not adopted**; operational read failures remain errors, not informative intentional skips. |
+| [Issue #2232](https://github.com/gitleaks/gitleaks/issues/2232) | @siliroid | Reviewed/informed operational-error boundary; no code adopted. |
+| [PR #2166](https://github.com/gitleaks/gitleaks/pull/2166) | @ashvinctrl | Reviewed, **not adopted**; no commit-allowlist logic changes in CP-V7A. |
+
+The full agent report identifies no directly copied or cherry-picked external contribution for CP-V7A. Code authored in RNC's 4 logical commits; retain ordinary release authorship audit.
+
 ## 5. Adopt-vs-adapt decision log (required before clean release)
 
 For every outside PR potentially overlapping RNC work, add a decision row **after examining the exact patch and our corresponding code**:
@@ -294,6 +325,8 @@ For every outside PR potentially overlapping RNC work, add a decision row **afte
 
 | #2317 / `71e9120` | F09 bounded archive signature verification/replay | **CP-V7 adapted, no cherry-pick** | @Varshith-Kali; Git metadata to verify | RNC `cccdef6`; no adopted external commit | CI 43121770371 | Exact code-overlap and credit audit pending |
 | #2099 / `1b3896f` | F15 `MaxFileSize` propagation and known member checks | **CP-V7 partially adapted/informed** | @alephnull-sh; Git metadata to verify | RNC `cccdef6`; no adopted external commit | CI 43121770371 | Attribution and ZIP/7z semantics pending |
+
+**CP-V7A: no external PR/commit directly adopted.** Related items #2249, #2232, and #2166 were reviewed/informed only.
 
 Do **not** call a PR "adopted" simply because a similar fix was independently implemented. If code was actually carried over, record the evidence and correct attribution before final integration.
 
