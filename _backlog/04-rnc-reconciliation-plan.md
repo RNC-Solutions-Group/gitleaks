@@ -59,7 +59,7 @@ Use explicit states: **implemented and verified**, **partial or conditional**, *
 
 **Decision: ACCEPT F06 original bypass correction within supported core scan paths.** Operator approved 2026-11-12. Retain full end-to-end CLI AND/OR negative-condition, Windows/Unix, standard/RE2, and post-CP-V8 F16 path-identity checks as release evidence. **Separate concern:** #2165/#2166 global Git commit-allowlist loop behavior in `sources/git.go` still requires independent P1 review; it is not the closed F06 defect.
 
-### F07 — Historical P0 Git-staged binary-marked text bypass (technical review 2026-11-12; owner acceptance pending)
+### F07 — Historical P0 Git-staged binary-marked text bypass (operator accepted 2026-11-12)
 
 **Original issue:** [#2337](https://github.com/gitleaks/gitleaks/issues/2337) (@farrrr), proposed [PR #2338](https://github.com/gitleaks/gitleaks/pull/2338) (@VISHNU0906). Git can label readable staged text as binary through `.gitattributes -diff` or `core.bigFileThreshold` so upstream diff parsing lacks text hunks. The original P0 omitted staged secrets without signaling a scan failure.
 
@@ -67,9 +67,37 @@ Use explicit states: **implemented and verified**, **partial or conditional**, *
 
 **Positive/negative evidence:** `detect/git_staged_test.go`: normal text, `-diff`, `core.bigFileThreshold`, index/worktree divergence both directions, real binary, deletion, rename, spaces/Unicode, staged archives and size limits. `sources/git_index_test.go`: missing index object, cancellation, special path, read/close failures, intentional early skip. `cmd/staged_status_test.go`: real staged CLI findings, JSON report and exit-code overrides; `cmd/staged_blob_failure_unix_test.go`: missing blob fails nonzero even with `--exit-code 0`, previous report sentinel untouched. Independently verified workflow results: [CP-V4 CI 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43099917379), [CP-V5 CI 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43109905591), [CP-V7A CI 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115). Modern `fix/validation` at `cfb2815` retains the reviewed staged Git implementation. No independent external harness run in this reconciliation.
 
-**Proposed disposition:** ACCEPT the historical staged-binary-text P0 as corrected, conditional on routine post-V8 harness regression and documented exclusions; no new scanning mode or default history behavior. Verify CI/native/Docker standard and RE2 builds, real Git staged index/worktree divergence, bigFileThreshold and `-diff`, true binary negative, missing blob failure, max-file-size intentional skip and no default report/exit regressions. Upstream PR #2338's **design was adapted**, not cherry-picked; preserve @VISHNU0906 and reporter @farrrr attribution, with final exact patch overlap review for clean release. Performance of large skipped blobs should be monitored; no claim of universal binary/archived-history coverage.
+**Decision: ACCEPT historical staged-binary-text P0 as corrected (operator 2026-11-12)**, conditional on routine post-V8 harness regression and documented exclusions; no new scanning mode or default history behavior. Verify CI/native/Docker standard and RE2 builds, real Git staged index/worktree divergence, bigFileThreshold and `-diff`, true binary negative, missing blob failure, max-file-size intentional skip and no default report/exit regressions. Upstream PR #2338's **design was adapted**, not cherry-picked; preserve @VISHNU0906 and reporter @farrrr attribution, with final exact patch overlap review for clean release. Performance of large skipped blobs should be monitored; no claim of universal binary/archived-history coverage.
 
 **Next proposed joint review:** [#1651](https://github.com/gitleaks/gitleaks/issues/1651) / [PR #2324](https://github.com/gitleaks/gitleaks/pull/2324) chunk-boundary false negatives, a potentially still-active P0/P1 package requiring current-branch reproduction. No implementation change or backlog defect closure is claimed for that package.
+
+## Proposed batch acceptance — operator quick review (not yet approved)
+
+The original four core P0s **F01, F02, F06, F07 are accepted** by operator. For speed, the following **nine additional independent package scopes** are proposed for batch approval, based on current RNC source review/CP-V1–V7A regression records and green relevant CI. Do **not** mark them accepted until operator approves the slate:
+
+| Proposed accept | Scope (do not silently expand) | Existing evidence / residual |
+| --- | --- | --- |
+| F08 | Forced Git ANSI coloring cannot corrupt parsed staged, unstaged or history diffs | `sources/git.go:forceNoColor`; `sources/git_color_test.go`; V1 and subsequent CI. Separate Git pretty/date/textconv issues remain. |
+| F10 | MIME binary classification only on first read chunk (not every chunk of a giant first line) | `sources/file.go:isFirstChunk`; `sources/file_test.go`; distinct from #1651 cross-boundary matching. |
+| F12 | `dir` requires at most one valid explicit path instead of silently falling back to CWD | `cmd/directory.go:resolveDirSource`; tests/CI; multi-root scanning is elective and not included. |
+| F13 | Pre-commit wrapper propagates scanner's nonzero process return status | Original CP-V1 and CI; separate pre-commit filename forwarding and Docker ownership proposals remain unverified. |
+| F04-A | Malformed user regex returns config error rather than panic on standard/RE2 | CP-V6 `config` and regex tests, [V6 CI](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43114548814); untrusted local config trust is separate. |
+| F04-B | Config extension-depth translation no longer leaks package-global state across sequential loads | CP-V6 config tests; package-global Viper concurrency remains open. |
+| F05 (bounded loader only) | Reject unsafe ignore inputs; enforce size/entry limits and propagate parse/read errors | CP-V6 ignore tests/CI; TOCTOU/mutation and unusually large valid files remain. |
+| F09 | Content-signature-verified archive identification prevents archive-like plaintext filenames being skipped | CP-V7 [10/10 CI](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43121770371); unknown-extension archives remain out of current approved scope. |
+| V7A feature | Opt-in informative report and console-only destination; no default findings change | CP-V7A [10/10 CI](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115); paired overwrite consistency is tracked under F02, timestamp QOL-4 pending. |
+
+**Report by exception thereafter:** current supported-code reproducer, genuine false-negative or data-loss risk, explicit behavioral/policy change, new source/destination/trust boundary, missing cross-platform/RE2 evidence, or third-party attribution uncertainty. Do not treat 282 work packages as 282 remaining defects.
+
+### Exception queue (needs technical decision / reproduction)
+
+1. **#1651 / PR #2324** cross-fragment regex matching and unusually long lines: RNC `sources/file.go` still uses ~100 KB buffers plus at most 25 KB whitespace-aware read-ahead and counts newlines per yielded fragment. The separate MIME first-chunk fix does **not** establish arbitrary long-line/cross-boundary pattern completeness. No current candidate end-to-end false-negative reproduction verified; retain as a **P0/P1 coverage investigation**, not accepted.
+2. **#2165/PR #2166** global Git commit allowlist continues an inner loop instead of skipping the parsed file; separate from corrected F06 path-only AND.
+3. **F11/F16:** V8 merge-history default decision / path identity changes; require candidate test parity and approval.
+4. **F02:** final-publication TOCTOU and companion/primary mismatch in overwrite failure.
+5. **F04:** repository-local config trust and Viper concurrency; separate from regex panic and extension-depth fixes.
+6. **F03/F21:** residual adjacent unknown-secret or unrecognized Git diagnostic redaction.
+7. **Release harness:** candidate-vs-baseline findings, exits, evidence spans, and sensitive output; no code frozen/merged solely because the documentation reports acceptance.
 
 ## First review session
 
