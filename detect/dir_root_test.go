@@ -105,13 +105,15 @@ func TestDirRootFindingsKeepIdentityAcrossRootSpellings(t *testing.T) {
 		}
 	}
 
-	t.Run("absolute and relative roots", func(t *testing.T) {
-		cwd, err := os.Getwd()
-		require.NoError(t, err)
-		relative, err := filepath.Rel(cwd, root)
-		require.NoError(t, err)
-
+	t.Run("absolute root", func(t *testing.T) {
 		assertIdentity(t, root, scanDirRoot(t, cfg, root))
+	})
+
+	t.Run("relative root", func(t *testing.T) {
+		relative, ok := relativeToCwdIfPossible(t, root)
+		if !ok {
+			t.Skip("test temporary directory is on a different Windows volume than the package")
+		}
 		assertIdentity(t, relative, scanDirRoot(t, cfg, relative))
 	})
 
@@ -138,10 +140,10 @@ func TestDirRootGitleaksIgnoreMatchesRelativeFingerprint(t *testing.T) {
 
 	t.Run("absolute root", func(t *testing.T) { run(t, root) })
 	t.Run("relative root", func(t *testing.T) {
-		cwd, err := os.Getwd()
-		require.NoError(t, err)
-		relative, err := filepath.Rel(cwd, root)
-		require.NoError(t, err)
+		relative, ok := relativeToCwdIfPossible(t, root)
+		if !ok {
+			t.Skip("test temporary directory is on a different Windows volume than the package")
+		}
 		run(t, relative)
 	})
 	t.Run("dot root", func(t *testing.T) {
@@ -161,17 +163,14 @@ func TestDirRootGitleaksIgnoreMatchesRelativeFingerprint(t *testing.T) {
 
 func TestDirRootAllowlistPathSemantics(t *testing.T) {
 	root := dirRootTree(t)
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
-	relative, err := filepath.Rel(cwd, root)
-	require.NoError(t, err)
 
 	check := func(t *testing.T, cfg *config.Config, expected []string) {
 		t.Helper()
-		for name, source := range map[string]string{
-			"absolute": root,
-			"relative": relative,
-		} {
+		sources := map[string]string{"absolute": root}
+		if relative, ok := relativeToCwdIfPossible(t, root); ok {
+			sources["relative"] = relative
+		}
+		for name, source := range sources {
 			t.Run(name, func(t *testing.T) {
 				findings := scanDirRoot(t, cfg, source)
 				assert.Equal(t, expected, dirRelativeNames(t, source, findings))
@@ -357,16 +356,28 @@ func TestDirRootConfigSelfExclusion(t *testing.T) {
 		assert.NotContains(t, finding.File, ".gitleaks.toml")
 	}
 
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
-	relative, err := filepath.Rel(cwd, root)
-	require.NoError(t, err)
+	relative, ok := relativeToCwdIfPossible(t, root)
+	if !ok {
+		t.Log("skipping relative config-path case: test temporary directory is on a different Windows volume")
+		return
+	}
 	cfg.Path = filepath.Join(relative, ".gitleaks.toml")
 	findings = scanDirRoot(t, cfg, relative)
 	assert.Len(t, findings, 3)
 	for _, finding := range findings {
 		assert.NotContains(t, finding.File, ".gitleaks.toml")
 	}
+}
+
+func relativeToCwdIfPossible(t *testing.T, path string) (string, bool) {
+	t.Helper()
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	rel, err := filepath.Rel(cwd, path)
+	if err != nil {
+		return "", false
+	}
+	return rel, true
 }
 
 func TestDirRootSingleFileHasNoRoot(t *testing.T) {

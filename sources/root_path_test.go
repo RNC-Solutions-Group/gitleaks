@@ -63,10 +63,11 @@ func TestFilesRootRelativeAllowlistAndFragmentRoot(t *testing.T) {
 	require.NoError(t, allowlist.Validate())
 	cfg := &config.Config{Allowlists: []*config.Allowlist{allowlist}}
 
-	for name, source := range map[string]string{
-		"absolute root": root,
-		"relative root": relativeToCwd(t, root),
-	} {
+	sourcesToScan := map[string]string{"absolute root": root}
+	if relative, err := relativeToCwd(root); err == nil {
+		sourcesToScan["relative root"] = relative
+	}
+	for name, source := range sourcesToScan {
 		t.Run(name, func(t *testing.T) {
 			files := &Files{Config: cfg, Path: source, Sema: semgroup.NewGroup(context.Background(), 1)}
 			var scanned []string
@@ -174,11 +175,10 @@ func TestFilesArchiveMembersCarryRoot(t *testing.T) {
 	assert.Equal(t, "bundle.zip!src/vendor/lib.py", RootRelativePath(fragments[0].Root, fragments[0].FilePath))
 }
 
-func relativeToCwd(t *testing.T, path string) string {
-	t.Helper()
+func relativeToCwd(path string) (string, error) {
 	cwd, err := os.Getwd()
-	require.NoError(t, err)
-	rel, err := filepath.Rel(cwd, path)
-	require.NoError(t, err)
-	return rel
+	if err != nil {
+		return "", err
+	}
+	return filepath.Rel(cwd, path)
 }
