@@ -65,6 +65,9 @@ func TestPreCommitHookIntegration(t *testing.T) {
 
 	python := findPython(t)
 	if err := exec.Command(python, "-m", "pre_commit", "--version").Run(); err != nil {
+		if requirePreCommit() {
+			t.Fatalf("pre-commit is required in this environment but is not installed: %v", err)
+		}
 		t.Skip("pre-commit is not installed")
 	}
 	goBin, err := exec.LookPath("go")
@@ -100,6 +103,16 @@ func findPython(t *testing.T) string {
 		}
 		return path
 	}
+	if requirePreCommit() {
+		t.Fatal("python 3 is required for the pre-commit integration test but was not found")
+	}
 	t.Skip("python 3 is not available")
 	return ""
+}
+
+// requirePreCommit lets CI turn an unavailable dependency into a failure. A
+// developer without pre-commit still gets a skip, while the CI integration job
+// cannot silently pass without executing the real scenarios.
+func requirePreCommit() bool {
+	return os.Getenv("REQUIRE_PRE_COMMIT") == "1"
 }

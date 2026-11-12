@@ -110,10 +110,7 @@ func TestDirRootFindingsKeepIdentityAcrossRootSpellings(t *testing.T) {
 	})
 
 	t.Run("relative root", func(t *testing.T) {
-		relative, ok := relativeToCwdIfPossible(t, root)
-		if !ok {
-			t.Skip("test temporary directory is on a different Windows volume than the package")
-		}
+		relative := relativeScanRoot(t, root)
 		assertIdentity(t, relative, scanDirRoot(t, cfg, relative))
 	})
 
@@ -140,11 +137,7 @@ func TestDirRootGitleaksIgnoreMatchesRelativeFingerprint(t *testing.T) {
 
 	t.Run("absolute root", func(t *testing.T) { run(t, root) })
 	t.Run("relative root", func(t *testing.T) {
-		relative, ok := relativeToCwdIfPossible(t, root)
-		if !ok {
-			t.Skip("test temporary directory is on a different Windows volume than the package")
-		}
-		run(t, relative)
+		run(t, relativeScanRoot(t, root))
 	})
 	t.Run("dot root", func(t *testing.T) {
 		t.Chdir(root)
@@ -166,9 +159,9 @@ func TestDirRootAllowlistPathSemantics(t *testing.T) {
 
 	check := func(t *testing.T, cfg *config.Config, expected []string) {
 		t.Helper()
-		sources := map[string]string{"absolute": root}
-		if relative, ok := relativeToCwdIfPossible(t, root); ok {
-			sources["relative"] = relative
+		sources := map[string]string{
+			"absolute": root,
+			"relative": relativeScanRoot(t, root),
 		}
 		for name, source := range sources {
 			t.Run(name, func(t *testing.T) {
@@ -356,11 +349,7 @@ func TestDirRootConfigSelfExclusion(t *testing.T) {
 		assert.NotContains(t, finding.File, ".gitleaks.toml")
 	}
 
-	relative, ok := relativeToCwdIfPossible(t, root)
-	if !ok {
-		t.Log("skipping relative config-path case: test temporary directory is on a different Windows volume")
-		return
-	}
+	relative := relativeScanRoot(t, root)
 	cfg.Path = filepath.Join(relative, ".gitleaks.toml")
 	findings = scanDirRoot(t, cfg, relative)
 	assert.Len(t, findings, 3)
@@ -369,15 +358,21 @@ func TestDirRootConfigSelfExclusion(t *testing.T) {
 	}
 }
 
-func relativeToCwdIfPossible(t *testing.T, path string) (string, bool) {
+// relativeScanRoot returns a genuine relative scan root on every supported
+// platform. Windows temporary directories can be on a different volume from the
+// package, so a cwd-relative spelling is impossible there; move to the fixture's
+// parent and use its one-component name instead of skipping relative-root
+// coverage.
+func relativeScanRoot(t *testing.T, path string) string {
 	t.Helper()
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
 	rel, err := filepath.Rel(cwd, path)
-	if err != nil {
-		return "", false
+	if err == nil {
+		return rel
 	}
-	return rel, true
+	t.Chdir(filepath.Dir(path))
+	return filepath.Base(path)
 }
 
 func TestDirRootSingleFileHasNoRoot(t *testing.T) {

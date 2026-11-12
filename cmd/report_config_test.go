@@ -34,15 +34,28 @@ func assertNoConfigSidecars(t *testing.T, dir, base string) {
 	assert.Empty(t, matches)
 }
 
+// relativeForCLI returns a path relative to the child CLI process's working
+// directory. On Windows the package and the temporary fixture can live on
+// different volumes; in that case move to the fixture's parent and use its
+// one-component name so the relative-path case still executes.
+func relativeForCLI(t *testing.T, path string) string {
+	t.Helper()
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	relative, err := filepath.Rel(cwd, path)
+	if err == nil {
+		return relative
+	}
+	t.Chdir(filepath.Dir(path))
+	return filepath.Base(path)
+}
+
 func TestCLIExplicitConfigCollision(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping subprocess tests in short mode")
 	}
 
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
 	configContent := "title = \"explicit-config\"\nauto-overwrite = true\naggregation = false\n"
-
 	t.Run("absolute paths", func(t *testing.T) {
 		source := cleanScanDir(t)
 		configPath := filepath.Join(t.TempDir(), "active.toml")
@@ -56,10 +69,7 @@ func TestCLIExplicitConfigCollision(t *testing.T) {
 		source := cleanScanDir(t)
 		configPath := filepath.Join(t.TempDir(), "active.toml")
 		original := writeConfigFixture(t, configPath, configContent)
-		relative, err := filepath.Rel(cwd, configPath)
-		if err != nil {
-			t.Skipf("could not form a relative path: %v", err)
-		}
+		relative := relativeForCLI(t, configPath)
 
 		result := runReportCLI(t, reportCommandArgs(source, relative, relative)...)
 		assertConfigCollision(t, result, relative, original)
@@ -71,8 +81,6 @@ func TestCLIAutoDiscoveredConfigCollision(t *testing.T) {
 		t.Skip("skipping subprocess tests in short mode")
 	}
 
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
 	configContent := "title = \"auto-discovered-config\"\n"
 
 	t.Run("absolute paths", func(t *testing.T) {
@@ -89,10 +97,7 @@ func TestCLIAutoDiscoveredConfigCollision(t *testing.T) {
 		source := cleanScanDir(t)
 		configPath := filepath.Join(source, ".gitleaks.toml")
 		original := writeConfigFixture(t, configPath, configContent)
-		relative, err := filepath.Rel(cwd, configPath)
-		if err != nil {
-			t.Skipf("could not form a relative path: %v", err)
-		}
+		relative := relativeForCLI(t, configPath)
 
 		result := runReportCLI(t, reportCommandArgs(source, relative, "")...)
 		assertConfigCollision(t, result, relative, original)
@@ -105,8 +110,6 @@ func TestCLIGitleaksConfigEnvCollision(t *testing.T) {
 		t.Skip("skipping subprocess tests in short mode")
 	}
 
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
 	configContent := "title = \"environment-config\"\n"
 
 	t.Run("absolute environment path", func(t *testing.T) {
@@ -125,10 +128,7 @@ func TestCLIGitleaksConfigEnvCollision(t *testing.T) {
 		source := cleanScanDir(t)
 		configPath := filepath.Join(t.TempDir(), "active.toml")
 		original := writeConfigFixture(t, configPath, configContent)
-		relative, err := filepath.Rel(cwd, configPath)
-		if err != nil {
-			t.Skipf("could not form a relative path: %v", err)
-		}
+		relative := relativeForCLI(t, configPath)
 
 		result := runReportCLIWithEnv(t,
 			map[string]string{"GITLEAKS_CONFIG": relative},

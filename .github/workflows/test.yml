@@ -28,6 +28,7 @@ env:
   # Pinned test reporter and vulnerability scanner (no unpinned @latest installs).
   GOTESTSUM_VERSION: "v1.13.0"
   GOVULNCHECK_VERSION: "v1.9.0"
+  PRE_COMMIT_VERSION: "4.7.0"
   TRIVY_IMAGE: "aquasec/trivy:0.76.2"
 
 jobs:
@@ -56,7 +57,22 @@ jobs:
       - name: Install pinned test reporter
         run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
 
-      - name: Test (race)
+      - name: Install pinned pre-commit
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/precommit-venv"
+          "${RUNNER_TEMP}/precommit-venv/bin/python" -m pip install \
+            --disable-pip-version-check "pre-commit==${PRE_COMMIT_VERSION}"
+          "${RUNNER_TEMP}/precommit-venv/bin/python" -m pre_commit --version
+          echo "${RUNNER_TEMP}/precommit-venv/bin" >> "${GITHUB_PATH}"
+
+      - name: Confirm pinned pre-commit is active
+        run: |
+          python -m pre_commit --version
+          test "$(python -m pre_commit --version)" = "pre-commit ${PRE_COMMIT_VERSION}"
+
+      - name: Test (race, including real pre-commit integration)
+        env:
+          REQUIRE_PRE_COMMIT: "1"
         run: gotestsum --raw-command -- go test -json -race ./...
 
       - name: Validate generated configuration without committing it
@@ -186,14 +202,20 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      # The application binary must build with the RE2 engine. The full tagged
-      # package graph is a known baseline failure (generator rules), and is not
-      # silently suppressed here.
+      # The full tagged package graph is supported. Keep the application build
+      # and the complete tagged test suite in the same job so a generator-only
+      # type regression cannot hide behind an application-only smoke build.
       - name: RE2 (gore2regex) application build
         run: |
           go build -trimpath -tags gore2regex -o /tmp/gitleaks-re2 .
           /tmp/gitleaks-re2 --version
           go list -tags gore2regex -f '{{.GoFiles}}' ./regexp
+
+      - name: Full RE2 (gore2regex) repository tests
+        run: go test -count=1 -tags gore2regex ./...
+
+      - name: Targeted RE2 race tests (generator and configuration)
+        run: go test -count=1 -race -tags gore2regex ./cmd/generate/config ./config
 
   docker-amd64:
     name: Docker linux/amd64 build and smoke test
@@ -221,6 +243,7 @@ jobs:
         run: |
           set -eux
           test "$(docker image inspect --format '{{.Architecture}}' gitleaks:ci-amd64)" = "amd64"
+          test "$(docker run --rm --entrypoint id gitleaks:ci-amd64 -u)" = "0"
           docker run --rm gitleaks:ci-amd64 --version
           test "$(docker run --rm gitleaks:ci-amd64 version)" = "${CI_VERSION}"
           docker run --rm gitleaks:ci-amd64 --help
@@ -271,6 +294,49 @@ jobs:
           test "${code}" = "1"
           grep -q '"RuleID"' "${report_file}"
 
+  docker-amd64-nonroot:
+    name: Docker linux/amd64 optional non-root smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build optional non-root image (linux/amd64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          target: runtime-nonroot
+          load: true
+          tags: gitleaks:ci-amd64-nonroot
+          build-args: |
+            VERSION=${{ env.CI_VERSION }}
+          cache-from: type=gha,scope=amd64-nonroot
+          cache-to: type=gha,mode=max,scope=amd64-nonroot
+
+      - name: Smoke test (identity, CLI, clean scan, findings)
+        run: |
+          set -eux
+          test "$(docker run --rm --entrypoint id gitleaks:ci-amd64-nonroot -u)" = "10001"
+          test "$(docker run --rm --entrypoint id gitleaks:ci-amd64-nonroot -g)" = "10001"
+          test "$(docker run --rm gitleaks:ci-amd64-nonroot version)" = "${CI_VERSION}"
+          docker run --rm gitleaks:ci-amd64-nonroot --help > /dev/null
+
+          workdir="$(mktemp -d)"
+          mkdir -p "${workdir}/clean" "${workdir}/findings"
+          printf 'nothing to see here\n' > "${workdir}/clean/readme.txt"
+          printf 'aws_secret_access_key = "Zq8vN2rT5wY7bC1dF4gH6jK9mP3sU0xE2aD5fG8h"\n' > "${workdir}/findings/creds.txt"
+          chmod -R a+rX "${workdir}"
+          docker run --rm -v "${workdir}/clean:/scan:ro" gitleaks:ci-amd64-nonroot dir /scan --no-banner --log-level error
+          set +e
+          docker run --rm -v "${workdir}/findings:/scan:ro" gitleaks:ci-amd64-nonroot dir /scan --no-banner --log-level error
+          code="$?"
+          set -e
+          test "${code}" = "1"
+
   docker-arm64:
     name: Docker linux/arm64 build and smoke test
     runs-on: ubuntu-latest
@@ -300,6 +366,7 @@ jobs:
         run: |
           set -eux
           test "$(docker image inspect --format '{{.Architecture}}' gitleaks:ci-arm64)" = "arm64"
+          test "$(docker run --rm --platform linux/arm64 --entrypoint id gitleaks:ci-arm64 -u)" = "0"
           docker run --rm --platform linux/arm64 gitleaks:ci-arm64 --version
           test "$(docker run --rm --platform linux/arm64 gitleaks:ci-arm64 version)" = "${CI_VERSION}"
           docker run --rm --platform linux/arm64 gitleaks:ci-arm64 --help
@@ -312,6 +379,52 @@ jobs:
 
           set +e
           docker run --rm --platform linux/arm64 -v "${workdir}:/scan" gitleaks:ci-arm64 dir /scan --no-banner --log-level error
+          code="$?"
+          set -e
+          test "${code}" = "1"
+
+  docker-arm64-nonroot:
+    name: Docker linux/arm64 optional non-root smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build optional non-root image (linux/arm64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/arm64
+          target: runtime-nonroot
+          load: true
+          tags: gitleaks:ci-arm64-nonroot
+          build-args: |
+            VERSION=${{ env.CI_VERSION }}
+          cache-from: type=gha,scope=arm64-nonroot
+          cache-to: type=gha,mode=max,scope=arm64-nonroot
+
+      - name: Smoke test (identity, clean scan, findings)
+        run: |
+          set -eux
+          test "$(docker run --rm --platform linux/arm64 --entrypoint id gitleaks:ci-arm64-nonroot -u)" = "10001"
+          test "$(docker run --rm --platform linux/arm64 --entrypoint id gitleaks:ci-arm64-nonroot -g)" = "10001"
+          test "$(docker run --rm --platform linux/arm64 gitleaks:ci-arm64-nonroot version)" = "${CI_VERSION}"
+          docker run --rm --platform linux/arm64 gitleaks:ci-arm64-nonroot --help > /dev/null
+
+          workdir="$(mktemp -d)"
+          mkdir -p "${workdir}/clean" "${workdir}/findings"
+          printf 'nothing to see here\n' > "${workdir}/clean/readme.txt"
+          printf 'aws_secret_access_key = "Zq8vN2rT5wY7bC1dF4gH6jK9mP3sU0xE2aD5fG8h"\n' > "${workdir}/findings/creds.txt"
+          chmod -R a+rX "${workdir}"
+          docker run --rm --platform linux/arm64 -v "${workdir}/clean:/scan:ro" gitleaks:ci-arm64-nonroot dir /scan --no-banner --log-level error
+          set +e
+          docker run --rm --platform linux/arm64 -v "${workdir}/findings:/scan:ro" gitleaks:ci-arm64-nonroot dir /scan --no-banner --log-level error
           code="$?"
           set -e
           test "${code}" = "1"
