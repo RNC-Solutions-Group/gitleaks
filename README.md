@@ -621,7 +621,7 @@ Numbering starts at `_001` and advances until an available filename is found. Ex
 
 If both settings are false and the destination already exists, Gitleaks exits before scanning and leaves the file untouched. The error identifies the conflicting path and recommends `auto-overwrite`/`aggregation` or the `--overwrite`/`--aggregate` flags.
 
-Report writing still validates the format and template first, writes through a temporary file, publishes atomically, rejects symlink and special-file destinations, prevents collisions with a direct scan-target file, configuration, baseline, ignore file, or report template, and preserves an existing report when the scan or report write fails. Reports inside the scan target are ordinary destinations under this policy; the experimental `--allow-in-tree-report-overwrite` flag has been removed.
+Report writing still validates the format and template first, writes through a temporary file, publishes each file atomically, rejects symlink and special-file destinations, prevents collisions with a direct scan-target file, configuration, baseline, ignore file, or report template, and preserves an existing report when the scan or report write fails. A primary report and its optional informative companion are two independent filesystem paths and are not atomic as a pair. Reports inside the scan target are ordinary destinations under this policy; the experimental `--allow-in-tree-report-overwrite` flag has been removed.
 
 For example, the following template provides a custom JSON output:
 ```gotemplate
@@ -656,6 +656,133 @@ For example, the following template provides a custom JSON output:
 Usage:
 ```sh
 $ gitleaks dir ~/leaky-repo/ --report-path "report.json" --report-format template --report-template testdata/report/jsonextra.tmpl
+```
+
+#### Informative scan report
+
+Gitleaks can optionally report the targets it intentionally did not examine. This is an additive, opt-in report: it does not change detection, archive processing, findings reports, scan-completion status, or exit codes. When it is disabled, the original console and report behavior is unchanged.
+
+```toml
+# Enable informative scan reporting.
+# Default: false
+informative-report = true
+
+# Keep informative output on the console even when a report file is selected.
+# This controls only the informative output.
+# Default: false
+console-only = false
+```
+
+Both are top-level TOML settings read from the active Gitleaks configuration. They are not new command-line flags. The active configuration is selected using the normal precedence described in [Load Configuration](#load-configuration). Like `auto-overwrite` and `aggregation`, these reporting settings belong to the active configuration and are not inherited from an `[extend]` file; set them explicitly in the configuration selected for the run.
+
+The complete output behavior is:
+
+| `informative-report` | `console-only` | `--report-path` | Behavior |
+| --- | --- | --- | --- |
+| `false` | either | omitted | Original console behavior |
+| `false` | either | file | Original primary findings report only |
+| `true` | `false` | omitted | Original console behavior plus informative summary on stderr; no file |
+| `true` | `false` | file | Primary findings report plus `*-informative.json` |
+| `true` | `true` | omitted | Original console behavior plus informative summary on stderr; no file |
+| `true` | `true` | file | Primary findings report plus informative summary on stderr; no informative file |
+| `true` | either | `-` | Primary report on stdout plus informative summary on stderr |
+
+`console-only` has no effect when `informative-report` is false. Omitting `--report-path` never turns into an implicit report file. When the primary report uses stdout (`--report-path -`), informative console output uses stderr so the machine-readable primary output is not contaminated.
+
+Informative companion files are derived from the actual primary report filename. The informative file is always JSON, even when the primary report is CSV, SARIF, JUnit, or a template:
+
+```text
+report.json       -> report-informative.json
+report.csv        -> report-informative.json
+report.sarif      -> report-informative.json
+report_001.json   -> report_001-informative.json
+report_002.csv    -> report_002-informative.json
+```
+
+Aggregation allocates one logical pair at a time. If either member of the requested pair already exists, Gitleaks advances to the next numbered pair whose primary and informative names are both available. The companion is not numbered independently. `auto-overwrite`/`--overwrite` replaces the requested primary and its matching companion after a completed scan. The reject policy requires both names to be absent before scanning. The two files are rendered and validated before publication; they are two filesystem paths and are **not** published as one atomic operation. If the primary cannot be published after the companion was published, Gitleaks reports the failure instead of claiming a successful pair. In overwrite mode this late failure can leave the new companion published while the previous primary remains; the error identifies both paths, and the next successful run replaces the pair. Aggregate/reject pair allocations that were newly reserved are rolled back.
+
+The informative document is a separate, versioned schema. It never contains finding secrets, matched source lines, configuration contents, or raw Git diagnostics.
+
+```json
+{
+  "schema_version": 1,
+  "scan": {
+    "source_type": "directory",
+    "completed": true,
+    "primary_report": "report.json"
+  },
+  "summary": {
+    "observed_targets": 1284,
+    "inspected_targets": 1216,
+    "excluded_targets": 68,
+    "exclusions_by_reason": {
+      "binary_content": 35,
+      "path_allowlist": 18,
+      "size_limit": 12,
+      "archive_depth": 3
+    }
+  },
+  "exclusions": [
+    {
+      "path": "vendor/large-bundle.bin",
+      "kind": "file",
+      "reason": "size_limit",
+      "size_bytes": 12500000,
+      "limit_bytes": 5000000
+    },
+    {
+      "path": "backups/archive.zip",
+      "kind": "file",
+      "reason": "archive_depth"
+    }
+  ]
+}
+```
+
+The schema version is `1`. Consumers must ignore unknown fields. `scan.source_type` is `directory`, `file`, `git`, or `stdin` for the CLI scan modes; the direct-reader API uses `stream`. Exclusion `kind` is one of `file`, `archive_member`, `directory`, `stdin`, `stream`, `git_diff`, or `git_blob`. The supported exclusion reasons are:
+
+| Reason | Meaning |
+| --- | --- |
+| `size_limit` | The target or archive member exceeded the configured size policy |
+| `binary_content` | Content was classified as binary |
+| `archive_depth` | Archive traversal was disabled or the maximum archive depth was reached |
+| `path_allowlist` | The target path matched a path-level allowlist |
+| `commit_allowlist` | A Git commit matched a commit-level allowlist |
+| `symlink_not_followed` | A symlink was not followed under the active traversal policy |
+| `empty_file` | An empty target was skipped |
+| `excluded_input` | A report, configuration, or baseline input was excluded from scanning |
+
+Coverage counts have a defined scope:
+
+- `observed_targets` counts non-directory filesystem entries encountered, archive members reached, Git diff files/blobs considered, and stdin when supplied. A directory excluded by a path allowlist counts as one observed target because its contents were not enumerated.
+- `inspected_targets` is `observed_targets - excluded_targets` under the configured scanning policy. It is not a claim that every file in a repository was examined.
+- `excluded_targets` counts intentional exclusions, not finding suppressions.
+- Fragment counts are not file counts. A file can produce zero, one, or many fragments.
+- Git history scanning remains diff-based. Textual-history coverage describes the commits and added lines Gitleaks actually scanned; it does not claim a complete historical file inventory. Staged binary or archive blobs that are intentionally read from the index are counted as targets when they are considered.
+- Archive containers and their members are distinct targets. A container can be inspected while a member is excluded.
+
+Finding suppression is different from target exclusion. `.gitleaksignore`, baselines, global or rule allowlists that suppress an already-detected finding, and `gitleaks:allow` suppress findings from content that was inspected. They are not reported as unexamined files. A separate aggregate suppression count is not currently part of the schema.
+
+A completed scan with intentional exclusions is still successful, and a zero-finding report remains valid even when some targets were excluded. Real acquisition failures, corrupt archive failures, Git process failures, scanner errors, and incomplete scans keep their existing operational-error behavior and do not publish a report, including when `--exit-code 0` is used. No `inconclusive` status is introduced.
+
+Informative reporting is disabled by default. When disabled, collection is not started. When enabled, Gitleaks records one target record per observed target and does not perform a second scan or read additional file content for reporting. Aggregate counts are exact. Exclusion detail records are bounded at 10,000, with the smallest deterministic keys retained and the omitted count disclosed through `details_truncated` and `omitted_exclusions`; the console summary displays at most 20 detail lines and states how many were omitted.
+
+Paths and non-sensitive metadata such as commit IDs can still disclose operational information. Report files are written with restrictive permissions where the platform supports it. Existing CP-V5 redaction protections and primary finding output are unchanged.
+
+Existing size and archive limitations still apply. Archive containers are not skipped solely because their compressed outer file is large; uncompressed members and decompressed streams are bounded by the configured size policy. Nonseekable ZIP/7z temporary copies remain bounded, archive identification remains content-verified, and archive depth behavior is unchanged.
+
+A complete configuration example that keeps the normal detection rules and enables the report:
+
+```toml
+title = "Gitleaks configuration with informative reporting"
+informative-report = true
+console-only = false
+
+[extend]
+# Load the embedded default rules. A custom configuration without extend or
+# explicit [[rules]] does not automatically load the default rules merely
+# because it contains informative-report or console-only.
+useDefault = true
 ```
 
 ## Sponsorships

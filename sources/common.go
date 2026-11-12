@@ -13,7 +13,7 @@ import (
 	"github.com/zricethezav/gitleaks/v8/logging"
 )
 
-const maxPeekSize = 25 * 1_000 // 10kb
+const maxPeekSize = 25 * 1_000 // 25kb
 var isWhitespace [256]bool
 var isWindows = runtime.GOOS == "windows"
 
