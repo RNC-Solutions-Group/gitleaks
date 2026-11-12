@@ -47,11 +47,13 @@ func makeTarget(t *testing.T, content, name string) string {
 	t.Helper()
 	lines := strings.Split(content, "\n")
 	for index, line := range lines {
+		line = strings.TrimSuffix(line, "\r")
 		if line != name+":" {
 			continue
 		}
 		var recipe strings.Builder
 		for _, candidate := range lines[index+1:] {
+			candidate = strings.TrimSuffix(candidate, "\r")
 			if !strings.HasPrefix(candidate, "\t") {
 				break
 			}
