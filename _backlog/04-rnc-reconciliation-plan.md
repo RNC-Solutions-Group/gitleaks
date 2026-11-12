@@ -31,6 +31,20 @@ Use explicit states: **implemented and verified**, **partial or conditional**, *
 5. **Release readiness:** compare modern `fix/validation/go.mod` versions with old CVE PRs #2308/#2336 and current advisories; correct fork `.github/workflows/gitleaks.yml` skipped-only upstream-ownership gate; test non-root Docker on read-only/writeable mounts and reconsider global Git `safe.directory '*'`; separate mutating/network Makefile targets from reproducible builds; validate RE2 full tagged graph limitation, macOS/Windows/Linux artifacts, SBOM/provenance and image signing where accepted.
 6. **Disposition and approval:** document accepted regression baseline, remaining risks, contributor attribution (adopted vs adapted vs informed), operator behavior choices, and clean integration/release gate. No PR, merge, rebase, or history rewrite authorized here.
 
+## Reconciliation decisions — reviewed and operator accepted
+
+### F01 — Historical P0 false-clean source/Git/worker failures (2026-11-12)
+
+**Decision: ACCEPT core CLI correction.** The original CP5-F01 and CP-V0-F01 behavior was reproduced against the original pinned baseline and addressed through CP-V3 commits `105c0a8`, `56458e7`, `fd996ec`, `b556701`. Current source as of CP-V7A `57931ab` routes supported `git`, `dir`, `stdin`, and hidden `protect` through corrected `DetectSource` / `DetectGitContext` handling. Directory read/walk errors, Git nonzero process exits/fatal stderr/parse failures, worker errors and cancellation propagate; incomplete scans return nonzero regardless of `--exit-code 0`, and existing reports are preserved.
+
+**Evidence:** `sources/files_errors_test.go`, `sources/git_test.go`, `detect/scan_integrity_test.go`, `cmd/scan_status_test.go`, `cmd/scan_timeout_unix_test.go`, `cmd/staged_blob_failure_unix_test.go`, and [CP-V3 cross-platform CI 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43094102089) plus [CP-V7A CI 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115). Source/CI evidence was independently inspected; the latest candidate was not rerun locally in this review.
+
+**Related packages:** Scan Integrity [#2232, PRs #2235/#2249/#2313](categories/scan-integrity.md); Git/Hooks [#1981/#1464 and PRs #2080/#2292/#2339/#2252/#2253](categories/git-hooks-sources.md), and [#2129 / PR #2203](categories/git-hooks-sources.md) within tested stderr/drain scenarios. Prior upstream PRs were researched/informed rather than cherry-picked; preserve original contributor attribution.
+
+**Residuals are separate, not an open core P0:** deprecated `DetectFiles` and `DirectoryTargets` still lose errors when used directly; pathological custom/truncated Git diff parser coverage is heuristic; blocking OS reads can outlast cancellation; 50-iteration adversarial Git stderr/queued-output test was not independently reproduced. Track the first as non-CLI API correctness, the second as parser-integrity regression, and the third under F19 cancellation. Final harness must rerun the accepted controls before release.
+
+**Next:** F02 report-output safety is under review. No F02 acceptance or implementation change is implied by F01's closure.
+
 ## First review session
 
 Begin with original **P0** F01/F02/F06/F07 and the still-unreconciled #1651/#2324 chunk-boundary package, then resolve report publication TOCTOU and CP-V8 F11/F16 decisions. Update category statuses only after the operator reviews the current evidence. This file is a kickoff plan, not a completed reconciliation.
