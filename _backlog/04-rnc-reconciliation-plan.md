@@ -43,7 +43,21 @@ Use explicit states: **implemented and verified**, **partial or conditional**, *
 
 **Residuals are separate, not an open core P0:** deprecated `DetectFiles` and `DirectoryTargets` still lose errors when used directly; pathological custom/truncated Git diff parser coverage is heuristic; blocking OS reads can outlast cancellation; 50-iteration adversarial Git stderr/queued-output test was not independently reproduced. Track the first as non-CLI API correctness, the second as parser-integrity regression, and the third under F19 cancellation. Final harness must rerun the accepted controls before release.
 
-**Next:** F02 report-output safety is under review. No F02 acceptance or implementation change is implied by F01's closure.
+**Next:** F02 report-output safety has been reviewed and accepted with explicit residuals; see below. F01 and F02 are independent decisions.
+
+### F02 — Historical P0 report destruction / output integrity (2026-11-12)
+
+**Decision: ACCEPT original P0 correction; keep two publication limitations separately.** RNC V1/V2/V2A corrected the original #2304 / PR #2307 preflight deletion/truncation issue. Incomplete scans, bad destinations and report-writer failures preserve prior report contents; reject-existing, overwrite and aggregate policies are explicit, and config/baseline/ignore/source collisions are protected. Related #2299 / PRs #2300/#2312 plaintext-report permissions are addressed with restrictive temporary publication. Normal upstream primary overwrite semantics remain. `cmd/report.go`, `cmd/report_test.go`, `cmd/report_config_test.go`, `cmd/report_pair_test.go`; [CP-V2 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43075289894), [CP-V2A 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43084497923), [CP-V7A 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115) independently verified **10/10 CI each**. Historical upstream PRs reviewed; no patch directly adopted in this reconciliation.
+
+**Release residuals:** (a) a narrow final-publication TOCTOU interval can remain when another process mutates destinations/parent directories after validation, with no current exploit reproduced; (b) V7A companion-first overwrite may leave a newer informative file with the older primary report if the second rename fails, with explicit error and primary preservation. This does **not** imply incomplete source scanning was accepted as successful; it is consistency of independently published outputs. Retain adversarial filesystem tests and consumer mismatch handling, Windows ACLs under real identities. Avoid a two-file transaction redesign absent evidence.
+
+**Informative timestamp — operator approved requirement:** Add only to opt-in informative output (JSON plus console summary): propose `scan.generated_at` ISO 8601/RFC3339 **UTC** once the scan completes and document is assembled. No change to the primary report, findings, flags, console-only behavior or exit codes. The date helps distinguish file ages but cannot prove paired-file atomicity. Queue for next QOL implementation after CP-V8/harness; test injected-clock formatting and additive JSON schema expectations.
+
+### F06 — Historical P0 global AND-allowlist path bypass (technical assessment, decision pending)
+
+**Source/code assessment:** RNC V1-B implements `sources/common.go:pathIsSufficientToSkip` to forbid path-only early exclusion when global AND lists also require regex, stopword or commit criteria. `sources/common_test.go` includes AND path+regex, AND path+stopword, AND path+commit, OR, path-only AND and nil config cases. `sources/files_test.go` confirms targets are enumerated; `detect/detect_test.go` covers AND/OR detector combinations and commit/path. Current CP-V7A CI is green 10/10, but this review did not independently rerun final binary end-to-end CLI cases. The scan-root change in ongoing V8 requires follow-up parity checks; upstream #2227 attribution/patch overlap still to be confirmed before clean release.
+
+**Proposed decision:** Accept F06 original bypass correction within documented scope, retaining CLI end-to-end AND/OR, Windows/Unix and standard/RE2 tagged tests and current-branch harness validation. **Separate concern:** #2165/#2166 commit allowlist loop behavior in `sources/git.go` needs its own P1 review; not evidence that path-only AND bypass remains.
 
 ## First review session
 
