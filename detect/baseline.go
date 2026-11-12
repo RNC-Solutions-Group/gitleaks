@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zricethezav/gitleaks/v8/report"
+	"github.com/zricethezav/gitleaks/v8/sources"
 )
 
 func IsNew(finding report.Finding, redact uint, baseline []report.Finding) bool {
@@ -71,6 +73,18 @@ func (d *Detector) AddBaseline(baselinePath string, source string) error {
 			return err
 		}
 
+		// A directory scan reports File the way its root was supplied, and
+		// IsNew compares File. Bring entries that are demonstrably under the
+		// source to their root-relative spelling in memory, without modifying
+		// the baseline file. Entries that cannot be placed under the source
+		// stay exactly as written. This is the baseline part of the design
+		// proposed in gitleaks/gitleaks#2248 (@hamodywe).
+		for i := range baseline {
+			if rel, ok := baselineFileRelative(absoluteSource, baseline[i].File); ok {
+				baseline[i].File = rel
+			}
+		}
+
 		d.baseline = baseline
 		baselinePath = relativeBaseline
 
@@ -78,4 +92,71 @@ func (d *Detector) AddBaseline(baselinePath string, source string) error {
 
 	d.baselinePath = baselinePath
 	return nil
+}
+
+// baselineFileRelative maps a baseline File value onto the current source's
+// root-relative spelling when that can be established. Absolute entries under
+// the source and ordinary root-relative entries are unambiguous. A relative
+// root spelling (for example `repo/src/x.py` produced by `gitleaks dir repo`)
+// is also accepted when the leading source basename can be removed and the
+// resulting path exists under the source. The existence check prevents
+// stripping a legitimate nested path that merely begins with the same name.
+func baselineFileRelative(source, file string) (string, bool) {
+	if file == "" {
+		return "", false
+	}
+	if filepath.IsAbs(file) {
+		rel := sources.RootRelativePath(source, file)
+		return rel, rel != ""
+	}
+
+	clean := filepath.Clean(filepath.FromSlash(file))
+	if filepath.IsLocal(clean) {
+		base := filepath.Base(source)
+		if clean != base && strings.HasPrefix(clean, base+string(filepath.Separator)) {
+			// A relative-root baseline spells paths as `repo/src/x.py`.
+			// Do not strip that prefix if it is also a real nested path
+			// under the current root.
+			if baselineSourcePathExists(source, clean) {
+				return filepath.ToSlash(clean), true
+			}
+			stripped := strings.TrimPrefix(clean, base+string(filepath.Separator))
+			if baselineSourcePathExists(source, stripped) {
+				return filepath.ToSlash(stripped), true
+			}
+		}
+		return filepath.ToSlash(clean), true
+	}
+
+	// The path may have been recorded relative to a different working
+	// directory. Resolve it against the current one as a final fallback.
+	abs, err := filepath.Abs(file)
+	if err != nil {
+		return "", false
+	}
+	rel := sources.RootRelativePath(source, abs)
+	return rel, rel != ""
+}
+
+// baselineSourcePathExists reports whether the outer file of a baseline path
+// exists beneath source. Archive members keep their `!`-separated inner path;
+// only the container can be stat'ed.
+func baselineSourcePathExists(source, file string) bool {
+	candidate := filepath.Join(source, filepath.FromSlash(file))
+	if sources.RootRelativePath(source, candidate) != "" {
+		if _, err := os.Stat(candidate); err == nil {
+			return true
+		}
+	}
+
+	outer, _, nested := strings.Cut(filepath.ToSlash(file), sources.InnerPathSeparator)
+	if !nested {
+		return false
+	}
+	candidate = filepath.Join(source, filepath.FromSlash(outer))
+	if sources.RootRelativePath(source, candidate) == "" {
+		return false
+	}
+	_, err := os.Stat(candidate)
+	return err == nil
 }

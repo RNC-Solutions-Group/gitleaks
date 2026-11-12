@@ -16,9 +16,9 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// sameFileOrPath compares two paths lexically and, when both exist, by file
-// identity. It is used to avoid scanning the report destination as an input.
-func sameFileOrPath(a, b string) bool {
+// samePath compares two paths lexically, including their absolute forms. It
+// performs no filesystem access.
+func samePath(a, b string) bool {
 	if a == "" || b == "" {
 		return false
 	}
@@ -28,8 +28,17 @@ func sameFileOrPath(a, b string) bool {
 
 	absA, errA := filepath.Abs(a)
 	absB, errB := filepath.Abs(b)
-	if errA == nil && errB == nil && filepath.Clean(absA) == filepath.Clean(absB) {
+	return errA == nil && errB == nil && filepath.Clean(absA) == filepath.Clean(absB)
+}
+
+// sameFileOrPath compares two paths lexically and, when both exist, by file
+// identity. It is used to avoid scanning the report destination as an input.
+func sameFileOrPath(a, b string) bool {
+	if samePath(a, b) {
 		return true
+	}
+	if a == "" || b == "" {
+		return false
 	}
 
 	infoA, errA := os.Stat(a)

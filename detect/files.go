@@ -66,6 +66,7 @@ func (d *Detector) DetectFiles(scanTargets <-chan sources.ScanTarget) ([]report.
 				Content:         f,
 				Path:            scanTarget.Path,
 				Symlink:         scanTarget.Symlink,
+				Root:            scanTarget.Root,
 				Config:          &d.Config,
 				MaxFileSize:     d.MaxTargetMegaBytes * 1_000_000,
 				Size:            info.Size(),
@@ -82,6 +83,9 @@ func (d *Detector) DetectFiles(scanTargets <-chan sources.ScanTarget) ([]report.
 				}
 
 				for _, finding := range d.Detect(Fragment(fragment)) {
+					if d.knownRelativeToRoot(fragment, finding) {
+						continue
+					}
 					d.AddFinding(finding)
 				}
 				return nil

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -123,6 +124,49 @@ type Detector struct {
 //
 // Deprecated: This will be replaced with sources.Fragment in v9
 type Fragment sources.Fragment
+
+// fragmentPaths holds the path representations used for matching. The original
+// reported path is always evaluated first. Directory scans add the
+// scan-root-relative form, plus its native-separator spelling on Windows so
+// existing backslash allowlist patterns keep working.
+type fragmentPaths struct {
+	file               string
+	windows            string
+	rootRelative       string
+	rootRelativeNative string
+}
+
+func newFragmentPaths(fragment Fragment) fragmentPaths {
+	paths := fragmentPaths{
+		file:    fragment.FilePath,
+		windows: fragment.WindowsFilePath,
+	}
+	rel := sources.RootRelativePath(fragment.Root, fragment.FilePath)
+	if rel == "" || rel == fragment.FilePath {
+		return paths
+	}
+	paths.rootRelative = rel
+	if native := filepath.FromSlash(rel); native != rel {
+		paths.rootRelativeNative = native
+	}
+	return paths
+}
+
+func (p fragmentPaths) allowed(a *config.Allowlist) bool {
+	if a == nil {
+		return false
+	}
+	if a.PathAllowed(p.file) {
+		return true
+	}
+	if p.windows != "" && a.PathAllowed(p.windows) {
+		return true
+	}
+	if p.rootRelative != "" && a.PathAllowed(p.rootRelative) {
+		return true
+	}
+	return p.rootRelativeNative != "" && a.PathAllowed(p.rootRelativeNative)
+}
 
 // NewDetector creates a new detector with the given config
 func NewDetector(cfg config.Config) *Detector {
@@ -324,6 +368,9 @@ func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]r
 		}
 
 		for _, finding := range d.DetectContext(ctx, Fragment(fragment)) {
+			if d.knownRelativeToRoot(fragment, finding) {
+				continue
+			}
 			d.AddFinding(finding)
 		}
 
@@ -352,6 +399,67 @@ func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]r
 	return d.Findings(), collector.Err()
 }
 
+// knownRelativeToRoot checks .gitleaksignore fingerprints and baseline entries
+// against the finding's scan-root-relative path. The reported path was already
+// checked by AddFinding and remains the primary identity; this only adds the
+// equivalent spelling a directory scan can produce.
+func (d *Detector) knownRelativeToRoot(fragment sources.Fragment, finding report.Finding) bool {
+	rel := sources.RootRelativePath(fragment.Root, finding.File)
+	if rel == "" || rel == finding.File {
+		return false
+	}
+	logger := logging.With().Str("path", finding.File).Str("rule-id", finding.RuleID).Logger()
+
+	if finding.Commit == "" && len(d.gitleaksIgnore) > 0 {
+		fingerprint := fmt.Sprintf("%s:%s:%d", rel, finding.RuleID, finding.StartLine)
+		if _, ok := d.gitleaksIgnore[fingerprint]; ok {
+			logger.Debug().
+				Str("fingerprint", fingerprint).
+				Msg("skipping finding: global fingerprint relative to the scan root")
+			return true
+		}
+	}
+
+	if d.baseline != nil {
+		relative := finding
+		relative.File = rel
+		if !IsNew(relative, d.Redact, d.baseline) {
+			logger.Debug().
+				Str("file", rel).
+				Msg("skipping finding: baseline entry relative to the scan root")
+			return true
+		}
+	}
+	return false
+}
+
+// configOrBaselinePath identifies the configuration or baseline input under
+// either the reported spelling or the scan-root-relative spelling. Baseline
+// paths are stored relative to the source, while config paths are joined onto
+// the source; fragment paths keep the source spelling.
+func (d *Detector) configOrBaselinePath(fragment Fragment, paths fragmentPaths) (string, bool) {
+	if d.baselinePath != "" &&
+		(samePath(fragment.FilePath, d.baselinePath) || samePathAtRoot(fragment.Root, paths.rootRelative, d.baselinePath)) {
+		return "baseline file", true
+	}
+	if d.Config.Path != "" &&
+		(samePath(fragment.FilePath, d.Config.Path) || samePathAtRoot(fragment.Root, paths.rootRelative, d.Config.Path)) {
+		return "configuration file", true
+	}
+	return "", false
+}
+
+func samePathAtRoot(root, rootRelative, target string) bool {
+	if root == "" || rootRelative == "" || target == "" {
+		return false
+	}
+	if filepath.ToSlash(filepath.Clean(target)) == rootRelative {
+		return true
+	}
+	rel := sources.RootRelativePath(root, target)
+	return rel != "" && rel == rootRelative
+}
+
 // Detect scans the given fragment and returns a list of findings
 func (d *Detector) Detect(fragment Fragment) []report.Finding {
 	return d.DetectContext(context.Background(), fragment)
@@ -377,6 +485,7 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 	)
 
 	target := fragment.InformativeTarget
+	paths := newFragmentPaths(fragment)
 
 	// check if filepath is allowed
 	if fragment.FilePath != "" {
@@ -400,11 +509,7 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 			return findings
 		}
 		// is the path our config or baseline file?
-		if fragment.FilePath == d.Config.Path || (d.baselinePath != "" && fragment.FilePath == d.baselinePath) {
-			detail := "configuration file"
-			if d.baselinePath != "" && fragment.FilePath == d.baselinePath {
-				detail = "baseline file"
-			}
+		if detail, ok := d.configOrBaselinePath(fragment, paths); ok {
 			target.Exclude(informative.ReasonExcludedInput, informative.ExclusionOptions{
 				Detail: detail,
 			})
@@ -413,7 +518,7 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 		}
 	}
 	// check if commit or filepath is allowed.
-	if isAllowed, event := checkCommitOrPathAllowed(logger, fragment, d.Config.Allowlists); isAllowed {
+	if isAllowed, event := checkCommitOrPathAllowed(logger, fragment, paths, d.Config.Allowlists); isAllowed {
 		event.Msg("skipping file: global allowlist")
 		reason := informative.ReasonPathAllowlist
 		detail := "global path allowlist"
@@ -453,14 +558,14 @@ ScanLoop:
 					if len(rule.Keywords) == 0 {
 						// if no keywords are associated with the rule always scan the
 						// fragment using the rule
-						findings = append(findings, d.detectRule(fragment, currentRaw, rule, encodedSegments)...)
+						findings = append(findings, d.detectRuleWithPaths(fragment, currentRaw, rule, encodedSegments, paths)...)
 						continue
 					}
 
 					// check if keywords are in the fragment
 					for _, k := range rule.Keywords {
 						if _, ok := keywords[strings.ToLower(k)]; ok {
-							findings = append(findings, d.detectRule(fragment, currentRaw, rule, encodedSegments)...)
+							findings = append(findings, d.detectRuleWithPaths(fragment, currentRaw, rule, encodedSegments, paths)...)
 							break
 						}
 					}
@@ -490,6 +595,10 @@ ScanLoop:
 
 // detectRule scans the given fragment for the given rule and returns a list of findings
 func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment) []report.Finding {
+	return d.detectRuleWithPaths(fragment, currentRaw, r, encodedSegments, newFragmentPaths(fragment))
+}
+
+func (d *Detector) detectRuleWithPaths(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, paths fragmentPaths) []report.Finding {
 	var (
 		findings []report.Finding
 		logger   = func() zerolog.Logger {
@@ -506,7 +615,7 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 	}
 
 	// check if commit or file is allowed for this rule.
-	if isAllowed, event := checkCommitOrPathAllowed(logger, fragment, r.Allowlists); isAllowed {
+	if isAllowed, event := checkCommitOrPathAllowed(logger, fragment, paths, r.Allowlists); isAllowed {
 		event.Msg("skipping file: rule allowlist")
 		return findings
 	}
@@ -673,13 +782,13 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 		}
 
 		// check if the result matches any of the global allowlists.
-		if isAllowed, event := checkFindingAllowed(logger, finding, fragment, currentLine, d.Config.Allowlists); isAllowed {
+		if isAllowed, event := checkFindingAllowed(logger, finding, fragment, paths, currentLine, d.Config.Allowlists); isAllowed {
 			event.Msg("skipping finding: global allowlist")
 			continue
 		}
 
 		// check if the result matches any of the rule allowlists.
-		if isAllowed, event := checkFindingAllowed(logger, finding, fragment, currentLine, r.Allowlists); isAllowed {
+		if isAllowed, event := checkFindingAllowed(logger, finding, fragment, paths, currentLine, r.Allowlists); isAllowed {
 			event.Msg("skipping finding: rule allowlist")
 			continue
 		}
@@ -692,11 +801,11 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 	}
 
 	// Process required rules and create findings with auxiliary findings
-	return d.processRequiredRules(fragment, currentRaw, r, encodedSegments, findings, logger)
+	return d.processRequiredRules(fragment, currentRaw, r, encodedSegments, findings, logger, paths)
 }
 
 // processRequiredRules handles the logic for multi-part rules with auxiliary findings
-func (d *Detector) processRequiredRules(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, primaryFindings []report.Finding, logger zerolog.Logger) []report.Finding {
+func (d *Detector) processRequiredRules(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, primaryFindings []report.Finding, logger zerolog.Logger, paths fragmentPaths) []report.Finding {
 	if len(primaryFindings) == 0 {
 		logger.Debug().Msg("no primary findings to process for required rules")
 		return primaryFindings
@@ -717,7 +826,7 @@ func (d *Detector) processRequiredRules(fragment Fragment, currentRaw string, r 
 		inheritedFragment.InheritedFromFinding = true
 
 		// Call detectRule once for each required rule
-		requiredFindings := d.detectRule(inheritedFragment, currentRaw, rule, encodedSegments)
+		requiredFindings := d.detectRuleWithPaths(inheritedFragment, currentRaw, rule, encodedSegments, paths)
 		allRequiredFindings[requiredRule.RuleID] = requiredFindings
 
 		logger.Debug().
@@ -901,6 +1010,7 @@ func commitAllowed(commit string, allowlists []*config.Allowlist) bool {
 func checkCommitOrPathAllowed(
 	logger zerolog.Logger,
 	fragment Fragment,
+	paths fragmentPaths,
 	allowlists []*config.Allowlist,
 ) (bool, *zerolog.Event) {
 	if fragment.FilePath == "" && fragment.CommitSHA == "" {
@@ -912,7 +1022,7 @@ func checkCommitOrPathAllowed(
 			isAllowed        bool
 			allowlistChecks  []bool
 			commitAllowed, _ = a.CommitAllowed(fragment.CommitSHA)
-			pathAllowed      = a.PathAllowed(fragment.FilePath) || (fragment.WindowsFilePath != "" && a.PathAllowed(fragment.WindowsFilePath))
+			pathAllowed      = paths.allowed(a)
 		)
 		// If the condition is "AND" we need to check all conditions.
 		if a.MatchCondition == config.AllowlistMatchAnd {
@@ -958,6 +1068,7 @@ func checkFindingAllowed(
 	logger zerolog.Logger,
 	finding report.Finding,
 	fragment Fragment,
+	paths fragmentPaths,
 	currentLine string,
 	allowlists []*config.Allowlist,
 ) (bool, *zerolog.Event) {
@@ -987,7 +1098,7 @@ func checkFindingAllowed(
 				checks = append(checks, commitAllowed)
 			}
 			if len(a.Paths) > 0 {
-				pathAllowed = a.PathAllowed(fragment.FilePath) || (fragment.WindowsFilePath != "" && a.PathAllowed(fragment.WindowsFilePath))
+				pathAllowed = paths.allowed(a)
 				checks = append(checks, pathAllowed)
 			}
 			if len(a.Regexes) > 0 {
