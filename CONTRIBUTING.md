@@ -4,10 +4,10 @@
 
 The minimum supported Go version is declared by the `go` directive in
 [`go.mod`](go.mod) (currently Go 1.26.0). The build and test toolchain used by
-CI and by the container image is pinned to **Go 1.27.3**:
+CI and by the container image is pinned to **Go 1.27.4**:
 
 - CI: [`.github/workflows/test.yml`](.github/workflows/test.yml)
-- Container build stage: [`Dockerfile`](Dockerfile) (`golang:1.27.3-alpine3.24`)
+- Container build stage: [`Dockerfile`](Dockerfile) (`golang:1.27.4-alpine3.24`)
 
 Building with a Go release older than the `go.mod` requirement fails at the
 module version gate before compilation.
@@ -70,7 +70,7 @@ If you want to add a new rule to the [default Gitleaks configuration](https://gi
 
    Feel free to use this example as a template when writing new rules.
    This file should be fairly self-explanatory except for a few items;
-   regex and secret generation. To help with maintence, _most_ rules should
+   regex and secret generation. To help with maintenance, _most_ rules should
    be uniform. The functions,
    [`GenerateSemiGenericRegex`](https://github.com/zricethezav/gitleaks/blob/master/cmd/generate/config/rules/rule.go#L31) and [`GenerateUniqueTokenRegex`](https://github.com/zricethezav/gitleaks/blob/master/cmd/generate/config/rules/rule.go#L44) will generate rules
    that follow defined patterns.
