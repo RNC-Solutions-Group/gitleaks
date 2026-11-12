@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -128,6 +129,70 @@ func TestMarshalDocument(t *testing.T) {
 	exclusion := exclusions[0].(map[string]any)
 	assert.Equal(t, "stdin", exclusion["kind"])
 	assert.Equal(t, "size_limit", exclusion["reason"])
+}
+
+func TestDocumentGeneratedAtIsUTCStableAndConsistent(t *testing.T) {
+	fixed := time.Date(2026, 11, 12, 20, 4, 12, 987_000_000, time.FixedZone("EST", -5*60*60))
+	nowCalls := 0
+	collector := New("directory")
+	collector.now = func() time.Time {
+		nowCalls++
+		return fixed
+	}
+
+	first := collector.Document("report.json", true)
+	second := collector.Document("report.json", true)
+	assert.Equal(t, 1, nowCalls, "the timestamp must be captured once per collector")
+	assert.Equal(t, "2026-11-13T01:04:12Z", first.Scan.GeneratedAt)
+	assert.Equal(t, first.Scan.GeneratedAt, second.Scan.GeneratedAt)
+	_, err := time.Parse(time.RFC3339, first.Scan.GeneratedAt)
+	require.NoError(t, err)
+
+	var console bytes.Buffer
+	require.NoError(t, WriteConsole(&console, first, 20))
+	assert.Contains(t, console.String(), "Generated at (UTC):")
+	assert.Contains(t, console.String(), first.Scan.GeneratedAt)
+
+	data, err := Marshal(first)
+	require.NoError(t, err)
+	var decoded struct {
+		Scan struct {
+			GeneratedAt string `json:"generated_at"`
+		} `json:"scan"`
+	}
+	require.NoError(t, json.Unmarshal(data, &decoded))
+	assert.Equal(t, first.Scan.GeneratedAt, decoded.Scan.GeneratedAt)
+}
+
+func TestDocumentGeneratedAtIsAbsentWhenCollectionIsDisabled(t *testing.T) {
+	var collector *Collector
+	document := collector.Document("", true)
+	assert.Empty(t, document.Scan.GeneratedAt)
+	data, err := Marshal(document)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "generated_at")
+}
+
+func TestConcurrentCollectorsKeepIndependentGeneratedAt(t *testing.T) {
+	const workers = 16
+	base := time.Date(2026, 11, 12, 20, 4, 12, 0, time.UTC)
+	collectors := make([]*Collector, workers)
+	for index := range collectors {
+		collectors[index] = New("directory")
+		offset := time.Duration(index) * time.Second
+		collectors[index].now = func() time.Time { return base.Add(offset) }
+	}
+
+	var wg sync.WaitGroup
+	for index, collector := range collectors {
+		wg.Add(1)
+		go func(index int, collector *Collector) {
+			defer wg.Done()
+			document := collector.Document("", true)
+			assert.Equal(t, base.Add(time.Duration(index)*time.Second).Format(time.RFC3339), document.Scan.GeneratedAt)
+		}(index, collector)
+	}
+	wg.Wait()
 }
 
 func TestWriteConsole(t *testing.T) {

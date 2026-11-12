@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // SchemaVersion is the version of the informative JSON document. The schema is
@@ -130,6 +131,10 @@ type Scan struct {
 	SourceType    string `json:"source_type"`
 	Completed     bool   `json:"completed"`
 	PrimaryReport string `json:"primary_report,omitempty"`
+	// GeneratedAt is the UTC RFC3339 time at which this document was assembled.
+	// It is additive within schema version 1 and is produced only by an enabled
+	// informative collector.
+	GeneratedAt string `json:"generated_at,omitempty"`
 }
 
 // Summary contains exact aggregate counts. InspectedTargets is the count of
@@ -163,6 +168,13 @@ type Collector struct {
 	byReason map[Reason]int
 	details  detailHeap
 	omitted  int
+
+	// now is injected by tests; nil uses time.Now. generatedAt is captured once
+	// on the first Document call so a console summary and JSON rendering of the
+	// same scan cannot disagree.
+	now         func() time.Time
+	generatedAt time.Time
+	generated   bool
 }
 
 // New creates an enabled collector for sourceType.
@@ -294,6 +306,15 @@ func (c *Collector) Document(primaryReport string, completed bool) Document {
 	exclusions := c.details.sorted()
 	omitted := c.omitted
 	sourceType := c.sourceType
+	if !c.generated {
+		now := c.now
+		if now == nil {
+			now = time.Now
+		}
+		c.generatedAt = now().UTC()
+		c.generated = true
+	}
+	generatedAt := c.generatedAt
 	c.mu.Unlock()
 
 	inspected := observed - excluded
@@ -312,6 +333,7 @@ func (c *Collector) Document(primaryReport string, completed bool) Document {
 			SourceType:    sourceType,
 			Completed:     completed,
 			PrimaryReport: primaryReport,
+			GeneratedAt:   generatedAt.Format(time.RFC3339),
 		},
 		Summary: Summary{
 			ObservedTargets:    observed,
@@ -351,6 +373,9 @@ func WriteConsole(w io.Writer, document Document, maxDetails int) error {
 	fmt.Fprintf(&b, "  %-27s %d\n", "Observed targets:", document.Summary.ObservedTargets)
 	fmt.Fprintf(&b, "  %-27s %d\n", "Inspected targets:", document.Summary.InspectedTargets)
 	fmt.Fprintf(&b, "  %-27s %d\n", "Excluded targets:", document.Summary.ExcludedTargets)
+	if document.Scan.GeneratedAt != "" {
+		fmt.Fprintf(&b, "  %-27s %s\n", "Generated at (UTC):", SanitizeConsoleText(document.Scan.GeneratedAt, 40))
+	}
 	if document.Scan.PrimaryReport != "" {
 		fmt.Fprintf(&b, "  %-27s %s\n", "Primary report:", SanitizeConsoleText(document.Scan.PrimaryReport, 160))
 	}

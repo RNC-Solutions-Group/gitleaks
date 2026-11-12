@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -89,6 +90,7 @@ func TestCLIInformativeOutputMatrix(t *testing.T) {
 		require.Equal(t, 0, result.exitCode, result.stderr)
 		assert.Contains(t, result.stderr, "INFORMATIVE SCAN SUMMARY")
 		assert.Contains(t, result.stderr, "Excluded targets:")
+		assert.Contains(t, result.stderr, "Generated at (UTC):")
 		assert.Empty(t, filesWithSuffix(t, source, "-informative.json"))
 	})
 
@@ -97,7 +99,9 @@ func TestCLIInformativeOutputMatrix(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "report.json")
 		configPath := writeInformativeConfig(t, informativeConfig(true, false, ""))
+		start := time.Now().UTC().Add(-time.Second)
 		result := runReportCLI(t, reportCommandArgs(source, dest, configPath)...)
+		end := time.Now().UTC().Add(time.Second)
 		require.Equal(t, 0, result.exitCode, result.stderr)
 		assert.JSONEq(t, "[]", string(mustReadFile(t, dest)))
 		companion := filepath.Join(dir, "report-informative.json")
@@ -107,6 +111,12 @@ func TestCLIInformativeOutputMatrix(t *testing.T) {
 		assert.Equal(t, "directory", scan["source_type"])
 		assert.Equal(t, true, scan["completed"])
 		assert.Equal(t, dest, scan["primary_report"])
+		generatedAt, ok := scan["generated_at"].(string)
+		require.True(t, ok, "informative scan must have a generated_at string")
+		parsed, err := time.Parse(time.RFC3339, generatedAt)
+		require.NoError(t, err)
+		assert.False(t, parsed.Before(start))
+		assert.False(t, parsed.After(end))
 		assert.NotContains(t, result.stderr, "INFORMATIVE SCAN SUMMARY")
 		assert.Contains(t, result.stderr, "informative report written")
 	})
@@ -141,6 +151,7 @@ func TestCLIInformativeOutputMatrix(t *testing.T) {
 		result := runReportCLI(t, "dir", source, "--no-banner", "--config", configPath, "--log-level", "error")
 		require.Equal(t, 0, result.exitCode, result.stderr)
 		assert.Contains(t, result.stderr, "INFORMATIVE SCAN SUMMARY")
+		assert.Contains(t, result.stderr, "Generated at (UTC):")
 		assert.Empty(t, filesWithSuffix(t, source, "-informative.json"))
 	})
 
@@ -158,6 +169,7 @@ func TestCLIInformativeOutputMatrix(t *testing.T) {
 		require.Equal(t, 0, result.exitCode, result.stderr)
 		assert.JSONEq(t, "[]", result.stdout)
 		assert.NotContains(t, result.stdout, "INFORMATIVE")
+		assert.NotContains(t, result.stdout, "generated_at")
 		assert.Contains(t, result.stderr, "INFORMATIVE SCAN SUMMARY")
 		assert.Empty(t, filesWithSuffix(t, source, "-informative.json"))
 	})
@@ -232,6 +244,8 @@ func TestCLIInformativePairedFormats(t *testing.T) {
 			scan := document["scan"].(map[string]any)
 			assert.Equal(t, dest, scan["primary_report"])
 			assert.Equal(t, "directory", scan["source_type"])
+			_, err := time.Parse(time.RFC3339, scan["generated_at"].(string))
+			require.NoError(t, err)
 		})
 	}
 }
