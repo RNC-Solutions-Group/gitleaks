@@ -37,6 +37,11 @@ type ViperConfig struct {
 	// Aggregation controls whether an existing report destination causes a
 	// numbered report to be written instead of being replaced.
 	Aggregation *bool `mapstructure:"aggregation"`
+	// InformativeReport enables the opt-in scan coverage report.
+	InformativeReport bool `mapstructure:"informative-report"`
+	// ConsoleOnly directs informative output to the console instead of a
+	// companion file. It has no effect when InformativeReport is false.
+	ConsoleOnly bool `mapstructure:"console-only"`
 	Rules       []struct {
 		ID          string
 		Description string
@@ -107,6 +112,10 @@ type Config struct {
 	// AutoOverwrite defaults to true and Aggregation defaults to false.
 	AutoOverwrite bool
 	Aggregation   bool
+	// InformativeReport enables the scan coverage report. ConsoleOnly keeps
+	// that report on the console instead of writing a companion file.
+	InformativeReport bool
+	ConsoleOnly       bool
 }
 
 // Extend is a struct that allows users to define how they want their
@@ -228,8 +237,10 @@ func (vc *ViperConfig) translate(depth int) (Config, error) {
 		MinVersion:   vc.MinVersion,
 		// Preserve the historical behavior of replacing an existing report
 		// unless the operator explicitly opts into aggregation.
-		AutoOverwrite: vc.AutoOverwrite == nil || *vc.AutoOverwrite,
-		Aggregation:   vc.Aggregation != nil && *vc.Aggregation,
+		AutoOverwrite:     vc.AutoOverwrite == nil || *vc.AutoOverwrite,
+		Aggregation:       vc.Aggregation != nil && *vc.Aggregation,
+		InformativeReport: vc.InformativeReport,
+		ConsoleOnly:       vc.ConsoleOnly,
 	}
 
 	if depth > 0 {
