@@ -71,23 +71,23 @@ Use explicit states: **implemented and verified**, **partial or conditional**, *
 
 **Next proposed joint review:** [#1651](https://github.com/gitleaks/gitleaks/issues/1651) / [PR #2324](https://github.com/gitleaks/gitleaks/pull/2324) chunk-boundary false negatives, a potentially still-active P0/P1 package requiring current-branch reproduction. No implementation change or backlog defect closure is claimed for that package.
 
-## Proposed batch acceptance — operator quick review (not yet approved)
+## Batch acceptance — operator approved 2026-11-12
 
-The original four core P0s **F01, F02, F06, F07 are accepted** by operator. For speed, the following **nine additional independent package scopes** are proposed for batch approval, based on current RNC source review/CP-V1–V7A regression records and green relevant CI. Do **not** mark them accepted until operator approves the slate:
+The original four core P0s **F01, F02, F06, F07 are accepted**. The operator also approved **all nine narrowly scoped fast-track acceptances on 2026-11-12**, based on RNC source/CP-V1–V7A test evidence and successful relevant CI. These are engineering-scope dispositions, **not** adoption or closure of every linked upstream PR/issue; all listed release regressions and exceptions remain active.
 
-| Proposed accept | Scope (do not silently expand) | Existing evidence / residual |
+| Approved package | Scope (do not silently expand) | Existing evidence / residual |
 | --- | --- | --- |
-| F08 | Forced Git ANSI coloring cannot corrupt parsed staged, unstaged or history diffs | `sources/git.go:forceNoColor`; `sources/git_color_test.go`; V1 and subsequent CI. Separate Git pretty/date/textconv issues remain. |
-| F10 | MIME binary classification only on first read chunk (not every chunk of a giant first line) | `sources/file.go:isFirstChunk`; `sources/file_test.go`; distinct from #1651 cross-boundary matching. |
-| F12 | `dir` requires at most one valid explicit path instead of silently falling back to CWD | `cmd/directory.go:resolveDirSource`; tests/CI; multi-root scanning is elective and not included. |
-| F13 | Pre-commit wrapper propagates scanner's nonzero process return status | Original CP-V1 and CI; separate pre-commit filename forwarding and Docker ownership proposals remain unverified. |
-| F04-A | Malformed user regex returns config error rather than panic on standard/RE2 | CP-V6 `config` and regex tests, [V6 CI](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43114548814); untrusted local config trust is separate. |
-| F04-B | Config extension-depth translation no longer leaks package-global state across sequential loads | CP-V6 config tests; package-global Viper concurrency remains open. |
-| F05 (bounded loader only) | Reject unsafe ignore inputs; enforce size/entry limits and propagate parse/read errors | CP-V6 ignore tests/CI; TOCTOU/mutation and unusually large valid files remain. |
-| F09 | Content-signature-verified archive identification prevents archive-like plaintext filenames being skipped | CP-V7 [10/10 CI](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43121770371); unknown-extension archives remain out of current approved scope. |
-| V7A feature | Opt-in informative report and console-only destination; no default findings change | CP-V7A [10/10 CI](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115); paired overwrite consistency is tracked under F02, timestamp QOL-4 pending. |
+| **ACCEPTED F08** | Forced Git ANSI coloring cannot corrupt parsed staged, unstaged or history diffs | `sources/git.go:forceNoColor`; `sources/git_color_test.go`; V1 and subsequent CI. Separate Git pretty/date/textconv issues remain. |
+| **ACCEPTED F10** | MIME binary classification only on first read chunk (not every chunk of a giant first line) | `sources/file.go:isFirstChunk`; `sources/file_test.go`; distinct from #1651 cross-boundary matching. |
+| **ACCEPTED F12** | `dir` requires at most one valid explicit path instead of silently falling back to CWD | `cmd/directory.go:resolveDirSource`; tests/CI; multi-root scanning is elective and not included. |
+| **ACCEPTED F13** | Pre-commit wrapper propagates scanner's nonzero process return status | Original CP-V1 and CI; separate pre-commit filename forwarding and Docker ownership proposals remain unverified. |
+| **ACCEPTED F04-A** | Malformed user regex returns config error rather than panic on standard/RE2 | CP-V6 `config` and regex tests, [V6 CI](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43114548814); untrusted local config trust is separate. |
+| **ACCEPTED F04-B** | Config extension-depth translation no longer leaks package-global state across sequential loads | CP-V6 config tests; package-global Viper concurrency remains open. |
+| **ACCEPTED F05 (bounded loader only)** | Reject unsafe ignore inputs; enforce size/entry limits and propagate parse/read errors | CP-V6 ignore tests/CI; TOCTOU/mutation and unusually large valid files remain. |
+| **ACCEPTED F09** | Content-signature-verified archive identification prevents archive-like plaintext filenames being skipped | CP-V7 [10/10 CI](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43121770371); unknown-extension archives remain out of current approved scope. |
+| **ACCEPTED V7A feature** | Opt-in informative report and console-only destination; no default findings change | CP-V7A [10/10 CI](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43278900115); paired overwrite consistency is tracked under F02, timestamp QOL-4 pending. |
 
-**Report by exception thereafter:** current supported-code reproducer, genuine false-negative or data-loss risk, explicit behavioral/policy change, new source/destination/trust boundary, missing cross-platform/RE2 evidence, or third-party attribution uncertainty. Do not treat 282 work packages as 282 remaining defects.
+**Operator decision:** All nine above accepted with existing proof and limits; no additional implementation was authorized by approval. No waived harness, RE2, privacy, cross-platform, or third-party attribution gates. **Report by exception thereafter:** current supported-code reproducer, genuine false-negative or data-loss risk, explicit behavioral/policy change, new source/destination/trust boundary, missing cross-platform/RE2 evidence, or third-party attribution uncertainty. Do not treat 282 work packages as 282 remaining defects.
 
 ### Exception queue (needs technical decision / reproduction)
 
@@ -101,4 +101,4 @@ The original four core P0s **F01, F02, F06, F07 are accepted** by operator. For 
 
 ## First review session
 
-Begin with original **P0** F01/F02/F06/F07 and the still-unreconciled #1651/#2324 chunk-boundary package, then resolve report publication TOCTOU and CP-V8 F11/F16 decisions. Update category statuses only after the operator reviews the current evidence. This file is a kickoff plan, not a completed reconciliation.
+**Quick-review policy active:** The four original P0s plus nine implementation packages above are accepted within documented scope. Next investigate #1651/#2324 chunk-boundary false negatives, #2165/#2166 Git commit-allowlist flow, V8 F11/F16 and F02 report-publication races **by exception**. Preserve unverified upstream packages and all historical evidence. No blanket closure of the original upstream inventory.
