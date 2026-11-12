@@ -30,7 +30,7 @@ All upstream snapshot items have one disposition in the [active category index](
 
 **16 elective issue/PR work packages** (14 upstream issues / 10 PRs) have been reassigned into [Optional Features](categories/features.md), making **20 issues / 13 PRs / 22 packages** there. Original snapshot totals remain **285 issues / 252 PRs / 388 package slots**, with zero unassigned; no source changes, PR adoption or upstream issue changes were performed.
 
-The [Wave 2 reconciliation plan](04-rnc-reconciliation-plan.md) prepares a joint operator/GPT review of historic upstream `master@5f6ec56` findings versus the modern `fix/validation` CP-V7A (and later CP-V8) implementation, followed by independent harness and release verification.
+The [Wave 2 reconciliation plan](04-rnc-reconciliation-plan.md) includes CP-V8 F16 at `cfb2815` (CI 10/10), the F11 COA3 recommendation pending policy approval, and the approved next work batch after independent harness testing. Upstream Gitleaks Action scanning is expressly declined for RNC; normal test/vulnerability CI and the independent RNC Scanner/harness remain.
 
 ## Historical evidence (outside active categories)
 
