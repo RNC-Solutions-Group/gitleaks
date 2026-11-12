@@ -112,7 +112,7 @@ func newReportOutput(
 		path:   reportPath,
 		mode:   mode,
 		source: source,
-		rename: os.Rename,
+		rename: renameReportFile,
 	}
 	out.protectedInputs = reportInputPaths(configPaths, baselinePath, gitleaksIgnorePath, reportTemplatePath, source)
 
