@@ -56,6 +56,32 @@ func shouldSkipPath(cfg *config.Config, path string) bool {
 	return false
 }
 
+// shouldSkipPathAtRoot also evaluates allowlist paths against path relative to
+// the directory scan root. A directory scan reports path the way its root was
+// supplied, so an anchored pattern written against the root (for example
+// `^src/vendor/`) must skip the same subtree for `.`, a relative root, and an
+// absolute root. The native-separator form keeps existing Windows allowlist
+// patterns working. This only reaches the early-skip decision for allowlists
+// whose path alone is sufficient; AND allowlists with content or commit checks
+// remain deferred to the detector.
+func shouldSkipPathAtRoot(cfg *config.Config, root, path string) bool {
+	if cfg == nil || len(cfg.Allowlists) == 0 {
+		return false
+	}
+	if shouldSkipPath(cfg, path) {
+		return true
+	}
+	rel := RootRelativePath(root, path)
+	if rel == "" || rel == path {
+		return false
+	}
+	if shouldSkipPath(cfg, rel) {
+		return true
+	}
+	native := filepath.FromSlash(rel)
+	return native != rel && shouldSkipPath(cfg, native)
+}
+
 // pathIsSufficientToSkip reports whether a path match alone is enough to
 // exclude a file without reading its contents.
 //

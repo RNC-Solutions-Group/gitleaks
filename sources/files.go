@@ -18,6 +18,9 @@ import (
 type ScanTarget struct {
 	Path    string
 	Symlink string
+	// Root is the directory scan root, when the target came from one. It is
+	// empty for a single-file target.
+	Root string
 	// Size is the target file's size when known.
 	Size int64
 	// Informative is the optional coverage-record handle for this target.
@@ -64,10 +67,20 @@ type Files struct {
 	MaxArchiveDepth int
 	// Informative is the optional coverage collector. Nil disables collection.
 	Informative *informative.Collector
+
+	// root is Path when it names a directory. It lets path matching evaluate
+	// both the spelling the user supplied and the path relative to the scan
+	// root. It stays empty for a single-file target.
+	root string
 }
 
 // scanTargets yields scan targets to a callback func
 func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) error) error {
+	s.root = ""
+	if info, err := os.Stat(s.Path); err == nil && info.IsDir() {
+		s.root = s.Path
+	}
+
 	return filepath.WalkDir(s.Path, func(path string, d fs.DirEntry, err error) error {
 		scanTarget := ScanTarget{Path: path}
 		logger := logging.With().Str("path", path).Logger()
@@ -145,7 +158,7 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 
 		// handle dir cases (mainly just see if it should be skipped
 		if info.IsDir() {
-			if shouldSkipPath(s.Config, path) {
+			if shouldSkipPathAtRoot(s.Config, s.root, path) {
 				dirTarget := s.Informative.Track(informative.KindDirectory, path, "", 0, false)
 				dirTarget.Exclude(informative.ReasonPathAllowlist, informative.ExclusionOptions{
 					Detail: "global allowlist",
@@ -156,7 +169,7 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 			return nil
 		}
 
-		if shouldSkipPath(s.Config, path) {
+		if shouldSkipPathAtRoot(s.Config, s.root, path) {
 			target.Exclude(informative.ReasonPathAllowlist, informative.ExclusionOptions{
 				Detail: "global allowlist",
 			})
@@ -168,6 +181,7 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 			return err
 		}
 
+		scanTarget.Root = s.root
 		scanTarget.Informative = target
 		return yield(scanTarget, nil)
 	})
@@ -219,6 +233,7 @@ func (s *Files) scanFile(ctx context.Context, scanTarget ScanTarget, yield Fragm
 		Content:         f,
 		Path:            scanTarget.Path,
 		Symlink:         scanTarget.Symlink,
+		Root:            scanTarget.Root,
 		Config:          s.Config,
 		MaxFileSize:     s.MaxFileSize,
 		Size:            scanTarget.Size,
