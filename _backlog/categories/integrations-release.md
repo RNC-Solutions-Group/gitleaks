@@ -29,6 +29,10 @@ Snapshot: 2026-11-09 · **RNC fork `master`: `5f6ec56cfa6f8c67648d863582c7ae2f20
 5. **Cross-platform means user-path and architecture reality.** Exercise Windows/PowerShell, Linux, macOS, WSL/MSYS, paths containing whitespace, architecture exclusions, and both registries. Avoid silently declaring unsupported platforms safe.
 6. **Proposed patches are not adopted code.** None of the six upstream PRs is merged into RNC `master`; statuses concern review and future implementation design only.
 
+### CP-V10 operational/release package — verified 2026-11-12, operator acceptance pending
+
+`fix/validation@bd42a95`: Makefile default build/test now non-mutating and offline-cache-compatible, version resolution without remote tag fetch, full `gore2regex ./...` generator/type compatibility, CI real pre-commit enforcement, and an **optional** non-root `runtime-nonroot` Docker target (UID/GID 10001). **Default root image and `safe.directory=*` remain unchanged by operator direction.** [Full CI 12/12](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43321594496). Complete root/nonroot fixture coverage was reported locally, while CI includes per-architecture smoke. [#2017](https://github.com/gitleaks/gitleaks/issues/2017) tagged-release memory/address-space restrictions and supply-chain signing/SBOM choices remain independent future review; **do not** declare those closed by compiling all RE2 packages. The intentionally skipped upstream Gitleaks Action stays excluded.
+
 ## Recommended implementation order
 
 | Order | Work package | Minimum proof before acceptance |
