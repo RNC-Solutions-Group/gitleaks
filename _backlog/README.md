@@ -24,7 +24,13 @@ All upstream snapshot items have one disposition in the [active category index](
 
 **Scan Integrity second pass (2026-11-09):** all 25 originally routed issues and 22 PRs rechecked against pinned fork source/diffs. Git error-handling issue #1464 and two competing fixes now share an existing Git/Hooks work package; URL/JSON PR #1992 is owned by Optional Features; #1651 and partial boundary patch #2324 share one package. These category/work-package consolidations leave **all 285 issues and 252 open PRs assigned**, with exclusions unchanged. No scanner source or test files were altered.
 
-**Optional Features final-pass reconciliation (2026-11-09):** #1397/PR #2216 moved to Configuration & Allowlists, #2017 (closed, unmerged PR #2018 for context) moved to Integrations & Release, and #1511 moved to the RNC exclusions ledger with a report-only reopen condition. Optional Features now owns six issues, three open PRs and six packages. The global **285 issue / 252 open PR / 388 package** accounting is unchanged; no code, snapshot export, upstream item or test was modified.
+**Optional Features final-pass reconciliation (2026-11-09):** #1397/PR #2216 moved to Configuration & Allowlists, #2017 (closed, unmerged PR #2018 for context) moved to Integrations & Release, and #1511 moved to the RNC exclusions ledger with a report-only reopen condition. Optional Features owned six issues, three open PRs and six packages **at the historical 2026-11-09 review**. The global **285 issue / 252 open PR / 388 package** accounting is unchanged; no code, snapshot export, upstream item or test was modified.
+
+## 2026-11-12 — Optional feature parking and Wave 2 kickoff
+
+**16 elective issue/PR work packages** (14 upstream issues / 10 PRs) have been reassigned into [Optional Features](categories/features.md), making **20 issues / 13 PRs / 22 packages** there. Original snapshot totals remain **285 issues / 252 PRs / 388 package slots**, with zero unassigned; no source changes, PR adoption or upstream issue changes were performed.
+
+The [Wave 2 reconciliation plan](04-rnc-reconciliation-plan.md) prepares a joint operator/GPT review of historic upstream `master@5f6ec56` findings versus the modern `fix/validation` CP-V7A (and later CP-V8) implementation, followed by independent harness and release verification.
 
 ## Historical evidence (outside active categories)
 

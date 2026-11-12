@@ -7,16 +7,16 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | Canonical category | Issues | PRs | Work packages |
 | --- | ---: | ---: | ---: |
 | [Security and hardening](security-hardening.md) | 10 | 7 | 13 |
-| [Scan integrity and file readers](scan-integrity.md) | 24 | 19 | 30 |
+| [Scan integrity and file readers](scan-integrity.md) | 20 | 19 | 26 |
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
-| [Configuration and allowlists](configuration-allowlists.md) | 43 | 29 | 42 |
-| [Git and hooks](git-hooks-sources.md) | 18 | 14 | 19 |
-| [Reporting and output](reporting-output.md) | 13 | 7 | 14 |
+| [Configuration and allowlists](configuration-allowlists.md) | 36 | 22 | 35 |
+| [Git and hooks](git-hooks-sources.md) | 17 | 14 | 18 |
+| [Reporting and output](reporting-output.md) | 11 | 6 | 12 |
 | [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
 | [Dependency and build pins](dependencies.md) | 7 | 11 | 18 |
-| [Integrations and releases](integrations-release.md) | 4 | 6 | 9 |
-| [Optional features](features.md) | 6 | 3 | 6 |
+| [Integrations and releases](integrations-release.md) | 4 | 4 | 7 |
+| [Optional features](features.md) | 20 | 13 | 22 |
 | [Documentation](documentation.md) | 8 | 13 | 13 |
 | [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 64 | 53 | 106 |
 | **Total assigned from open snapshot** | **285** | **252** | **388** |
@@ -36,6 +36,12 @@ One issue (#1464) and two PRs (#2253/#2252) moved from Scan Integrity to the exi
 - **Issue #1511** now belongs to [RNC exclusions](exclusions.md): source-file rewriting is outside current Gitleaks scan/report semantics; a separate report-only masking request can reopen review.
 
 Optional Features is now **6 issues / 3 open PRs / 6 packages**. The 285 issues, 252 open PRs, and 388 accounting packages remain complete and unchanged in total. Source/PR inspection was performed, but **no new runtime or regression tests** were run; no implementation or upstream disposition was changed.
+
+### Wave 2 routing update (2026-11-12)
+
+**16 complete elective work packages (14 issues and 10 open PRs)** moved to [Optional Features](features.md): Configuration (7), Scan Integrity (4), Reporting (2), Integrations (2), Git/Hooks (1). Optional Features now has **20 issues / 13 PRs / 22 work packages**. All original 285 issues, 252 PRs and 388 work-package accounting slots retain a single owner: **221 active issues + 199 active PRs** in 282 active package slots, and 106 excluded slots. Historical inventories are unchanged.
+
+Three near-term informative QOL candidate packages: [#2130 / PR #2244](features.md#informative-reporting-extensions--high-value-qol-shortlist), [#983 / PR #1654](features.md#informative-reporting-extensions--high-value-qol-shortlist), [#1054](features.md#informative-reporting-extensions--high-value-qol-shortlist). Routing does not authorize code changes. See the [Wave 2 joint reconciliation plan](../04-rnc-reconciliation-plan.md) for post-V8 harness and release priorities.
 
 ## Triage confidence
 

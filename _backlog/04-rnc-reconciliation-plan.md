@@ -1,0 +1,36 @@
+# Wave 2 — RNC issue/PR reconciliation, harness and release roadmap
+
+**Initiated:** 2026-11-12 · **Workspace:** `feat/issues-and-pr` (documentation-only triage)  
+**Historical upstream snapshot:** 285 issues / 252 open PRs / 388 work-package slots, dated 2026-11-08–09.  
+**Historical scanner baseline:** RNC `master@5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c`.  
+**Modern scanner comparator:** `fix/validation` at CP-V7A `57931abf68eb9eff799732962562ddab2156ced8`; re-pin after current CP-V8.  
+**Existing owner/GPT register:** `fixes-qol-tracking.md` on `fix/validation` (not edited here).
+
+## Reconciliation method
+
+Review current-code status *with the operator*, one complete issue/PR work package at a time. Retain historic upstream author, issue/PR links, original bug or requested feature, original baseline findings, RNC implementation commit, current SHA, actual reproduction and regression evidence, compatibility decision, and any residual limitation.
+
+Use explicit states: **implemented and verified**, **partial or conditional**, **reproduced open**, **not yet verified**, **deferred/optional**, **accepted intentional limitation**, **superseded/duplicate with evidence**. Do not change historical `_backlog/data/` JSON/CSV. A matching PR title, green CI, or already-reviewed old snapshot does not prove closure on the modern scanner. Changes on this triage branch do not authorize scanner modifications or merging.
+
+## Joint P0–P3 package review
+
+| Priority | Proposed package clusters | Required evidence |
+| --- | --- | --- |
+| **P0** | Original fail-open scan errors (CP-V0 F01); destructive report paths (F02); global AND allowlist bypass (F06); staged binary-marked text (F07); fragment-boundary losses (issue #1651 / PR #2324); Git parser failure edges | Reproduce old behavior and demonstrate modern correction, correct exit semantics and report preservation; no unmitigated false-clean or destructive write within supported paths |
+| **P1** | CP-V8 merge-only history F11; source-path identity F16; repo-local config trust; residual sensitive logging/Git diagnostics; ignore-file mutation; Git pretty/date/textconv; Unicode/invalid-byte ingestion | Positive/negative, Windows/Linux/macOS and standard/RE2 fixtures; no silent default/fingerprint change without operator approval |
+| **P2** | SARIF column/Unicode/URI; anchored line allowlists; cross-platform baselines; current dependency/RE2 compatibility; provider accuracy batches; paired-report late publication failures | Current-code reproduction, separate source/report invariants, bounded resource/error tests; avoid conflating optional format requests with active P2 defects |
+| **P3** | Decoder throughput, per-file buffer allocation, redundant regex calls, deterministic order, documentation/CLI QOL | Controlled benchmarks plus byte/findings/exit parity; do not disable detection to improve speed |
+| **Optional** | 22 parked packages, including 3 informative-report follow-ups (unused-ignore, effective config, report grouping) | Opt-in interface design, confidentiality, complexity and owner approval; not part of core P0/P1 defect closure |
+
+## Post-V8 independent harness acceptance
+
+1. **Pin artifacts:** upstream reference, original RNC baseline, and post-V8 candidate commit; executable/container digests, default config hash, standard/RE2 versions and Git version. Do not merge candidate to master merely to test.
+2. **Add candidate lane to dedicated harness:** compare against the existing baseline lane, retaining all original fixtures and expected data; do not replace harness baseline. Include directory, staged Git, history/merges, archives, symlinks, and failures.
+3. **Differential datasets:** known-positive/negative controls, Levain, RNC synthetic secrets lab (1,600 adjudicated items), trap negatives, multi-occurrence groupings, evidence spans, rule IDs, path/fingerprint parity, statuses, and actual exit codes.
+4. **Informative reporting:** check disabled mode is original behavior, console opt-in prints stderr, file opt-in produces paired JSON, and skipped large/binary/allowlisted targets do not become scan errors. Verify output privacy and report collision protection.
+5. **Release readiness:** compare modern `fix/validation/go.mod` versions with old CVE PRs #2308/#2336 and current advisories; correct fork `.github/workflows/gitleaks.yml` skipped-only upstream-ownership gate; test non-root Docker on read-only/writeable mounts and reconsider global Git `safe.directory '*'`; separate mutating/network Makefile targets from reproducible builds; validate RE2 full tagged graph limitation, macOS/Windows/Linux artifacts, SBOM/provenance and image signing where accepted.
+6. **Disposition and approval:** document accepted regression baseline, remaining risks, contributor attribution (adopted vs adapted vs informed), operator behavior choices, and clean integration/release gate. No PR, merge, rebase, or history rewrite authorized here.
+
+## First review session
+
+Begin with original **P0** F01/F02/F06/F07 and the still-unreconciled #1651/#2324 chunk-boundary package, then resolve report publication TOCTOU and CP-V8 F11/F16 decisions. Update category statuses only after the operator reviews the current evidence. This file is a kickoff plan, not a completed reconciliation.
