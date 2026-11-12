@@ -60,6 +60,11 @@ func runDirectory(cmd *cobra.Command, args []string) {
 	start := time.Now()
 
 	detector := Detector(cmd, cfg, source)
+	sourceType := "directory"
+	if info, statErr := os.Stat(source); statErr == nil && !info.IsDir() {
+		sourceType = "file"
+	}
+	setInformativeSourceType(detector, sourceType)
 
 	// set follow symlinks flag
 	if detector.FollowSymlinks, err = cmd.Flags().GetBool("follow-symlinks"); err != nil {
@@ -81,6 +86,7 @@ func runDirectory(cmd *cobra.Command, args []string) {
 			Path:            source,
 			Sema:            detector.Sema,
 			MaxArchiveDepth: detector.MaxArchiveDepth,
+			Informative:     detector.Informative,
 		},
 	)
 

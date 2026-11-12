@@ -12,6 +12,7 @@ import (
 
 	"github.com/zricethezav/gitleaks/v8/config"
 	"github.com/zricethezav/gitleaks/v8/detect/codec"
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/internal/scanerr"
 	"github.com/zricethezav/gitleaks/v8/logging"
 	"github.com/zricethezav/gitleaks/v8/regexp"
@@ -107,6 +108,13 @@ type Detector struct {
 	// scan, returning the actual output filename. The CLI sets it so
 	// destination policy and atomic publication stay in the command layer.
 	ReportWriter func([]report.Finding) (string, error)
+
+	// Informative is the optional per-scan coverage collector. Nil disables
+	// informative reporting and imposes no collection work.
+	Informative *informative.Collector
+	// InformativeReportPath is the companion file destination. It prevents a
+	// previous informative report from being scanned as source input.
+	InformativeReportPath string
 
 	TotalBytes atomic.Uint64
 }
@@ -300,6 +308,9 @@ func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]r
 		// both the fragment's content and path should be empty for it to be
 		// considered empty at this point because of path based matches
 		if len(fragment.Raw) == 0 && len(fragment.FilePath) == 0 {
+			fragment.InformativeTarget.Exclude(informative.ReasonEmptyFile, informative.ExclusionOptions{
+				Detail: "empty fragment",
+			})
 			logger.Trace().Msg("skipping empty fragment")
 			return nil
 		}
@@ -365,6 +376,8 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 		}()
 	)
 
+	target := fragment.InformativeTarget
+
 	// check if filepath is allowed
 	if fragment.FilePath != "" {
 		// Do not scan the requested report destination. Scanning it would
@@ -372,11 +385,29 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 		// use newly allocated filenames and are not existing scan inputs.
 		if d.ReportPath != "" && d.ReportPath != report.StdoutReportPath &&
 			sameFileOrPath(fragment.FilePath, d.ReportPath) {
+			target.Exclude(informative.ReasonExcludedInput, informative.ExclusionOptions{
+				Detail: "primary report destination",
+			})
 			logging.Trace().Msg("skipping file: matches report path")
+			return findings
+		}
+		if d.InformativeReportPath != "" &&
+			sameFileOrPath(fragment.FilePath, d.InformativeReportPath) {
+			target.Exclude(informative.ReasonExcludedInput, informative.ExclusionOptions{
+				Detail: "informative report destination",
+			})
+			logging.Trace().Msg("skipping file: matches informative report path")
 			return findings
 		}
 		// is the path our config or baseline file?
 		if fragment.FilePath == d.Config.Path || (d.baselinePath != "" && fragment.FilePath == d.baselinePath) {
+			detail := "configuration file"
+			if d.baselinePath != "" && fragment.FilePath == d.baselinePath {
+				detail = "baseline file"
+			}
+			target.Exclude(informative.ReasonExcludedInput, informative.ExclusionOptions{
+				Detail: detail,
+			})
 			logging.Trace().Msg("skipping file: matches config or baseline path")
 			return findings
 		}
@@ -384,6 +415,13 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 	// check if commit or filepath is allowed.
 	if isAllowed, event := checkCommitOrPathAllowed(logger, fragment, d.Config.Allowlists); isAllowed {
 		event.Msg("skipping file: global allowlist")
+		reason := informative.ReasonPathAllowlist
+		detail := "global path allowlist"
+		if fragment.CommitSHA != "" && commitAllowed(fragment.CommitSHA, d.Config.Allowlists) {
+			reason = informative.ReasonCommitAllowlist
+			detail = "global commit allowlist"
+		}
+		target.Exclude(reason, informative.ExclusionOptions{Detail: detail})
 		return findings
 	}
 
@@ -839,6 +877,21 @@ func (d *Detector) addCommit(commit string) {
 	d.commitMutex.Lock()
 	d.commitMap[commit] = true
 	d.commitMutex.Unlock()
+}
+
+// commitAllowed reports whether any allowlist contains a matching commit.
+// Informative reporting uses it only to label an already-made exclusion
+// decision accurately.
+func commitAllowed(commit string, allowlists []*config.Allowlist) bool {
+	if commit == "" {
+		return false
+	}
+	for _, a := range allowlists {
+		if ok, _ := a.CommitAllowed(commit); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // checkCommitOrPathAllowed evaluates |fragment| against all provided |allowlists|.

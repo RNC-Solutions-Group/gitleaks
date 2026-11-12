@@ -1,5 +1,7 @@
 package sources
 
+import "github.com/zricethezav/gitleaks/v8/internal/informative"
+
 // Fragment represents a fragment of a source with its meta data
 type Fragment struct {
 	// Raw is the raw content of the fragment
@@ -25,4 +27,9 @@ type Fragment struct {
 	CommitInfo *CommitInfo
 
 	InheritedFromFinding bool // Indicates if this fragment is inherited from a finding
+
+	// InformativeTarget is the optional coverage-record handle for this
+	// fragment's target. It carries reporting metadata only and is never part
+	// of finding output.
+	InformativeTarget *informative.Target
 }

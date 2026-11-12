@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/logging"
 	"github.com/zricethezav/gitleaks/v8/report"
 	"github.com/zricethezav/gitleaks/v8/sources"
@@ -47,6 +48,13 @@ func (d *Detector) DetectFiles(scanTargets <-chan sources.ScanTarget) ([]report.
 
 			// Empty; nothing to do here.
 			if info.Size() == 0 {
+				target := scanTarget.Informative
+				if target == nil && d.Informative != nil {
+					target = d.Informative.Track(informative.KindFile, scanTarget.Path, "", 0, true)
+				}
+				target.Exclude(informative.ReasonEmptyFile, informative.ExclusionOptions{
+					Detail: "empty file",
+				})
 				logger.Debug().Msg("skipping empty file")
 				return nil
 			}
@@ -62,6 +70,8 @@ func (d *Detector) DetectFiles(scanTargets <-chan sources.ScanTarget) ([]report.
 				MaxFileSize:     d.MaxTargetMegaBytes * 1_000_000,
 				Size:            info.Size(),
 				MaxArchiveDepth: d.MaxArchiveDepth,
+				Informative:     d.Informative,
+				Target:          scanTarget.Informative,
 			}
 
 			ctx := context.Background()

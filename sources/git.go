@@ -20,6 +20,7 @@ import (
 
 	"github.com/zricethezav/gitleaks/v8/cmd/scm"
 	"github.com/zricethezav/gitleaks/v8/config"
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/internal/scanerr"
 	"github.com/zricethezav/gitleaks/v8/logging"
 )
@@ -529,6 +530,8 @@ type Git struct {
 	Sema            *semgroup.Group
 	MaxFileSize     int
 	MaxArchiveDepth int
+	// Informative is the optional coverage collector. Nil disables collection.
+	Informative *informative.Collector
 }
 
 // CommitInfo captures metadata about the commit
@@ -598,22 +601,6 @@ func (s *Git) Fragments(ctx context.Context, yield FragmentsFunc) error {
 				continue
 			}
 
-			// Git marks staged text as binary when attributes or
-			// core.bigFileThreshold prevent a textual diff. Staged scans must
-			// fall back to the index blob; history scans retain the established
-			// skip for non-archive binary files. File.Fragments still applies
-			// MIME classification to the blob content. The staged-index approach
-			// follows gitleaks/gitleaks#2338 (@VISHNU0906); this implementation
-			// uses the CP-V3 error and lifecycle path.
-			yieldFromBlob := false
-			if gitdiffFile.IsBinary {
-				if isArchive(ctx, gitdiffFile.NewName) || s.Cmd.staged {
-					yieldFromBlob = true
-				} else {
-					continue
-				}
-			}
-
 			// Check if commit is allowed
 			commitSHA := ""
 			var commitInfo *CommitInfo
@@ -636,6 +623,32 @@ func (s *Git) Fragments(ctx context.Context, yield FragmentsFunc) error {
 				if gitdiffFile.PatchHeader.Author != nil {
 					commitInfo.AuthorName = gitdiffFile.PatchHeader.Author.Name
 					commitInfo.AuthorEmail = gitdiffFile.PatchHeader.Author.Email
+				}
+			}
+
+			// Git marks staged text as binary when attributes or
+			// core.bigFileThreshold prevent a textual diff. Staged scans must
+			// fall back to the index blob; history scans retain the established
+			// skip for non-archive binary files. File.Fragments still applies
+			// MIME classification to the blob content. The staged-index approach
+			// follows gitleaks/gitleaks#2338 (@VISHNU0906); this implementation
+			// uses the CP-V3 error and lifecycle path.
+			yieldFromBlob := false
+			if gitdiffFile.IsBinary {
+				if isArchive(ctx, gitdiffFile.NewName) || s.Cmd.staged {
+					yieldFromBlob = true
+				} else {
+					target := s.Informative.Track(
+						informative.KindGitDiff,
+						gitdiffFile.NewName,
+						commitSHA,
+						0,
+						false,
+					)
+					target.Exclude(informative.ReasonBinaryContent, informative.ExclusionOptions{
+						Detail: "git reported binary content",
+					})
+					continue
 				}
 			}
 
@@ -695,12 +708,22 @@ func (s *Git) processDiffFile(
 			return fmt.Errorf("could not read blob: %w", err)
 		}
 
+		target := s.Informative.Track(
+			informative.KindGitBlob,
+			diffFile.NewName,
+			commitSHA,
+			0,
+			false,
+		)
 		file := File{
 			Content:         blob,
 			Path:            diffFile.NewName,
 			MaxFileSize:     s.MaxFileSize,
 			MaxArchiveDepth: s.MaxArchiveDepth,
 			Config:          s.Config,
+			Informative:     s.Informative,
+			Target:          target,
+			Commit:          commitSHA,
 		}
 
 		// enrich and yield fragments
@@ -725,17 +748,28 @@ func (s *Git) processDiffFile(
 		return nil
 	}
 
+	var target *informative.Target
 	for _, textFragment := range diffFile.TextFragments {
 		if textFragment == nil {
 			continue
 		}
+		if target == nil {
+			target = s.Informative.Track(
+				informative.KindGitDiff,
+				diffFile.NewName,
+				commitSHA,
+				0,
+				false,
+			)
+		}
 
 		fragment := Fragment{
-			CommitSHA:  commitSHA,
-			FilePath:   diffFile.NewName,
-			Raw:        textFragment.Raw(gitdiff.OpAdd),
-			StartLine:  int(textFragment.NewPosition),
-			CommitInfo: commitInfo,
+			CommitSHA:         commitSHA,
+			FilePath:          diffFile.NewName,
+			Raw:               textFragment.Raw(gitdiff.OpAdd),
+			StartLine:         int(textFragment.NewPosition),
+			CommitInfo:        commitInfo,
+			InformativeTarget: target,
 		}
 
 		if err := yield(fragment, nil); err != nil {

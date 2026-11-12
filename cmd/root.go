@@ -16,6 +16,7 @@ import (
 
 	"github.com/zricethezav/gitleaks/v8/config"
 	"github.com/zricethezav/gitleaks/v8/detect"
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/logging"
 	"github.com/zricethezav/gitleaks/v8/regexp"
 	"github.com/zricethezav/gitleaks/v8/report"
@@ -252,6 +253,9 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 
 	// Setup common detector
 	detector := detect.NewDetectorContext(cmd.Context(), cfg)
+	if cfg.InformativeReport {
+		detector.Informative = informative.New("directory")
+	}
 
 	if detector.MaxDecodeDepth, err = cmd.Flags().GetInt("max-decode-depth"); err != nil {
 		logging.Fatal().Err(err).Send()
@@ -413,6 +417,17 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 			if err != nil {
 				logging.Fatal().Err(err).Msg("invalid report destination")
 			}
+			if detector.Informative != nil && !cfg.ConsoleOnly {
+				if err := output.enableInformative(func(primaryPath string) ([]byte, error) {
+					return informative.Marshal(detector.Informative.Document(primaryPath, true))
+				}); err != nil {
+					logging.Fatal().Err(err).Msg("invalid informative report destination")
+				}
+				// Prevent a pre-existing companion from being scanned as source
+				// content. The actual aggregate filename is allocated later; it
+				// cannot exist before publication unless it is an older report.
+				detector.InformativeReportPath = output.companion.path
+			}
 			detector.ReportWriter = func(findings []report.Finding) (string, error) {
 				return output.write(reporter, findings)
 			}
@@ -420,6 +435,13 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 	}
 
 	return detector
+}
+
+func setInformativeSourceType(detector *detect.Detector, sourceType string) {
+	if detector == nil || detector.Informative == nil {
+		return
+	}
+	detector.Informative.SetSourceType(sourceType)
 }
 
 func bytesConvert(bytes uint64) string {
@@ -498,6 +520,21 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 		}
 	}
 
+	// Print the informative console summary after the primary report has been
+	// handled. When a companion file is configured, the summary lives in that
+	// file instead. Console output always uses stderr so a stdout report remains
+	// machine-readable.
+	if err == nil && detector.Informative != nil && detector.InformativeReportPath == "" {
+		primaryReport := ""
+		if detector.ReportPath != "" {
+			primaryReport = detector.ReportPath
+		}
+		document := detector.Informative.Document(primaryReport, true)
+		if consoleErr := informative.WriteConsole(os.Stderr, document, informative.DefaultConsoleDetails); consoleErr != nil {
+			logging.Warn().Err(consoleErr).Msg("could not write informative console summary")
+		}
+	}
+
 	if err != nil {
 		os.Exit(1)
 	}
@@ -530,6 +567,13 @@ func loadGitleaksIgnorePath(detector *detect.Detector, path string, required boo
 }
 
 func loadGitleaksIgnoreFile(detector *detect.Detector, path string) error {
+	// An auto-discovered ignore file is a sibling of the scan target. When the
+	// target is a file, filepath.Join(target, ".gitleaksignore") is not a
+	// meaningful path; on Unix Lstat reports ENOTDIR rather than ENOENT.
+	if parent, parentErr := os.Stat(filepath.Dir(path)); parentErr == nil && !parent.IsDir() {
+		return nil
+	}
+
 	info, err := os.Lstat(path)
 	if err != nil {
 		if os.IsNotExist(err) {

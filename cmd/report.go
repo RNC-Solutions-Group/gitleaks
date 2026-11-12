@@ -85,6 +85,16 @@ type reportOutput struct {
 	sourceIsFile    bool
 	protectedInputs []string
 	rename          func(string, string) error
+	// companion is the optional informative JSON file published as a logical
+	// pair with the primary report. Nil keeps the historical single-file path.
+	companion *companionReport
+}
+
+// companionReport describes the informative companion destination and renderer.
+// Render receives the actual primary filename, including an aggregate suffix.
+type companionReport struct {
+	path   string
+	render func(primaryPath string) ([]byte, error)
 }
 
 // newReportOutput validates the requested destination before scanning. It does
@@ -208,10 +218,19 @@ func (o *reportOutput) checkInputCollision(path string) error {
 	return nil
 }
 
-// write produces the report after a completed scan and returns the actual
-// output filename. A failed writer or publication leaves the previous report
-// destination untouched.
+// write produces the primary report after a completed scan and returns the
+// actual output filename. When an informative companion is enabled, both files
+// are rendered and validated before either destination is published.
 func (o *reportOutput) write(reporter report.Reporter, findings []report.Finding) (string, error) {
+	if o.companion != nil {
+		return o.writePaired(reporter, findings)
+	}
+	return o.writeSingle(reporter, findings)
+}
+
+// writeSingle publishes only the primary report. A failed writer or
+// publication leaves the previous report destination untouched.
+func (o *reportOutput) writeSingle(reporter report.Reporter, findings []report.Finding) (string, error) {
 	if err := o.validateForPublication(); err != nil {
 		return "", err
 	}

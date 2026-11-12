@@ -9,6 +9,7 @@ import (
 
 	"github.com/fatih/semgroup"
 	"github.com/zricethezav/gitleaks/v8/config"
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/internal/scanerr"
 	"github.com/zricethezav/gitleaks/v8/logging"
 )
@@ -19,6 +20,8 @@ type ScanTarget struct {
 	Symlink string
 	// Size is the target file's size when known.
 	Size int64
+	// Informative is the optional coverage-record handle for this target.
+	Informative *informative.Target
 }
 
 // Deprecated: Use Files and detector.DetectSource instead
@@ -59,6 +62,8 @@ type Files struct {
 	Path            string
 	Sema            *semgroup.Group
 	MaxArchiveDepth int
+	// Informative is the optional coverage collector. Nil disables collection.
+	Informative *informative.Collector
 }
 
 // scanTargets yields scan targets to a callback func
@@ -76,9 +81,15 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 			return fmt.Errorf("could not inspect %q: %w", path, err)
 		}
 
+		var target *informative.Target
 		if !d.IsDir() {
+			target = s.Informative.Track(informative.KindFile, path, "", info.Size(), true)
+
 			// Empty; nothing to do here.
 			if info.Size() == 0 {
+				target.Exclude(informative.ReasonEmptyFile, informative.ExclusionOptions{
+					Detail: "empty file",
+				})
 				logger.Debug().Msg("skipping empty file")
 				return nil
 			}
@@ -92,6 +103,10 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 		// set the initial scan target values
 		if d.Type() == fs.ModeSymlink {
 			if !s.FollowSymlinks {
+				target.Exclude(informative.ReasonSymlinkNotFollowed, informative.ExclusionOptions{
+					OmitSize: true,
+					Detail:   "follow symlinks disabled",
+				})
 				logger.Debug().Msg("skipping symlink: follow symlinks disabled")
 				return nil
 			}
@@ -104,19 +119,37 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 				return fmt.Errorf("could not inspect symlink target %q: %w", realPath, err)
 			}
 			if realPathFileInfo.IsDir() {
+				target.Exclude(informative.ReasonSymlinkNotFollowed, informative.ExclusionOptions{
+					OmitSize: true,
+					Detail:   "symlink target is a directory",
+				})
 				logger.Debug().Str("target", realPath).Msgf("skipping symlink: target is directory")
 				return nil
 			}
+			if realPathFileInfo.Size() == 0 {
+				// Preserve the historical traversal path: the empty target is
+				// still opened and yields no fragments, while the informative
+				// report records why no content was examined.
+				target.Exclude(informative.ReasonEmptyFile, informative.ExclusionOptions{
+					Detail: "empty symlink target",
+				})
+			}
+			target.SetSize(realPathFileInfo.Size(), true)
 			scanTarget = ScanTarget{
-				Path:    realPath,
-				Symlink: path,
-				Size:    realPathFileInfo.Size(),
+				Path:        realPath,
+				Symlink:     path,
+				Size:        realPathFileInfo.Size(),
+				Informative: target,
 			}
 		}
 
 		// handle dir cases (mainly just see if it should be skipped
 		if info.IsDir() {
 			if shouldSkipPath(s.Config, path) {
+				dirTarget := s.Informative.Track(informative.KindDirectory, path, "", 0, false)
+				dirTarget.Exclude(informative.ReasonPathAllowlist, informative.ExclusionOptions{
+					Detail: "global allowlist",
+				})
 				logger.Debug().Msg("skipping directory: global allowlist")
 				return filepath.SkipDir
 			}
@@ -124,6 +157,9 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 		}
 
 		if shouldSkipPath(s.Config, path) {
+			target.Exclude(informative.ReasonPathAllowlist, informative.ExclusionOptions{
+				Detail: "global allowlist",
+			})
 			logger.Debug().Msg("skipping file: global allowlist")
 			return nil
 		}
@@ -132,6 +168,7 @@ func (s *Files) scanTargets(ctx context.Context, yield func(ScanTarget, error) e
 			return err
 		}
 
+		scanTarget.Informative = target
 		return yield(scanTarget, nil)
 	})
 }
@@ -186,6 +223,8 @@ func (s *Files) scanFile(ctx context.Context, scanTarget ScanTarget, yield Fragm
 		MaxFileSize:     s.MaxFileSize,
 		Size:            scanTarget.Size,
 		MaxArchiveDepth: s.MaxArchiveDepth,
+		Informative:     s.Informative,
+		Target:          scanTarget.Informative,
 	}
 
 	fragmentsErr := file.Fragments(ctx, yield)

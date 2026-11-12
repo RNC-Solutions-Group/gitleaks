@@ -39,6 +39,7 @@ func runProtect(cmd *cobra.Command, args []string) {
 
 	// create detector
 	detector := Detector(cmd, cfg, source)
+	setInformativeSourceType(detector, "git")
 
 	// parse flags
 	exitCode := mustGetIntFlag(cmd, "exit-code")

@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/zricethezav/gitleaks/v8/config"
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/logging"
 )
 
@@ -61,10 +62,42 @@ type File struct {
 	MaxArchiveDepth int
 	// archiveDepth is the current archive nesting depth
 	archiveDepth int
+	// Informative is the optional coverage collector. Nil disables collection.
+	Informative *informative.Collector
+	// Target is the optional coverage-record handle. Files creates it during
+	// enumeration; direct File users may leave it nil.
+	Target *informative.Target
+	// TargetKind overrides the inferred target kind for direct File users
+	// (for example, stdin versus an unnamed stream).
+	TargetKind informative.Kind
+	// Commit is the Git commit associated with this content, when applicable.
+	// It is reporting metadata only.
+	Commit string
+}
+
+// ensureTarget creates a target for direct File users that did not enumerate
+// through Files. Enumeration paths pass an already-observed target.
+func (s *File) ensureTarget() *informative.Target {
+	if s.Target != nil || s.Informative == nil {
+		return s.Target
+	}
+	kind := s.TargetKind
+	if kind == "" {
+		kind = informative.KindFile
+		switch {
+		case s.archiveDepth > 0:
+			kind = informative.KindArchiveMember
+		case s.Path == "":
+			kind = informative.KindStream
+		}
+	}
+	s.Target = s.Informative.Track(kind, s.FullPath(), s.Commit, s.Size, s.Size > 0)
+	return s.Target
 }
 
 // Fragments yields fragments for the this source
 func (s *File) Fragments(ctx context.Context, yield FragmentsFunc) error {
+	s.ensureTarget()
 	format, _, err := archives.Identify(ctx, s.Path, nil)
 	if err != nil && !errors.Is(err, archives.NoMatch) {
 		return fmt.Errorf("could not identify file format: %w", err)
@@ -98,6 +131,9 @@ func (s *File) Fragments(ctx context.Context, yield FragmentsFunc) error {
 				"max_archive_depth", s.MaxArchiveDepth,
 			).Msg("skipping archive: exceeds max archive depth")
 
+			s.Target.Exclude(informative.ReasonArchiveDepth, informative.ExclusionOptions{
+				Detail: fmt.Sprintf("maximum archive depth %d", s.MaxArchiveDepth),
+			})
 			return nil
 		}
 		if extractor, ok := format.(archives.Extractor); ok {
@@ -177,6 +213,7 @@ func (s *File) applyPlainSizeLimit(ctx context.Context) (cleanup func(), skipped
 	}
 
 	if s.Size > int64(s.MaxFileSize) {
+		s.excludeSizeLimit(s.Size, int64(s.MaxFileSize), true)
 		logging.Warn().
 			Str("path", s.FullPath()).
 			Msgf("skipping file: too large max_size=%dMB, size=%dMB", s.MaxFileSize/1_000_000, s.Size/1_000_000)
@@ -192,6 +229,7 @@ func (s *File) applyPlainSizeLimit(ctx context.Context) (cleanup func(), skipped
 	}
 	if skipped {
 		cleanup()
+		s.excludeSizeLimit(size, int64(s.MaxFileSize), false)
 		logging.Warn().
 			Str("path", s.FullPath()).
 			Msgf("skipping file: too large max_size=%dMB", s.MaxFileSize/1_000_000)
@@ -199,7 +237,26 @@ func (s *File) applyPlainSizeLimit(ctx context.Context) (cleanup func(), skipped
 	}
 	s.Content = content
 	s.Size = size
+	s.Target.SetSize(size, true)
 	return cleanup, false, nil
+}
+
+func (s *File) excludeSizeLimit(size, limit int64, exactSize bool) {
+	options := informative.ExclusionOptions{
+		LimitBytes: &limit,
+		Detail:     fmt.Sprintf("maximum file size %d bytes", limit),
+	}
+	if exactSize {
+		options.SizeBytes = &size
+	} else {
+		options.OmitSize = true
+		options.Detail = fmt.Sprintf("maximum file size %d bytes; stopped after %d bytes", limit, size)
+	}
+	s.Target.Exclude(informative.ReasonSizeLimit, options)
+}
+
+func int64Ptr(value int64) *int64 {
+	return &value
 }
 
 func spoolLimitedReader(ctx context.Context, reader io.Reader, max int) (io.Reader, int64, func(), bool, error) {
@@ -263,6 +320,7 @@ func (s *File) extractorFragments(ctx context.Context, extractor archives.Extrac
 				return fmt.Errorf("could not copy archive file: %w", copyErr)
 			}
 			if s.MaxFileSize > 0 && copied > int64(s.MaxFileSize) {
+				s.excludeSizeLimit(copied, int64(s.MaxFileSize), false)
 				logging.Warn().
 					Str("path", s.FullPath()).
 					Msgf("skipping archive: too large max_size=%dMB", s.MaxFileSize/1_000_000)
@@ -281,16 +339,38 @@ func (s *File) extractorFragments(ctx context.Context, extractor archives.Extrac
 		}
 
 		path := filepath.Clean(d.NameInArchive)
+		memberPath := s.FullPath() + InnerPathSeparator + filepath.ToSlash(path)
+		memberTarget := s.Informative.Track(
+			informative.KindArchiveMember,
+			memberPath,
+			s.Commit,
+			d.Size(),
+			true,
+		)
 		if s.Config != nil && shouldSkipPath(s.Config, path) {
+			memberTarget.Exclude(informative.ReasonPathAllowlist, informative.ExclusionOptions{
+				Detail: "global allowlist",
+			})
 			logging.Debug().Str("path", s.FullPath()).Msg("skipping file: global allowlist")
 			return nil
 		}
 
 		if s.MaxFileSize > 0 && d.Size() > int64(s.MaxFileSize) {
+			memberTarget.Exclude(informative.ReasonSizeLimit, informative.ExclusionOptions{
+				LimitBytes: int64Ptr(int64(s.MaxFileSize)),
+				Detail:     fmt.Sprintf("maximum archive member size %d bytes", s.MaxFileSize),
+			})
 			logging.Warn().
 				Str("path", filepath.ToSlash(filepath.Join(s.FullPath(), path))).
 				Msgf("skipping file: too large max_size=%dMB, size=%dMB", s.MaxFileSize/1_000_000, d.Size()/1_000_000)
 			return nil
+		}
+		if d.Size() == 0 {
+			// Keep archive opening behavior unchanged. An empty member yields
+			// no fragments, but any archive-level open error still propagates.
+			memberTarget.Exclude(informative.ReasonEmptyFile, informative.ExclusionOptions{
+				Detail: "empty archive member",
+			})
 		}
 
 		innerReader, err := d.Open()
@@ -306,6 +386,9 @@ func (s *File) extractorFragments(ctx context.Context, extractor archives.Extrac
 			MaxFileSize:     s.MaxFileSize,
 			Size:            d.Size(),
 			archiveDepth:    s.archiveDepth + 1,
+			Informative:     s.Informative,
+			Target:          memberTarget,
+			Commit:          s.Commit,
 		}
 
 		if err := file.Fragments(ctx, yield); err != nil {
@@ -336,6 +419,7 @@ func (s *File) decompressorFragments(ctx context.Context, decompressor archives.
 		}
 		if skipped {
 			cleanup()
+			s.excludeSizeLimit(size, int64(s.MaxFileSize), false)
 			logging.Warn().
 				Str("path", s.FullPath()).
 				Msgf("skipping file: too large max_size=%dMB", s.MaxFileSize/1_000_000)
@@ -344,6 +428,7 @@ func (s *File) decompressorFragments(ctx context.Context, decompressor archives.
 		defer cleanup()
 		s.Content = content
 		s.Size = size
+		s.Target.SetSize(size, true)
 		return s.fileFragments(ctx, bufio.NewReader(content), yield)
 	}
 
@@ -373,7 +458,8 @@ func (s *File) fileFragments(ctx context.Context, reader *bufio.Reader, yield Fr
 			return ctx.Err()
 		default:
 			fragment := Fragment{
-				FilePath: s.FullPath(),
+				FilePath:          s.FullPath(),
+				InformativeTarget: s.Target,
 			}
 
 			n, err := reader.Read(s.Buffer)
@@ -399,6 +485,9 @@ func (s *File) fileFragments(ctx context.Context, reader *bufio.Reader, yield Fr
 						fmt.Errorf("could not read file: could not determine type: %w", err),
 					)
 				} else if mimetype.MIME.Type == "application" {
+					s.Target.Exclude(informative.ReasonBinaryContent, informative.ExclusionOptions{
+						Detail: "MIME type " + mimetype.MIME.Value,
+					})
 					logging.Debug().
 						Str("mime_type", mimetype.MIME.Value).
 						Str("path", s.FullPath()).
