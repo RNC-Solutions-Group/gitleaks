@@ -1,16 +1,16 @@
 # RNC Gitleaks issue/PR category register
 
-Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current fork comparison target: [`RNC-Solutions-Group/gitleaks@master`](https://github.com/RNC-Solutions-Group/gitleaks/tree/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c); triage work branch: `feat/issues-and-pr`. This is a review/ownership index, **not** a claim that each fix was verified, merged, or released.
+Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Historical source comparisons reference [`master@5f6ec56`](https://github.com/RNC-Solutions-Group/gitleaks/tree/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c); current RNC integrated baseline is [`rnc-mod@197a7e5`](https://github.com/RNC-Solutions-Group/gitleaks/commit/197a7e5516b0029d0b7bb2554552fc9ed54efb68). Triage branch: `feat/issues-and-pr`. Source comparisons against historical master are not evidence of a defect in current RNC.
 
 ## Routed coverage
 
 | Canonical category | Issues | PRs | Work packages |
 | --- | ---: | ---: | ---: |
-| [Security and hardening](security-hardening.md) | 4 | 3 | 7 |
+| [Security and hardening](security-hardening.md) | 4 | 2 | 6 |
 | [Scan integrity and file readers](scan-integrity.md) | 15 | 8 | 17 |
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
-| [Configuration and allowlists](configuration-allowlists.md) | 35 | 21 | 33 |
+| [Configuration and allowlists](configuration-allowlists.md) | 32 | 18 | 30 |
 | [Git and hooks](git-hooks-sources.md) | 12 | 5 | 13 |
 | [Reporting and output](reporting-output.md) | 10 | 5 | 11 |
 | [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
@@ -18,12 +18,16 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | [Integrations and releases](integrations-release.md) | 4 | 3 | 6 |
 | [Optional features](features.md) | 20 | 13 | 22 |
 | [Documentation](documentation.md) | 3 | 5 | 4 |
-| [RNC dispositions — corrected, superseded, excluded](exclusions.md) | 88 | 97 | 149 |
+| [RNC dispositions — corrected, superseded, excluded](exclusions.md) | 91 | 101 | 153 |
 | **Total assigned from open snapshot** | **285** | **252** | **388** |
 
-**Current RNC queue (2026-11-13):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **197 active issues / 155 active PRs** in the technical categories and **88 removed issues / 97 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **239 active and 149 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
+**Current RNC queue (post-CP-V11, 2026-11-13):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **194 active issues / 151 active PRs** in the technical categories and **91 removed issues / 101 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **235 active and 153 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
-The inventories and `_backlog/data/` remain the original dated snapshot. The 2026-11-13 reconciliation moved 31 actioned packages (21 issue IDs, 33 PR IDs), including three additional CP-V5/V7/V10 packages discovered in the final source audit to [dispositions](exclusions.md), with RNC build/CI proof and original contributor attribution cross-referenced in the [validation implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
+The inventories and `_backlog/data/` remain the original dated snapshot. The 2026-11-13 reconciliation moved 31 actioned packages (21 issue IDs, 33 PR IDs), including three additional CP-V5/V7/V10 packages discovered in the final source audit to [dispositions](exclusions.md), with RNC build/CI proof and original contributor attribution cross-referenced in the [validation implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/fixes-qol-tracking.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
+
+### CP-V11 implemented work retired from active queue (2026-11-13)
+
+[RNC PR #4](https://github.com/RNC-Solutions-Group/gitleaks/pull/4), merged as [`197a7e5`](https://github.com/RNC-Solutions-Group/gitleaks/commit/197a7e5516b0029d0b7bb2554552fc9ed54efb68), preserved all six original upstream contributor commits from PRs #2166, #2294, and #2346. Their three linked issue/PR packages have moved from [Configuration and allowlists](configuration-allowlists.md) into [RNC dispositions](exclusions.md). The older #637 CI-permissions proposal has also been retired from Security because `permissions: contents: read` was already present in V10. Four packages moved total: **3 issues, 4 PRs**, with no upstream issue/PR closure. Historical source comparisons, original inventories and `_backlog/data/` are unchanged. The QOL implementation ledger will be comprehensively refreshed only after V12.
 
 ### Scan-integrity second-pass reconciliation (2026-11-09)
 
