@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,6 +12,9 @@ import (
 // A report file catalogs every secret a scan found, so it must never be
 // readable by other local users, regardless of the process umask.
 func Test_openReportFile_RestrictivePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permission bits are not meaningful on Windows")
+	}
 	t.Run("new file", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "report.json")
 
