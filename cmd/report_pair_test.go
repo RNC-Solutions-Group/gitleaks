@@ -393,6 +393,141 @@ func TestInformativePairCompanionPublicationFailure(t *testing.T) {
 	requireNoTemporaryReports(t, dir)
 }
 
+func TestInformativePairOverwriteRollbackPreservesConcurrentCompanion(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	companion := filepath.Join(dir, "report-informative.json")
+	require.NoError(t, os.WriteFile(dest, []byte("OLD-PRIMARY"), 0o600))
+	require.NoError(t, os.WriteFile(companion, []byte("OLD-INFORMATIVE"), 0o600))
+
+	out := newInformativeTestOutput(t, dest, reportOverwrite, nil)
+	out.rename = func(oldPath, newPath string) error {
+		if strings.Contains(newPath, "informative") {
+			return os.Rename(oldPath, newPath)
+		}
+		// Simulate an unrelated writer replacing the newly published
+		// companion while primary publication is still in progress.
+		if err := os.Remove(companion); err != nil {
+			return err
+		}
+		if err := os.WriteFile(companion, []byte("CONCURRENT-INFORMATIVE"), 0o600); err != nil {
+			return err
+		}
+		return errors.New("primary publish failed")
+	}
+	_, err := out.write(&stringReporter{payload: "NEW-PRIMARY"}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "primary publish failed")
+	assert.Equal(t, "OLD-PRIMARY", string(mustReadFile(t, dest)))
+	assert.Equal(t, "CONCURRENT-INFORMATIVE", string(mustReadFile(t, companion)))
+
+	backups, globErr := filepath.Glob(filepath.Join(dir, ".gitleaks-companion-backup-*"))
+	require.NoError(t, globErr)
+	require.Len(t, backups, 1, "the prior companion must remain recoverable")
+	assert.Equal(t, "OLD-INFORMATIVE", string(mustReadFile(t, backups[0])))
+}
+
+func TestInformativePairOverwriteRollbackPreservesConcurrentCompanionWithoutBackup(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	companion := filepath.Join(dir, "report-informative.json")
+	require.NoError(t, os.WriteFile(dest, []byte("OLD-PRIMARY"), 0o600))
+
+	out := newInformativeTestOutput(t, dest, reportOverwrite, nil)
+	out.rename = func(oldPath, newPath string) error {
+		if strings.Contains(newPath, "informative") {
+			return os.Rename(oldPath, newPath)
+		}
+		if err := os.Remove(companion); err != nil {
+			return err
+		}
+		if err := os.WriteFile(companion, []byte("CONCURRENT-INFORMATIVE"), 0o600); err != nil {
+			return err
+		}
+		return errors.New("primary publish failed")
+	}
+	_, err := out.write(&stringReporter{payload: "NEW-PRIMARY"}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "primary publish failed")
+	assert.Equal(t, "OLD-PRIMARY", string(mustReadFile(t, dest)))
+	assert.Equal(t, "CONCURRENT-INFORMATIVE", string(mustReadFile(t, companion)))
+	backups, globErr := filepath.Glob(filepath.Join(dir, ".gitleaks-companion-backup-*"))
+	require.NoError(t, globErr)
+	assert.Empty(t, backups, "no prior companion means no backup is needed")
+}
+
+func TestInformativePairOverwriteFailedRestoreKeepsBackup(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	companion := filepath.Join(dir, "report-informative.json")
+	require.NoError(t, os.WriteFile(dest, []byte("OLD-PRIMARY"), 0o600))
+	require.NoError(t, os.WriteFile(companion, []byte("OLD-INFORMATIVE"), 0o600))
+
+	out := newInformativeTestOutput(t, dest, reportOverwrite, nil)
+	out.rename = func(oldPath, newPath string) error {
+		if strings.Contains(oldPath, ".gitleaks-companion-backup-") {
+			return errors.New("companion restore failed")
+		}
+		if strings.Contains(newPath, "informative") {
+			return os.Rename(oldPath, newPath)
+		}
+		return errors.New("primary publish failed")
+	}
+	_, err := out.write(&stringReporter{payload: "NEW-PRIMARY"}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "companion restore failed")
+	assert.Contains(t, err.Error(), "preserved backup")
+	assert.Equal(t, "OLD-PRIMARY", string(mustReadFile(t, dest)))
+	assert.NoFileExists(t, companion)
+
+	backups, globErr := filepath.Glob(filepath.Join(dir, ".gitleaks-companion-backup-*"))
+	require.NoError(t, globErr)
+	require.Len(t, backups, 1, "failed restoration must not delete the only recoverable copy")
+	assert.Equal(t, "OLD-INFORMATIVE", string(mustReadFile(t, backups[0])))
+}
+
+func TestInformativePairOverwritePrimaryFailureRestoresCompanion(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	companion := filepath.Join(dir, "report-informative.json")
+	require.NoError(t, os.WriteFile(dest, []byte("OLD-PRIMARY"), 0o600))
+	require.NoError(t, os.WriteFile(companion, []byte("OLD-INFORMATIVE"), 0o600))
+
+	out := newInformativeTestOutput(t, dest, reportOverwrite, nil)
+	out.rename = func(oldPath, newPath string) error {
+		if strings.Contains(newPath, "informative") {
+			return os.Rename(oldPath, newPath)
+		}
+		return errors.New("primary publish failed")
+	}
+	_, err := out.write(&stringReporter{payload: "NEW-PRIMARY"}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "primary publish failed")
+	assert.Equal(t, "OLD-PRIMARY", string(mustReadFile(t, dest)))
+	assert.Equal(t, "OLD-INFORMATIVE", string(mustReadFile(t, companion)))
+	requireNoTemporaryReports(t, dir)
+}
+
+func TestInformativePairOverwritePrimaryFailureRemovesNewCompanion(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	companion := filepath.Join(dir, "report-informative.json")
+	require.NoError(t, os.WriteFile(dest, []byte("OLD-PRIMARY"), 0o600))
+
+	out := newInformativeTestOutput(t, dest, reportOverwrite, nil)
+	out.rename = func(oldPath, newPath string) error {
+		if strings.Contains(newPath, "informative") {
+			return os.Rename(oldPath, newPath)
+		}
+		return errors.New("primary publish failed")
+	}
+	_, err := out.write(&stringReporter{payload: "NEW-PRIMARY"}, nil)
+	require.Error(t, err)
+	assert.Equal(t, "OLD-PRIMARY", string(mustReadFile(t, dest)))
+	assert.NoFileExists(t, companion)
+	requireNoTemporaryReports(t, dir)
+}
+
 func TestInformativePairPrimaryPublicationFailureRollsBackNewCompanion(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "report.json")

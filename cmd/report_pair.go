@@ -146,21 +146,96 @@ func (o *reportOutput) writePaired(reporter report.Reporter, findings []report.F
 		return "", err
 	}
 
+	// In overwrite mode an existing companion is preserved before it is
+	// replaced. If the primary rename then fails, the old companion can be
+	// restored so it is not presented as belonging to the still-old primary.
+	// This is not crash-atomic; it closes the handled-failure window.
+	companionBackup, hadCompanion, err := backupCompanion(allocation.companion, o.mode == reportOverwrite)
+	if err != nil {
+		return "", err
+	}
+	keepBackup := false
+	defer func() {
+		if companionBackup != "" && !keepBackup {
+			_ = os.Remove(companionBackup)
+		}
+	}()
+
 	// Publish the companion first so a primary publication failure leaves the
 	// primary output untouched. The reverse order would risk losing the primary
 	// report on a late companion failure.
 	if err := o.rename(informativeTemp, allocation.companion); err != nil {
 		return "", fmt.Errorf("could not publish informative report %q: %w", allocation.companion, err)
 	}
+	companionPublished, _ := os.Stat(allocation.companion)
 	if err := o.rename(primaryTemp, allocation.primary); err != nil {
-		// Aggregate and reject destinations were reserved by this process and
-		// did not previously exist, so the new companion can be removed safely.
-		// The post-rename identity is used because Windows may create a new file
-		// identity when replacing the empty reservation.
-		if allocation.companionReserved != nil {
-			if companionInfo, statErr := os.Stat(allocation.companion); statErr == nil {
-				removeIfSame(allocation.companion, companionInfo)
+		// Capture the identity of the newly published companion after the
+		// rename. Windows may replace the reservation's identity, so a current
+		// stat is used rather than the pre-publication reservation.
+		if hadCompanion {
+			current, statErr := os.Lstat(allocation.companion)
+			switch {
+			case errors.Is(statErr, fs.ErrNotExist):
+				if restoreErr := o.rename(companionBackup, allocation.companion); restoreErr != nil {
+					keepBackup = true
+					return "", fmt.Errorf(
+						"could not publish report %q after publishing informative report %q: %w (companion restore failed: %v; preserved backup at %q)",
+						allocation.primary,
+						allocation.companion,
+						err,
+						restoreErr,
+						companionBackup,
+					)
+				}
+			case statErr != nil:
+				keepBackup = true
+				return "", fmt.Errorf(
+					"could not publish report %q after publishing informative report %q: %w (could not inspect companion for rollback: %v; preserved backup at %q)",
+					allocation.primary,
+					allocation.companion,
+					err,
+					statErr,
+					companionBackup,
+				)
+			case sameReportSnapshot(current, companionPublished):
+				if removeErr := os.Remove(allocation.companion); removeErr != nil {
+					keepBackup = true
+					return "", fmt.Errorf(
+						"could not publish report %q after publishing informative report %q: %w (could not remove the newly published companion: %v; preserved backup at %q)",
+						allocation.primary,
+						allocation.companion,
+						err,
+						removeErr,
+						companionBackup,
+					)
+				}
+				if restoreErr := o.rename(companionBackup, allocation.companion); restoreErr != nil {
+					keepBackup = true
+					return "", fmt.Errorf(
+						"could not publish report %q after publishing informative report %q: %w (companion restore failed: %v; preserved backup at %q)",
+						allocation.primary,
+						allocation.companion,
+						err,
+						restoreErr,
+						companionBackup,
+					)
+				}
+			default:
+				// A concurrent writer replaced our companion after publication.
+				// Never overwrite or delete that output; retain the prior
+				// companion for operator recovery instead of the deferred cleanup.
+				keepBackup = true
+				return "", fmt.Errorf(
+					"could not publish report %q after publishing informative report %q: %w (companion was replaced concurrently; concurrent output preserved at %q; prior companion preserved at %q)",
+					allocation.primary,
+					allocation.companion,
+					err,
+					allocation.companion,
+					companionBackup,
+				)
 			}
+		} else {
+			removeIfSnapshot(allocation.companion, companionPublished)
 		}
 		return "", fmt.Errorf(
 			"could not publish report %q after publishing informative report %q: %w",
@@ -245,6 +320,79 @@ func removeIfSame(path string, expected os.FileInfo) {
 	if err == nil && os.SameFile(current, expected) {
 		_ = os.Remove(path)
 	}
+}
+
+func removeIfSnapshot(path string, expected os.FileInfo) {
+	if expected == nil {
+		return
+	}
+	current, err := os.Lstat(path)
+	if err == nil && sameReportSnapshot(current, expected) {
+		_ = os.Remove(path)
+	}
+}
+
+func sameReportSnapshot(current, expected os.FileInfo) bool {
+	if current == nil || expected == nil || !os.SameFile(current, expected) {
+		return false
+	}
+	return current.Size() == expected.Size() && current.ModTime().Equal(expected.ModTime())
+}
+
+// backupCompanion preserves an existing overwrite-mode companion before
+// publication. A same-directory hardlink is preferred; a copy is the portable
+// fallback for filesystems without hardlink support.
+func backupCompanion(path string, enabled bool) (string, bool, error) {
+	if !enabled {
+		return "", false, nil
+	}
+	info, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("could not inspect existing informative report %q: %w", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", false, fmt.Errorf("existing informative report %q is not a regular file", path)
+	}
+
+	backup, err := os.CreateTemp(filepath.Dir(path), ".gitleaks-companion-backup-*")
+	if err != nil {
+		return "", false, fmt.Errorf("could not reserve informative report backup: %w", err)
+	}
+	backupPath := backup.Name()
+	if closeErr := backup.Close(); closeErr != nil {
+		_ = os.Remove(backupPath)
+		return "", false, fmt.Errorf("could not close informative report backup: %w", closeErr)
+	}
+	_ = os.Remove(backupPath)
+
+	if linkErr := os.Link(path, backupPath); linkErr != nil {
+		if copyErr := copyFile(path, backupPath, info.Mode().Perm()); copyErr != nil {
+			_ = os.Remove(backupPath)
+			return "", false, fmt.Errorf("could not back up informative report %q: %w", path, copyErr)
+		}
+	}
+	return backupPath, true, nil
+}
+
+func copyFile(source, destination string, mode os.FileMode) error {
+	in, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, in)
+	closeErr := out.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
 }
 
 // allocatePair selects the logical pair. Overwrite uses the requested names.

@@ -19,18 +19,24 @@ func TestPreCommitHookManifest(t *testing.T) {
 	// Avoid adding a YAML dependency for a small, fixed manifest. Split on the
 	// list entries and verify the fields that determine filename forwarding.
 	parts := strings.Split(string(content), "- id: ")
-	require.GreaterOrEqual(t, len(parts), 4, "expected three hook definitions")
+	require.GreaterOrEqual(t, len(parts), 6, "expected five hook definitions")
 	hooks := make(map[string]string)
 	for _, part := range parts[1:] {
 		id, body, _ := strings.Cut(part, "\n")
 		hooks[strings.TrimSpace(id)] = body
 	}
 
-	assert.Len(t, hooks, 3)
+	assert.Len(t, hooks, 5)
 	for _, id := range []string{"gitleaks", "gitleaks-docker", "gitleaks-system"} {
 		body, ok := hooks[id]
 		require.True(t, ok, "missing hook %q", id)
 		assert.Contains(t, body, "pass_filenames: false", "hook %q must not receive filenames", id)
+	}
+	for _, id := range []string{"gitleaks-files", "gitleaks-files-system"} {
+		body, ok := hooks[id]
+		require.True(t, ok, "missing hook %q", id)
+		assert.Contains(t, body, "pass_filenames: true", "hook %q must receive filenames", id)
+		assert.Contains(t, body, "entry: gitleaks files --redact --verbose")
 	}
 	assert.Contains(t, hooks["gitleaks"], "entry: gitleaks git --pre-commit --redact --staged --verbose")
 	assert.Contains(t, hooks["gitleaks-docker"], "entry: zricethezav/gitleaks git --pre-commit --redact --staged --verbose")

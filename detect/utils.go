@@ -196,25 +196,30 @@ func filter(findings []report.Finding, redact uint) []report.Finding {
 		return retFindings
 	}
 
-	// A finding's Line contains the whole source line. Redact every secret that
-	// was identified on that line, not just the selected finding's Secret, so
-	// verbose output cannot reveal an adjacent credential.
-	secretsByLine := make(map[string][]string)
+	// A finding's Line can contain other reported credentials on a different
+	// line range of the same file/commit (for example a multiline match and a
+	// same-line match). Group known exposures by source identity rather than by
+	// exact line range so a selected finding cannot render a neighboring
+	// credential. Empty-capture findings contribute their Match when it is not
+	// a filename-only marker; otherwise their surrounding context would remain
+	// unredacted.
+	secretsBySource := make(map[string][]string)
 	for _, f := range findings {
-		if f.Secret == "" {
-			continue
+		key := findingSourceKey(f)
+		if f.Secret != "" {
+			secretsBySource[key] = append(secretsBySource[key], f.Secret)
+		} else if f.Match != "" && !strings.HasPrefix(f.Match, "file detected:") {
+			secretsBySource[key] = append(secretsBySource[key], f.Match)
 		}
-		key := findingLineKey(f)
-		secretsByLine[key] = append(secretsByLine[key], f.Secret)
 	}
 	for i := range retFindings {
-		retFindings[i].RedactWith(redact, secretsByLine[findingLineKey(retFindings[i])])
+		retFindings[i].RedactWith(redact, secretsBySource[findingSourceKey(retFindings[i])])
 	}
 	return retFindings
 }
 
-func findingLineKey(f report.Finding) string {
-	return fmt.Sprintf("%s\x00%s\x00%d\x00%d", f.File, f.Commit, f.StartLine, f.EndLine)
+func findingSourceKey(f report.Finding) string {
+	return f.File + "\x00" + f.Commit
 }
 
 func printFinding(f report.Finding, noColor bool) {

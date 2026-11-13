@@ -14,6 +14,31 @@ import (
 // configuration and can replace the default rule set. CP-V6 does not change
 // that policy; untrusted callers must supply an explicit or environment
 // configuration. The explicit and environment sources still take precedence.
+func TestCLINoLocalConfigUsesDefaultRules(t *testing.T) {
+	source := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(source, "secret.txt"), []byte("AKIAQ7Z3R5T7Y2U2I4O6\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(source, ".gitleaks.toml"), []byte("title = \"untrusted local policy without rules\"\n"), 0o600))
+
+	run := func(extra ...string) reportCLIResult {
+		reportPath := filepath.Join(t.TempDir(), "report.json")
+		args := []string{"dir", source, "--no-banner", "--log-level", "error", "--report-format", "json", "--report-path", reportPath}
+		args = append(args, extra...)
+		result := runReportCLI(t, args...)
+		if _, err := os.Stat(reportPath); err == nil {
+			result.stdout = string(mustReadFile(t, reportPath))
+		}
+		return result
+	}
+
+	without := run()
+	require.Equal(t, 0, without.exitCode, without.stderr)
+	assert.JSONEq(t, "[]", without.stdout)
+
+	with := run("--no-local-config")
+	require.Equal(t, 1, with.exitCode, with.stderr)
+	assert.Contains(t, with.stdout, "AKIAQ7Z3R5T7Y2U2I4O6")
+}
+
 func TestCLIConfigurationPrecedenceIsPreserved(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping subprocess tests in short mode")

@@ -679,9 +679,9 @@ func (d *Detector) detectRuleWithPaths(fragment Fragment, currentRaw string, r c
 
 	// use currentRaw instead of fragment.Raw since this represents the current
 	// decoding pass on the text
-	for _, matchIndex := range r.Regex.FindAllStringIndex(currentRaw, -1) {
+	for _, matchIndex := range matches {
 		// Extract secret from match
-		secret := strings.Trim(currentRaw[matchIndex[0]:matchIndex[1]], "\n")
+		secret := strings.Trim(currentRaw[matchIndex[0]:matchIndex[1]], "\r\n")
 
 		// For any meta data from decoding
 		var metaTags []string
@@ -716,19 +716,21 @@ func (d *Detector) detectRuleWithPaths(fragment Fragment, currentRaw string, r c
 		}
 
 		finding := report.Finding{
-			Commit:      fragment.CommitSHA,
-			RuleID:      r.RuleID,
-			Description: r.Description,
-			StartLine:   fragment.StartLine + loc.startLine,
-			EndLine:     fragment.StartLine + loc.endLine,
-			StartColumn: loc.startColumn,
-			EndColumn:   loc.endColumn,
-			Line:        fragment.Raw[loc.startLineIndex:loc.endLineIndex],
-			Match:       secret,
-			Secret:      secret,
-			File:        fragment.FilePath,
-			SymlinkFile: fragment.SymlinkFile,
-			Tags:        append(r.Tags, metaTags...),
+			Commit:               fragment.CommitSHA,
+			RuleID:               r.RuleID,
+			Description:          r.Description,
+			StartLine:            fragment.StartLine + loc.startLine,
+			EndLine:              fragment.StartLine + loc.endLine,
+			StartColumn:          loc.startColumn,
+			EndColumn:            loc.endColumn,
+			StartColumnCodepoint: loc.startColumnCodepoint,
+			EndColumnCodepoint:   loc.endColumnCodepoint,
+			Line:                 fragment.Raw[loc.startLineIndex:loc.endLineIndex],
+			Match:                secret,
+			Secret:               secret,
+			File:                 fragment.FilePath,
+			SymlinkFile:          fragment.SymlinkFile,
+			Tags:                 append(r.Tags, metaTags...),
 		}
 		if fragment.CommitInfo != nil {
 			finding.Author = fragment.CommitInfo.AuthorName
@@ -767,6 +769,13 @@ func (d *Detector) detectRuleWithPaths(fragment Fragment, currentRaw string, r c
 				}
 			}
 		}
+
+		// Canonicalize line endings before entropy and reporting. The detector
+		// uses a trimmed byte span; a CRLF checkout must produce the same
+		// Match/Secret/entropy as an LF checkout even though Finding.Line
+		// retains its source bytes.
+		finding.Match = normalizeBaselineLineEndings(finding.Match)
+		finding.Secret = normalizeBaselineLineEndings(finding.Secret)
 
 		// check entropy
 		entropy := shannonEntropy(finding.Secret)

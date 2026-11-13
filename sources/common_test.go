@@ -50,9 +50,9 @@ func Test_readUntilSafeBoundary(t *testing.T) {
 		},
 		// Current split is bad, exhaust options.
 		{
-			name:     "no safe split",
+			name:     "no safe split finishes the line",
 			r:        strings.NewReader("abcdefg\nhijklmnopqrstuvwxyz"),
-			expected: "abcdefg\nhijklmnopqrstuvwx",
+			expected: "abcdefg\nhijklmnopqrstuvwxyz",
 		},
 	}
 

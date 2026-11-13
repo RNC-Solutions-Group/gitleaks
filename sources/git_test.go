@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -272,6 +273,37 @@ func TestGitFragmentsSanitizesStderrSecrets(t *testing.T) {
 	assert.NotContains(t, err.Error(), "QUERYVALUE")
 	assert.Contains(t, err.Error(), "https://REDACTED@example.com")
 	assert.Contains(t, err.Error(), "token=REDACTED")
+}
+
+func TestForceGitOutputFlags(t *testing.T) {
+	args := forceGitOutputFlags([]string{"-C", "repo", "log", "--", "file.txt"})
+	for _, flag := range []string{"--no-color", "--no-ext-diff", "--no-textconv", "--date=default", "--pretty=medium"} {
+		assert.Contains(t, args, flag)
+	}
+	separator := -1
+	for i, arg := range args {
+		if arg == "--" {
+			separator = i
+			break
+		}
+	}
+	require.NotEqual(t, -1, separator)
+	for _, flag := range []string{"--no-color", "--no-ext-diff", "--no-textconv", "--date=default", "--pretty=medium"} {
+		assert.Less(t, slices.Index(args, flag), separator, "safety flag %s must precede the pathspec separator", flag)
+	}
+}
+
+func TestValidateGitLogOptsRejectsSilentCleanFormats(t *testing.T) {
+	for _, option := range []string{
+		"--name-only", "--name-status", "--raw", "--numstat", "--shortstat",
+		"--no-patch", "-s", "--remerge-diff", "--diff-merges=cc",
+		"--diff-merges=combined", "--diff-merges=dense-combined", "--cc", "-c",
+	} {
+		assert.Error(t, validateGitLogOpts(option), "option %s must be rejected", option)
+	}
+	for _, option := range []string{"", "--all", "--full-history", "--diff-merges=first-parent", "--no-diff-merges"} {
+		assert.NoError(t, validateGitLogOpts(option), "option %s should remain supported", option)
+	}
 }
 
 func TestIsCommitAllowed(t *testing.T) {

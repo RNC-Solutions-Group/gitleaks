@@ -91,14 +91,17 @@ class PreCommitHookIntegrationTest(unittest.TestCase):
         git(self.repo, "reset", "-q", "--hard", "HEAD")
         git(self.repo, "clean", "-q", "-fdx")
 
-    def try_repo(self, *args):
+    def try_repo_hook(self, hook_id, *args):
         return run(
             self.pre_commit
-            + ["try-repo", str(self.hook_repo), HOOK_ID]
+            + ["try-repo", str(self.hook_repo), hook_id]
             + list(args),
             cwd=self.repo,
             env=self.env,
         )
+
+    def try_repo(self, *args):
+        return self.try_repo_hook(HOOK_ID, *args)
 
     def assert_clean(self, result):
         self.assertEqual(0, result.returncode, result.stdout)
@@ -153,6 +156,26 @@ class PreCommitHookIntegrationTest(unittest.TestCase):
             "config" in result.stdout.lower() or "regex" in result.stdout.lower(),
             result.stdout,
         )
+
+    def test_explicit_files_hook(self):
+        self.write_and_stage(
+            "explicit-secret.txt",
+            "-----BEGIN OPENSSH PRIVATE KEY-----\n"
+            + ("B" * 80)
+            + "\n-----END OPENSSH PRIVATE KEY-----\n",
+        )
+        result = self.try_repo_hook(
+            "gitleaks-files-system", "--files", "explicit-secret.txt"
+        )
+        self.assertNotEqual(0, result.returncode, result.stdout)
+        self.assertIn("leaks found", result.stdout.lower())
+
+        # --all-files must scan tracked content through the explicit files
+        # command rather than silently falling back to the staged-index rule.
+        git(self.repo, "commit", "-q", "-m", "explicit synthetic secret")
+        result = self.try_repo_hook("gitleaks-files-system", "--all-files")
+        self.assertNotEqual(0, result.returncode, result.stdout)
+        self.assertIn("leaks found", result.stdout.lower())
 
 
 if __name__ == "__main__":

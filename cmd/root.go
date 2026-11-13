@@ -73,6 +73,7 @@ const (
 func init() {
 	cobra.OnInitialize(initLog)
 	rootCmd.PersistentFlags().StringP("config", "c", "", configDescription)
+	rootCmd.PersistentFlags().Bool("no-local-config", false, "ignore an automatically discovered (source)/.gitleaks.toml; explicit --config and environment configuration still apply")
 	rootCmd.PersistentFlags().Int("exit-code", 1, "exit code when leaks have been encountered")
 	rootCmd.PersistentFlags().StringP("report-path", "r", "", "report file (use \"-\" for stdout)")
 	rootCmd.PersistentFlags().StringP("report-format", "f", "", "output format (json, csv, junit, sarif, template)")
@@ -148,6 +149,10 @@ func initConfig(source string) {
 	if err != nil {
 		logging.Fatal().Msg(err.Error())
 	}
+	noLocalConfig, flagErr := rootCmd.Flags().GetBool("no-local-config")
+	if flagErr != nil {
+		logging.Fatal().Msg(flagErr.Error())
+	}
 	if cfgPath != "" {
 		viper.SetConfigFile(cfgPath)
 		logging.Debug().Msgf("using gitleaks config %s from `--config`", cfgPath)
@@ -161,6 +166,12 @@ func initConfig(source string) {
 			logging.Fatal().Err(err).Msg("unable to load gitleaks config from GITLEAKS_CONFIG_TOML env var")
 		}
 		logging.Debug().Msg("using gitleaks config from GITLEAKS_CONFIG_TOML env var content")
+		return
+	} else if noLocalConfig {
+		logging.Debug().Msg("ignoring automatically discovered source-local .gitleaks.toml due to --no-local-config")
+		if err = viper.ReadConfig(strings.NewReader(config.DefaultConfig)); err != nil {
+			logging.Fatal().Msgf("err reading default config toml %s", err.Error())
+		}
 		return
 	} else {
 		fileInfo, err := os.Stat(source)

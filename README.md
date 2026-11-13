@@ -11,20 +11,19 @@
 > [!WARNING]
 > Gitleaks is feature complete. I'm not merging new features into Gitleaks. Future releases will be security patches only. I'm shifting my focus to [Betterleaks](https://github.com/betterleaks/betterleaks)
 
-## RNC validation fork — engineering status (2026-11-13)
+## RNC-Mod — engineering status (2026-11-13)
 
-This is the RNC scanner's **`fix/validation` development line**, not an upstream release. The last source-code checkpoint is [CP-V10 `bd42a95`](https://github.com/RNC-Solutions-Group/gitleaks/commit/bd42a958f7476e9a6d8e17bd2dbb2abe3ff060ea), with [12/12 CI checks passing](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43321594496). Technical verification does not substitute for final operator acceptance and the independent RNC scanner harness's oracle/compatibility tests.
+This is the **RNC-Mod V12 integration candidate**, not an upstream release. The candidate is delivered through [PR #5](https://github.com/RNC-Solutions-Group/gitleaks/pull/5) targeting `rnc-mod`; the V12 implementation corrects Git/parser integrity, report publication, redaction, CSV/SARIF output, CRLF baselines, long-line handling, and pre-commit file selection. The complete operational and engineering record is [RNC-MOD.md](RNC-MOD.md).
 
-- Normal `make build`, `make test`, `make test-race`, `make verify` and `make version` no longer intentionally mutate tracked source/config/module files or fetch remote tags; `make format`, `make tidy`, `make generate` and `make clean` are explicit maintenance operations. See [CONTRIBUTING.md](CONTRIBUTING.md) for version resolution and platform-specific checks.
-- Both standard and full `gore2regex` repository builds/tests are supported after CP-V10's generator fixes, with the independently resolved `go-re2 v1.13.0` dependency. This does **not** close the release RE2 address-space constraints under sandbox or memory limits.
-- Default `docker build` and runtime remain the historic **root-based** image. `docker build --target runtime-nonroot` is an additional tested **opt-in** target with UID/GID 10001:10001; its source/report mount permissions must be granted appropriately.
-- CP-V8 corrected scan-root-relative ignore/allowlist/baseline matching without rewriting reported paths/fingerprints; CP-V9 corrected system-hook filename forwarding, mitigated transient Windows report rename errors and added informative-only UTC `scan.generated_at`.
-- Open exceptions include merge-only Git default coverage, chunk boundaries, commit/line/boolean allowlist defects, diagnostic redaction residuals, non-atomic paired reports and a parent-rename orphan-temp cleanup limitation. The upstream Gitleaks Action scanner workflow is **not** part of RNC's desired test pipeline.
+- The V12 report-publication correction preserves concurrent companion output and retains a backup when rollback cannot safely restore the prior companion. Crash atomicity across two files is not claimed.
+- Local validation passes the standard and RE2 suites, vet, module verification, generator cleanliness, real pre-commit integration, and a non-root Linux race run. GitHub Actions runs only for PRs to `rnc-mod` and pushes to `rnc-mod`; results for the final correction head are recorded on PR #5.
+- Default `docker build` remains the historic **root-based** image. `docker build --target runtime-nonroot` is the tested opt-in UID/GID 10001 target; its source/report mount permissions must be granted appropriately.
+- RE2 constrained-runtime address-space limits, merge-only default coverage, source-local configuration trust, recursive-decoding resources, and the independent scanner-harness gate remain explicit limitations in [RNC-MOD.md](RNC-MOD.md#28-remaining-engineering-limitations).
+- The existing upstream Gitleaks Action scanner workflow is **not** part of RNC's test pipeline.
 
-**Dependency attribution:** Historical version proposals that match the independently resolved RNC module graph have profile-only appreciation in the [engineering ledger](fixes-qol-tracking.md); newer pins and different implementations supersede other proposals without contributor tags. No upstream dependency PRs were merged or cherry-picked. The RE2 constrained-runtime release issue and Go minimum/toolchain policy remain active.
+**Dependency attribution:** Historical version proposals that match the independently resolved RNC module graph receive profile-only recognition in [RNC-MOD.md](RNC-MOD.md). Newer pins and different implementations supersede other proposals without contributor tags. No upstream dependency PR was merged or cherry-picked. The RE2 constrained-runtime release issue and Go minimum/toolchain policy remain active.
 
-**Status and provenance:** [fixes/QOL implementation ledger](fixes-qol-tracking.md) · [active backlog categories](https://github.com/RNC-Solutions-Group/gitleaks/tree/feat/issues-and-pr/_backlog/categories) · [corrected, superseded and declined upstream dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). Original upstream snapshot: **285 issues / 252 PRs / 388 package slots**; RNC active: **197 issues / 155 PRs / 239 slots**; dispositioned: **88 issues / 97 PRs / 149 slots**.
-
+**Status and provenance:** [RNC-Mod engineering reference](RNC-MOD.md) · [historical assessment archive](_assessment/) · [active backlog categories](https://github.com/RNC-Solutions-Group/gitleaks/tree/feat/issues-and-pr/_backlog/categories) · [corrected, superseded and declined upstream dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). The canonical contributor register is Section 3 of `RNC-MOD.md`.
 
 [license]: ./LICENSE
 [badge-license]: https://img.shields.io/github/license/gitleaks/gitleaks.svg
@@ -144,7 +143,9 @@ The non-root image cannot read a `0700` repository owned by a different host UID
 
    for a [native execution of gitleaks](https://github.com/gitleaks/gitleaks/releases) or use the [`gitleaks-docker` pre-commit ID](https://github.com/gitleaks/gitleaks/blob/master/.pre-commit-hooks.yaml) for executing gitleaks using the [official Docker images](#installing). If `gitleaks` is already installed on your `PATH` and you want pre-commit to use that executable directly, select the `gitleaks-system` hook instead.
 
-   All three hook IDs scan the staged Git index with `--staged`; they are not directory scans. `pass_filenames` is disabled because pre-commit's selected filenames must not be forwarded as Git target arguments. As a consequence, `pre-commit run --all-files` still scans only the staged changes for this hook, not every tracked file. Use an explicit `gitleaks git` or `gitleaks dir` command when an all-files or history scan is intended.
+   The `gitleaks`, `gitleaks-docker`, and `gitleaks-system` hooks scan the staged Git index with `--staged`; they are not directory scans. `pass_filenames` is disabled because pre-commit's selected filenames must not be forwarded as Git target arguments. As a consequence, `pre-commit run --all-files` still scans only the staged changes for these hooks, not every tracked file.
+
+   Use `gitleaks-files` (or `gitleaks-files-system` when Gitleaks is already on `PATH`) for explicit-file behavior. Those hooks forward `pre-commit --files` and `--all-files` names to `gitleaks files`, which scans exactly the named files and rejects directory arguments. This is the safe way to honor pre-commit's file selection without turning the hook into a whole-repository scan.
 
 3. Auto-update the config to the latest repos' versions by executing `pre-commit autoupdate`
 4. Install with `pre-commit install`
@@ -232,10 +233,14 @@ If there is no target specified as a positional argument, then gitleaks will att
 
 A `git log -p` scan, including one restricted with `--log-opts`, examines the lines **added** by each commit in range. It does not scan a file's pre-existing unchanged content. If a credential was committed before the scanned range and a later in-range commit changes only another line of that file, the credential is not found. This matters for commit-range enforcement such as a pre-receive hook scanning `oldrev..newrev`; pair such scans with a periodic full-history scan when complete repository coverage is required.
 
+By default, `git log -p` does not emit a patch for merge commits, so changes introduced only by a merge resolution are not scanned. The scanner keeps that established default to avoid changing fingerprints, duplicate findings and baseline behavior. For complete merge attribution, pass an explicit opt-in such as `--log-opts="--diff-merges=first-parent"`; this may report the same introduced content both from the contributing commit and from the merge. Combined (`--diff-merges=cc`), remerge and patch-suppressing log formats are rejected rather than being reported as a clean scan.
+
 #### Dir
 
-The `dir` (aliases include `files`, `directory`) command lets you scan directories and files. Example: `gitleaks dir -v path_to_directory_or_file`.
+The `dir` (aliases `file` and `directory`) command lets you scan one directory or file. Example: `gitleaks dir -v path_to_directory_or_file`.
 If there is no target specified as a positional argument, then gitleaks will scan the current working directory.
+
+The separate `files` command scans one or more explicitly named files without walking their parent directories: `gitleaks files path/one.txt path/two.txt`. It rejects directory arguments and does not recurse. The `gitleaks-files` pre-commit hooks use this command when pre-commit forwards `--files` or `--all-files`.
 
 Directory scans report each file using the spelling of the supplied root, but path-based matching also evaluates the path relative to that root. An allowlist path such as `^src/vendor/`, a `.gitleaksignore` fingerprint generated by `gitleaks dir .`, and a saved baseline therefore apply consistently when the same tree is scanned as `gitleaks dir .`, `gitleaks dir repo`, or `gitleaks dir /absolute/path/to/repo`. The reported `File` and `Fingerprint` values are unchanged; Git scans and single-file targets keep their existing path semantics.
 
@@ -276,6 +281,8 @@ You can run Gitleaks as a pre-commit hook by copying the example `pre-commit.py`
 your `.git/hooks/` directory.
 
 ## Load Configuration
+
+For scans of untrusted repositories, pass `--no-local-config` to ignore an automatically discovered `(target)/.gitleaks.toml`. Explicit `--config` and environment configuration still take precedence. The default remains compatible with repositories that intentionally ship a local rule/allowlist policy.
 
 The order of precedence is:
 
