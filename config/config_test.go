@@ -946,3 +946,30 @@ func TestTranslateDoesNotRetainExtensionDepth(t *testing.T) {
 	require.Contains(t, second.Rules, "aws-secret-key-again")
 	assert.Equal(t, first.Rules["aws-secret-key-again"].RuleID, second.Rules["aws-secret-key-again"].RuleID)
 }
+
+func TestDefaultConfigPlaceholderAllowlistIsAnchored(t *testing.T) {
+	t.Cleanup(viper.Reset)
+	viper.Reset()
+	viper.SetConfigType("toml")
+	require.NoError(t, viper.ReadConfig(strings.NewReader(DefaultConfig)))
+
+	var vc ViperConfig
+	require.NoError(t, viper.Unmarshal(&vc))
+	cfg, err := vc.Translate()
+	require.NoError(t, err)
+
+	matchedPlaceholder := false
+	for _, allowlist := range cfg.Allowlists {
+		if allowlist.RegexAllowed("true") {
+			matchedPlaceholder = true
+		}
+	}
+	require.True(t, matchedPlaceholder, "default config must allowlist exact placeholder values")
+
+	for _, value := range []string{"trueSuffix", "prefixfalseSuffix", "prefixnull", "false_key", "not_null"} {
+		for _, allowlist := range cfg.Allowlists {
+			assert.Falsef(t, allowlist.RegexAllowed(value),
+				"default config must not suppress values merely containing a placeholder: %q", value)
+		}
+	}
+}
