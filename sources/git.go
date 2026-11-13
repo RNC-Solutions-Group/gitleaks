@@ -20,10 +20,42 @@ import (
 
 	"github.com/zricethezav/gitleaks/v8/cmd/scm"
 	"github.com/zricethezav/gitleaks/v8/config"
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
+	"github.com/zricethezav/gitleaks/v8/internal/scanerr"
 	"github.com/zricethezav/gitleaks/v8/logging"
 )
 
 var quotedOptPattern = regexp.MustCompile(`^(?:"[^"]+"|'[^']+')$`)
+
+// forceNoColor makes --no-color the effective color setting without treating
+// the option as a pathspec. A later --no-color wins over user-provided
+// --color/--color=... options; when the user supplied a "--" separator, it is
+// inserted immediately before the separator rather than after it.
+func forceNoColor(args []string) []string {
+	separator := len(args)
+	for i, arg := range args {
+		if arg == "--" {
+			separator = i
+			break
+		}
+	}
+
+	for _, arg := range args[:separator] {
+		if arg == "--color" || strings.HasPrefix(arg, "--color=") {
+			logging.Warn().Msg("overriding user-supplied --color option; machine-readable diff parsing requires --no-color")
+			break
+		}
+	}
+
+	if separator < len(args) {
+		out := make([]string, 0, len(args)+1)
+		out = append(out, args[:separator]...)
+		out = append(out, "--no-color")
+		out = append(out, args[separator:]...)
+		return out
+	}
+	return append(args, "--no-color")
+}
 
 // GitCmd helps to work with Git's output.
 type GitCmd struct {
@@ -32,14 +64,152 @@ type GitCmd struct {
 	diffFilesCh <-chan *gitdiff.File
 	errCh       <-chan error
 	repoPath    string
-
-	// staged is true when the command was created with NewGitDiffCmd(..., true).
-	// Staged diffs omit PatchHeader, so git's "binary" marker is the only signal
-	// we get; we then read the index blob instead of skipping the file.
+	stderr      *gitStderr
+	tracker     *gitOutputTracker
+	// staged is true for `git diff --staged`; binary-marked text must then be
+	// read from the index rather than skipped or read from the worktree.
 	staged bool
 
 	drainOnce sync.Once
 	unparsed  int64
+	waitOnce  sync.Once
+	waitErr   error
+}
+
+// gitOutputTracker counts complete "diff --git " section headers in the raw
+// output. The diff parser silently stops on some malformed or truncated input,
+// so comparing raw section count with parsed file count is the only way to
+// notice that the tail of the stream was never scanned.
+type gitOutputTracker struct {
+	mu        sync.Mutex
+	prefix    [16]byte
+	prefixLen int
+	sections  int64
+}
+
+func (t *gitOutputTracker) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for _, b := range p {
+		if b == '\n' {
+			t.countLine()
+			continue
+		}
+		if t.prefixLen < len(t.prefix) {
+			t.prefix[t.prefixLen] = b
+			t.prefixLen++
+		}
+	}
+	return len(p), nil
+}
+
+func (t *gitOutputTracker) finish() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.countLine()
+}
+
+func (t *gitOutputTracker) countLine() {
+	if t.prefixLen >= len("diff --git ") &&
+		string(t.prefix[:len("diff --git ")]) == "diff --git " {
+		t.sections++
+	}
+	t.prefixLen = 0
+}
+
+func (t *gitOutputTracker) sectionCount() int64 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.sections
+}
+
+const maxGitStderrLines = 20
+
+var (
+	gitURLUserinfoPattern = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^/@\s]+@`)
+	gitSensitiveQuery     = regexp.MustCompile(`(?i)([?&](?:access_token|token|password|passwd|secret|api[_-]?key|apikey|auth|key)=)[^&\s'":,)\]]+`)
+	gitCredentialToken    = regexp.MustCompile(`[A-Za-z0-9_+/=-]{16,}`)
+)
+
+// sanitizeGitDiagnostic keeps Git's diagnostic shape while removing URL
+// userinfo, sensitive query values, and token-shaped runs. Git stderr is not a
+// credential channel, but remotes and authentication helpers can place secrets
+// there; raw stderr must not become an additional disclosure surface.
+func sanitizeGitDiagnostic(line string) string {
+	line = gitURLUserinfoPattern.ReplaceAllString(line, "${1}REDACTED@")
+	line = gitSensitiveQuery.ReplaceAllString(line, "${1}REDACTED")
+	line = gitCredentialToken.ReplaceAllString(line, "REDACTED")
+	return line
+}
+
+// gitStderr records bounded stderr output and whether it contained an explicit
+// Git error. Nonempty stderr alone is not a failure: Git emits warnings and
+// progress messages there during successful commands.
+type gitStderr struct {
+	mu      sync.Mutex
+	lines   []string
+	total   int
+	fatal   bool
+	readErr error
+}
+
+func (g *gitStderr) add(line string, fatal bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.total++
+	if len(g.lines) < maxGitStderrLines {
+		g.lines = append(g.lines, sanitizeGitDiagnostic(line))
+	}
+	if fatal {
+		g.fatal = true
+	}
+}
+
+func (g *gitStderr) setReadErr(err error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.readErr = err
+	g.fatal = true
+}
+
+func (g *gitStderr) summary() string {
+	if g == nil {
+		return ""
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	parts := append([]string(nil), g.lines...)
+	if g.total > len(g.lines) {
+		parts = append(parts, fmt.Sprintf("%d additional stderr line(s) omitted", g.total-len(g.lines)))
+	}
+	if g.readErr != nil {
+		parts = append(parts, fmt.Sprintf("could not read stderr: %v", g.readErr))
+	}
+	return strings.Join(parts, "; ")
+}
+
+func (g *gitStderr) err() error {
+	if g == nil {
+		return nil
+	}
+	g.mu.Lock()
+	fatal := g.fatal
+	readErr := g.readErr
+	g.mu.Unlock()
+	if !fatal && readErr == nil {
+		return nil
+	}
+	if summary := g.summary(); summary != "" {
+		return fmt.Errorf("git reported an error on stderr: %s", summary)
+	}
+	return errors.New("git reported an error on stderr")
+}
+
+func isFatalGitStderr(line string) bool {
+	lower := strings.ToLower(strings.TrimSpace(line))
+	return strings.HasPrefix(lower, "fatal:") ||
+		strings.HasPrefix(lower, "error:") ||
+		strings.HasPrefix(lower, "panic:")
 }
 
 // blobReader provides a ReadCloser interface git cat-file blob to fetch
@@ -47,6 +217,39 @@ type GitCmd struct {
 type blobReader struct {
 	io.ReadCloser
 	cmd *exec.Cmd
+	eof bool
+}
+
+// Read records complete exhaustion so callers that intentionally stop early
+// (for example after MIME classification) can terminate the producer instead
+// of draining the rest of a large object.
+func (br *blobReader) Read(p []byte) (int, error) {
+	n, err := br.ReadCloser.Read(p)
+	if err == io.EOF {
+		br.eof = true
+	}
+	return n, err
+}
+
+// CloseAfterSkip closes a reader whose caller has deliberately finished before
+// EOF. It terminates the producer rather than draining an arbitrarily large
+// remaining object, then waits for the process. A successfully issued kill is
+// intentional and its signal status is not a scan failure.
+func (br *blobReader) CloseAfterSkip() error {
+	if br.eof || br.cmd == nil || br.cmd.Process == nil {
+		return br.Close()
+	}
+
+	killErr := br.cmd.Process.Kill()
+	closeErr := br.ReadCloser.Close()
+	waitErr := br.cmd.Wait()
+	if closeErr != nil {
+		return closeErr
+	}
+	if killErr == nil {
+		return nil
+	}
+	return waitErr
 }
 
 // Close closes the underlying reader and then waits for the command to complete,
@@ -97,11 +300,14 @@ func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*G
 		}
 
 		args = append(args, userArgs...)
+		args = forceNoColor(args)
 		cmd = exec.CommandContext(ctx, "git", args...)
 	} else {
 		cmd = exec.CommandContext(ctx, "git", "-C", sourceClean, "log", "-p", "-U0", "--no-color",
 			"--full-history", "--all", "--diff-filter=tuxdb")
 	}
+
+	logging.Debug().Msgf("executing: %s", cmd.String())
 
 	return newGitCmd(cmd, sourceClean)
 }
@@ -123,6 +329,7 @@ func NewGitDiffCmdContext(ctx context.Context, source string, staged bool) (*Git
 		cmd = exec.CommandContext(ctx, "git", "-C", sourceClean, "diff", "-U0", "--no-ext-diff",
 			"--no-color", "--staged", ".")
 	}
+	logging.Debug().Msgf("executing: %s", cmd.String())
 
 	gitCmd, err := newGitCmd(cmd, sourceClean)
 	if err != nil {
@@ -132,11 +339,9 @@ func NewGitDiffCmdContext(ctx context.Context, source string, staged bool) (*Git
 	return gitCmd, nil
 }
 
-// newGitCmd starts cmd and hands its stdout to the diff parser. It backs both
-// `git log` and `git diff`.
+// newGitCmd starts cmd, connects its output to the diff parser, and records
+// stderr separately from the parsed diff stream.
 func newGitCmd(cmd *exec.Cmd, repoPath string) (*GitCmd, error) {
-	logging.Debug().Msgf("executing: %s", cmd.String())
-
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -149,24 +354,32 @@ func newGitCmd(cmd *exec.Cmd, repoPath string) (*GitCmd, error) {
 		return nil, err
 	}
 
-	errCh := make(chan error)
-	go listenForStdErr(stderr, errCh)
+	stderrInfo := &gitStderr{}
+	errCh := make(chan error, 1)
+	go listenForStdErr(stderr, stderrInfo, errCh)
 
-	// Buffer stdout ourselves. `gitdiff.Parse` reads a *bufio.Reader directly
-	// instead of wrapping it again, so holding on to the same reader is what
-	// lets `Wait` and `UnparsedBytes` see whatever the parser left behind.
-	buffered := bufio.NewReader(stdout)
-	gitdiffFiles, err := gitdiff.Parse(buffered)
+	tracker := &gitOutputTracker{}
+	buffered := bufio.NewReader(io.TeeReader(stdout, tracker))
+	diffFiles, err := gitdiff.Parse(buffered)
 	if err != nil {
-		return nil, err
+		// The command is running but its output never reached the parser.
+		// Kill it, drain both pipes, and reap it before returning the error.
+		_ = cmd.Process.Kill()
+		_, _ = io.Copy(io.Discard, buffered)
+		for range errCh {
+		}
+		_ = cmd.Wait()
+		return nil, fmt.Errorf("could not parse git diff: %w", err)
 	}
 
 	return &GitCmd{
 		cmd:         cmd,
 		stdout:      buffered,
-		diffFilesCh: gitdiffFiles,
+		diffFilesCh: diffFiles,
 		errCh:       errCh,
 		repoPath:    repoPath,
+		stderr:      stderrInfo,
+		tracker:     tracker,
 	}, nil
 }
 
@@ -175,44 +388,55 @@ func (c *GitCmd) DiffFilesCh() <-chan *gitdiff.File {
 	return c.diffFilesCh
 }
 
-// ErrCh returns a channel that could produce an error if there is something in stderr.
+// ErrCh returns a channel that produces an error when Git reports an explicit
+// fatal/error diagnostic on stderr. Warnings and progress messages do not
+// produce errors; process exit status is checked by Wait.
 func (c *GitCmd) ErrCh() <-chan error {
 	return c.errCh
 }
 
-// Wait waits for the command to exit and waits for any copying to
-// stdin or copying from stdout or stderr to complete.
-//
-// Wait also closes underlying stdout and stderr.
+// Wait drains any stdout left by the parser, waits for the command to exit, and
+// returns the command's exit error. It is safe to call more than once.
 func (c *GitCmd) Wait() error {
-	// `gitdiff.Parse` stops reading as soon as it fails to parse a hunk, which
-	// leaves `git` blocked writing into a full pipe: the process never exits and
-	// `cmd.Wait` never returns. Drain the leftovers first.
-	// https://github.com/gitleaks/gitleaks/issues/1338
 	c.drain()
-	return c.cmd.Wait()
+	c.waitOnce.Do(func() {
+		c.waitErr = c.cmd.Wait()
+	})
+	return c.waitErr
 }
 
-// UnparsedBytes reports how much of git's output the diff parser did not read.
-//
-// `gitdiff.Parse` discards parse errors and just closes its channel, so a
-// malformed hunk header ends a scan early and looks exactly like a clean scan.
-// Leftover output is the only signal that this happened. Callers must wait for
-// the diff channel to close before reading this.
-func (c *GitCmd) UnparsedBytes() int64 {
-	c.drain()
-	return c.unparsed
-}
-
-// drain reads whatever the diff parser left on stdout, counting it. It is safe
-// to call more than once; only the first call reads.
 func (c *GitCmd) drain() {
 	c.drainOnce.Do(func() {
 		if c.stdout == nil {
 			return
 		}
 		c.unparsed, _ = io.Copy(io.Discard, c.stdout)
+		if c.tracker != nil {
+			c.tracker.finish()
+		}
 	})
+}
+
+// unparsedBytes reports how much Git output remained after the parser closed
+// its output channel. It must be called after DiffFilesCh is closed.
+func (c *GitCmd) unparsedBytes() int64 {
+	c.drain()
+	return c.unparsed
+}
+
+func (c *GitCmd) sectionCount() int64 {
+	c.drain()
+	if c.tracker == nil {
+		return 0
+	}
+	return c.tracker.sectionCount()
+}
+
+func (c *GitCmd) commandError(err error) error {
+	if summary := c.stderr.summary(); summary != "" {
+		return fmt.Errorf("git command failed: %w; stderr: %s", err, summary)
+	}
+	return fmt.Errorf("git command failed: %w", err)
 }
 
 // String displays the command used for GitCmd
@@ -231,7 +455,17 @@ func (c *GitCmd) NewBlobReader(commit, path string) (io.ReadCloser, error) {
 // NewBlobReaderContext is the same as NewBlobReader but supports passing in a
 // context to use for timeouts
 func (c *GitCmd) NewBlobReaderContext(ctx context.Context, commit, path string) (io.ReadCloser, error) {
-	gitArgs := []string{"-C", c.repoPath, "cat-file", "blob", commit + ":" + path}
+	return c.newBlobReaderContext(ctx, commit+":"+path)
+}
+
+// NewIndexBlobReaderContext returns the staged index content for path. The
+// explicit stage-zero prefix uses the index rather than the worktree.
+func (c *GitCmd) NewIndexBlobReaderContext(ctx context.Context, path string) (io.ReadCloser, error) {
+	return c.newBlobReaderContext(ctx, ":0:"+path)
+}
+
+func (c *GitCmd) newBlobReaderContext(ctx context.Context, object string) (io.ReadCloser, error) {
+	gitArgs := []string{"-C", c.repoPath, "cat-file", "blob", object}
 	cmd := exec.CommandContext(ctx, "git", gitArgs...)
 	cmd.Stderr = io.Discard
 	stdout, err := cmd.StdoutPipe()
@@ -247,52 +481,38 @@ func (c *GitCmd) NewBlobReaderContext(ctx context.Context, commit, path string) 
 	}, nil
 }
 
-// listenForStdErr listens for stderr output from git, prints it to stdout,
-// sends to errCh and closes it.
-func listenForStdErr(stderr io.ReadCloser, errCh chan<- error) {
+// listenForStdErr records and logs Git's stderr. Known warnings and progress
+// messages are not failures; explicit fatal/error diagnostics are signalled on
+// errCh and rechecked against the process exit status by Git.Fragments.
+func listenForStdErr(stderr io.ReadCloser, info *gitStderr, errCh chan<- error) {
 	defer close(errCh)
 
-	var errEncountered bool
-
+	var signalled bool
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
-		// if git throws one of the following errors:
-		//
-		//  exhaustive rename detection was skipped due to too many files.
-		//  you may want to set your diff.renameLimit variable to at least
-		//  (some large number) and retry the command.
-		//
-		//	inexact rename detection was skipped due to too many files.
-		//  you may want to set your diff.renameLimit variable to at least
-		//  (some large number) and retry the command.
-		//
-		//  Auto packing the repository in background for optimum performance.
-		//  See "git help gc" for manual housekeeping.
-		//
-		// we skip exiting the program as git log -p/git diff will continue
-		// to send data to stdout and finish executing. This next bit of
-		// code prevents gitleaks from stopping mid scan if this error is
-		// encountered
-		if strings.Contains(scanner.Text(),
-			"exhaustive rename detection was skipped") ||
-			strings.Contains(scanner.Text(),
-				"inexact rename detection was skipped") ||
-			strings.Contains(scanner.Text(),
-				"you may want to set your diff.renameLimit") ||
-			strings.Contains(scanner.Text(),
-				"See \"git help gc\" for manual housekeeping") ||
-			strings.Contains(scanner.Text(),
-				"Auto packing the repository in background for optimum performance") {
-			logging.Warn().Msg(scanner.Text())
-		} else {
-			logging.Error().Msgf("[git] %s", scanner.Text())
-			errEncountered = true
+		line := scanner.Text()
+		fatal := isFatalGitStderr(line)
+		info.add(line, fatal)
+		if fatal {
+			logging.Error().Msgf("[git] %s", sanitizeGitDiagnostic(line))
+			if !signalled {
+				select {
+				case errCh <- errors.New("git reported an error on stderr"):
+					signalled = true
+				default:
+				}
+			}
+			continue
 		}
+		logging.Warn().Msgf("[git] %s", sanitizeGitDiagnostic(line))
 	}
 
-	if errEncountered {
-		errCh <- errors.New("stderr is not empty")
-		return
+	if err := scanner.Err(); err != nil {
+		info.setReadErr(err)
+		select {
+		case errCh <- fmt.Errorf("could not read git stderr: %w", err):
+		default:
+		}
 	}
 }
 
@@ -310,6 +530,8 @@ type Git struct {
 	Sema            *semgroup.Group
 	MaxFileSize     int
 	MaxArchiveDepth int
+	// Informative is the optional coverage collector. Nil disables collection.
+	Informative *informative.Collector
 }
 
 // CommitInfo captures metadata about the commit
@@ -324,68 +546,59 @@ type CommitInfo struct {
 
 // Fragments yields fragments from a git repo
 func (s *Git) Fragments(ctx context.Context, yield FragmentsFunc) error {
-	// waitCmd reaps the git process exactly once. It runs deferred so early
-	// returns still release the process, and explicitly on the normal path
-	// so a non-zero git exit becomes a scan error instead of a silent
-	// clean pass. See https://github.com/gitleaks/gitleaks/issues/1981
-	waited := false
-	waitCmd := func() error {
-		if waited {
-			return nil
-		}
-		waited = true
-		return s.Cmd.Wait()
+	if s.Cmd == nil {
+		return errors.New("git source has no command")
 	}
-	defer func() {
-		if err := waitCmd(); err != nil {
-			logging.Debug().Err(err).Str("cmd", s.Cmd.String()).Msg("command aborted")
-		}
-	}()
+	if s.Sema == nil {
+		s.Sema = semgroup.NewGroup(ctx, 40)
+	}
+
+	collector := scanerr.New(10)
+	diffFilesCh := s.Cmd.DiffFilesCh()
+	errCh := s.Cmd.ErrCh()
+	ctxDone := ctx.Done()
 
 	var (
-		diffFilesCh = s.Cmd.DiffFilesCh()
-		errCh       = s.Cmd.ErrCh()
-		wg          sync.WaitGroup
-		unparsed    int64
+		ctxErr      error
+		parseErr    error
+		parsedDiffs int64
 	)
 
-	// loop to range over both DiffFiles (stdout) and ErrCh (stderr)
+	// Drain both Git channels before waiting for the process. Returning early
+	// would leave the parser and stderr goroutines blocked on their pipes.
 	for diffFilesCh != nil || errCh != nil {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
+		case <-ctxDone:
+			ctxErr = ctx.Err()
+			ctxDone = nil
 		case gitdiffFile, open := <-diffFilesCh:
 			if !open {
 				diffFilesCh = nil
-				// The parser closes this channel both when it reaches the end of the
-				// diff and when it gives up on one, and nothing reads stdout after
-				// this point. Drain it: leftover output means the scan is incomplete,
-				// and leaving it in the pipe blocks `git` from exiting, which in turn
-				// keeps stderr open and this loop running forever.
-				// https://github.com/gitleaks/gitleaks/issues/1338
-				unparsed = s.Cmd.UnparsedBytes()
-				break
-			}
-
-			if gitdiffFile.IsDelete {
+				if unparsed := s.Cmd.unparsedBytes(); unparsed > 0 {
+					parseErr = fmt.Errorf(
+						"diff parsing stopped early, leaving %d bytes of git output unscanned: results are incomplete",
+						unparsed,
+					)
+				}
+				if expected := s.Cmd.sectionCount(); expected > parsedDiffs {
+					sectionErr := fmt.Errorf(
+						"diff parsing stopped early: parsed %d of %d diff sections; results are incomplete",
+						parsedDiffs, expected,
+					)
+					parseErr = errors.Join(parseErr, sectionErr)
+				}
 				continue
 			}
+			if gitdiffFile == nil {
+				continue
+			}
+			parsedDiffs++
 
-			// Binary files: archives are always read via blob. For staged diffs,
-			// also read non-archive blobs from the index so git config that marks
-			// text as binary (core.bigFileThreshold, -diff attributes) cannot
-			// silently empty a pre-commit scan. Real binary content is still
-			// skipped later by File.Fragments via MIME detection. Historical
-			// git-log scans keep skipping non-archive binaries (#1541).
-			yieldFromBlob := false
-			if gitdiffFile.IsBinary {
-				if isArchive(ctx, gitdiffFile.NewName) {
-					yieldFromBlob = true
-				} else if s.Cmd.staged {
-					yieldFromBlob = true
-				} else {
-					continue
-				}
+			if ctxErr != nil {
+				continue
+			}
+			if gitdiffFile.IsDelete {
+				continue
 			}
 
 			// Check if commit is allowed
@@ -413,86 +626,158 @@ func (s *Git) Fragments(ctx context.Context, yield FragmentsFunc) error {
 				}
 			}
 
-			wg.Add(1)
-			s.Sema.Go(func() error {
-				defer wg.Done()
-
-				if yieldFromBlob {
-					blob, err := s.Cmd.NewBlobReaderContext(ctx, commitSHA, gitdiffFile.NewName)
-					if err != nil {
-						logging.Error().Err(err).Msg("could not read blob")
-						return nil
-					}
-
-					file := File{
-						Content:         blob,
-						Path:            gitdiffFile.NewName,
-						MaxFileSize:     s.MaxFileSize,
-						MaxArchiveDepth: s.MaxArchiveDepth,
-						Config:          s.Config,
-					}
-
-					// enrich and yield fragments
-					err = file.Fragments(ctx, func(fragment Fragment, err error) error {
-						fragment.CommitSHA = commitSHA
-						fragment.CommitInfo = commitInfo
-						return yield(fragment, err)
+			// Git marks staged text as binary when attributes or
+			// core.bigFileThreshold prevent a textual diff. Staged scans must
+			// fall back to the index blob; history scans retain the established
+			// skip for non-archive binary files. File.Fragments still applies
+			// MIME classification to the blob content. The staged-index approach
+			// follows gitleaks/gitleaks#2338 (@VISHNU0906); this implementation
+			// uses the CP-V3 error and lifecycle path.
+			yieldFromBlob := false
+			if gitdiffFile.IsBinary {
+				if isArchive(ctx, gitdiffFile.NewName) || s.Cmd.staged {
+					yieldFromBlob = true
+				} else {
+					target := s.Informative.Track(
+						informative.KindGitDiff,
+						gitdiffFile.NewName,
+						commitSHA,
+						0,
+						false,
+					)
+					target.Exclude(informative.ReasonBinaryContent, informative.ExclusionOptions{
+						Detail: "git reported binary content",
 					})
-
-					// Close the blob reader and log any issues
-					if err := blob.Close(); err != nil {
-						logging.Debug().Err(err).Msg("blobReader.Close() returned an error")
-					}
-
-					return err
+					continue
 				}
-
-				for _, textFragment := range gitdiffFile.TextFragments {
-					if textFragment == nil {
-						return nil
-					}
-
-					fragment := Fragment{
-						CommitSHA:  commitSHA,
-						FilePath:   gitdiffFile.NewName,
-						Raw:        textFragment.Raw(gitdiff.OpAdd),
-						StartLine:  int(textFragment.NewPosition),
-						CommitInfo: commitInfo,
-					}
-
-					if err := yield(fragment, nil); err != nil {
-						return err
-					}
-				}
-
-				return nil
-			})
-		case err, open := <-errCh:
-			if !open {
-				errCh = nil
-				break
 			}
 
-			// Return the git error directly so it propagates up through DetectSource
-			// and the caller can exit with a non-zero exit code. Previously this went
-			// through yield() where the fragment callback swallowed it.
+			diffFile := gitdiffFile
+			fromBlob := yieldFromBlob
+			sha := commitSHA
+			info := commitInfo
+			s.Sema.Go(func() error {
+				if err := s.processDiffFile(ctx, diffFile, fromBlob, sha, info, yield); err != nil {
+					collector.Add(fmt.Errorf("%s: %w", diffFile.NewName, err))
+				}
+				return nil
+			})
+		case _, open := <-errCh:
+			if !open {
+				errCh = nil
+			}
+		}
+	}
+
+	// Join workers before checking process completion so findings from readable
+	// input are complete and no worker can run after this function returns.
+	collector.Add(s.Sema.Wait())
+
+	waitErr := s.Cmd.Wait()
+	if waitErr != nil {
+		collector.Add(s.Cmd.commandError(waitErr))
+	} else {
+		// A fatal stderr diagnostic with a zero exit status is still a failure.
+		collector.Add(s.Cmd.stderr.err())
+	}
+	collector.Add(parseErr)
+	collector.Add(ctxErr)
+
+	return collector.Err()
+}
+
+func (s *Git) processDiffFile(
+	ctx context.Context,
+	diffFile *gitdiff.File,
+	fromBlob bool,
+	commitSHA string,
+	commitInfo *CommitInfo,
+	yield FragmentsFunc,
+) error {
+	if fromBlob {
+		var (
+			blob io.ReadCloser
+			err  error
+		)
+		if s.Cmd.staged {
+			blob, err = s.Cmd.NewIndexBlobReaderContext(ctx, diffFile.NewName)
+		} else {
+			blob, err = s.Cmd.NewBlobReaderContext(ctx, commitSHA, diffFile.NewName)
+		}
+		if err != nil {
+			return fmt.Errorf("could not read blob: %w", err)
+		}
+
+		target := s.Informative.Track(
+			informative.KindGitBlob,
+			diffFile.NewName,
+			commitSHA,
+			0,
+			false,
+		)
+		file := File{
+			Content:         blob,
+			Path:            diffFile.NewName,
+			MaxFileSize:     s.MaxFileSize,
+			MaxArchiveDepth: s.MaxArchiveDepth,
+			Config:          s.Config,
+			Informative:     s.Informative,
+			Target:          target,
+			Commit:          commitSHA,
+		}
+
+		// enrich and yield fragments
+		fragmentsErr := file.Fragments(ctx, func(fragment Fragment, err error) error {
+			fragment.CommitSHA = commitSHA
+			fragment.CommitInfo = commitInfo
+			return yield(fragment, err)
+		})
+
+		var closeErr error
+		if br, ok := blob.(*blobReader); ok && fragmentsErr == nil {
+			// File.Fragments intentionally stops after MIME exclusion (or an
+			// archive-depth skip) without consuming the rest of the object.
+			// Terminate the producer instead of reading every remaining byte.
+			closeErr = br.CloseAfterSkip()
+		} else {
+			closeErr = blob.Close()
+		}
+		if fragmentsErr != nil || closeErr != nil {
+			return fmt.Errorf("could not read blob content: %w", errors.Join(fragmentsErr, closeErr))
+		}
+		return nil
+	}
+
+	var target *informative.Target
+	for _, textFragment := range diffFile.TextFragments {
+		if textFragment == nil {
+			continue
+		}
+		if target == nil {
+			target = s.Informative.Track(
+				informative.KindGitDiff,
+				diffFile.NewName,
+				commitSHA,
+				0,
+				false,
+			)
+		}
+
+		fragment := Fragment{
+			CommitSHA:         commitSHA,
+			FilePath:          diffFile.NewName,
+			Raw:               textFragment.Raw(gitdiff.OpAdd),
+			StartLine:         int(textFragment.NewPosition),
+			CommitInfo:        commitInfo,
+			InformativeTarget: target,
+		}
+
+		if err := yield(fragment, nil); err != nil {
 			return err
 		}
 	}
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		wg.Wait()
-		if unparsed > 0 {
-			return yield(Fragment{}, fmt.Errorf("diff parsing stopped early, leaving %d bytes of `%s` output unscanned: results are incomplete", unparsed, s.Cmd.String()))
-		}
-		if err := waitCmd(); err != nil {
-			return fmt.Errorf("git command failed: %w", err)
-		}
-		return nil
-	}
+	return nil
 }
 
 // NewRemoteInfo builds a new RemoteInfo for generating finding links
@@ -556,7 +841,8 @@ func getRemoteUrl(ctx context.Context, source string) (*url.URL, error) {
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			return nil, fmt.Errorf("command failed (%d): %w, stderr: %s", exitError.ExitCode(), err, string(bytes.TrimSpace(exitError.Stderr)))
+			return nil, fmt.Errorf("command failed (%d): %w, stderr: %s", exitError.ExitCode(), err,
+				sanitizeGitDiagnostic(string(bytes.TrimSpace(exitError.Stderr))))
 		}
 		return nil, err
 	}
@@ -569,7 +855,7 @@ func getRemoteUrl(ctx context.Context, source string) (*url.URL, error) {
 
 	parsedUrl, err := url.Parse(remoteUrl)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse remote URL: %w", err)
+		return nil, fmt.Errorf("unable to parse remote URL: %s", sanitizeGitDiagnostic(err.Error()))
 	}
 
 	// Remove any user info.

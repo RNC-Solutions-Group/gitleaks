@@ -2,6 +2,9 @@ package config
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -314,12 +317,6 @@ func TestTranslateAllowlists(t *testing.T) {
 			cfg:       Config{},
 			wantError: errors.New("example: [[rules.allowlists]] unknown allowlist |regexTarget| 'mtach' (expected 'match', 'line')"),
 		},
-		// Bad regex in allowlist paths should return an error, not panic (regression: #1846)
-		{
-			cfgName:   "invalid/allowlist_bad_regex",
-			cfg:       Config{},
-			wantError: errors.New(`[[allowlists]] invalid allowlist |paths| pattern "*.test.js": error parsing regexp: missing argument to repetition operator: ` + "`*`"),
-		},
 	}
 
 	for _, tt := range tests {
@@ -582,10 +579,182 @@ func TestTranslateExtend(t *testing.T) {
 	}
 }
 
+func TestTranslateReportPolicy(t *testing.T) {
+	tests := []struct {
+		name          string
+		config        string
+		autoOverwrite bool
+		aggregation   bool
+	}{
+		{
+			name:          "omitted settings use historical defaults",
+			config:        "",
+			autoOverwrite: true,
+			aggregation:   false,
+		},
+		{
+			name: "auto-overwrite true and aggregation false",
+			config: `
+auto-overwrite = true
+aggregation = false
+`,
+			autoOverwrite: true,
+			aggregation:   false,
+		},
+		{
+			name: "auto-overwrite true and aggregation true",
+			config: `
+auto-overwrite = true
+aggregation = true
+`,
+			autoOverwrite: true,
+			aggregation:   true,
+		},
+		{
+			name: "auto-overwrite false and aggregation true",
+			config: `
+auto-overwrite = false
+aggregation = true
+`,
+			autoOverwrite: false,
+			aggregation:   true,
+		},
+		{
+			name: "auto-overwrite false and aggregation false",
+			config: `
+auto-overwrite = false
+aggregation = false
+`,
+			autoOverwrite: false,
+			aggregation:   false,
+		},
+		{
+			name: "omitted auto-overwrite defaults to true",
+			config: `
+aggregation = true
+`,
+			autoOverwrite: true,
+			aggregation:   true,
+		},
+		{
+			name: "omitted aggregation defaults to false",
+			config: `
+auto-overwrite = false
+`,
+			autoOverwrite: false,
+			aggregation:   false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Cleanup(viper.Reset)
+			viper.SetConfigType("toml")
+			require.NoError(t, viper.ReadConfig(strings.NewReader(test.config)))
+
+			var vc ViperConfig
+			require.NoError(t, viper.Unmarshal(&vc))
+			cfg, err := vc.Translate()
+			require.NoError(t, err)
+			assert.Equal(t, test.autoOverwrite, cfg.AutoOverwrite)
+			assert.Equal(t, test.aggregation, cfg.Aggregation)
+		})
+	}
+}
+
+func TestTranslateTracksConfigFiles(t *testing.T) {
+	t.Cleanup(func() {
+		viper.Reset()
+	})
+
+	writeConfig := func(t *testing.T, name, content string) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), name)
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+		return path
+	}
+	translateFile := func(t *testing.T, path string) Config {
+		t.Helper()
+		viper.SetConfigFile(path)
+		require.NoError(t, viper.ReadInConfig())
+		var vc ViperConfig
+		require.NoError(t, viper.Unmarshal(&vc))
+		cfg, err := vc.Translate()
+		require.NoError(t, err)
+		return cfg
+	}
+
+	t.Run("explicit file config is tracked", func(t *testing.T) {
+		t.Cleanup(func() {
+			viper.Reset()
+		})
+		path := writeConfig(t, "main.toml", "title = \"main\"\n")
+		cfg := translateFile(t, path)
+		requireConfigFile(t, cfg.ConfigFiles, path)
+	})
+
+	t.Run("inline config has no filesystem path", func(t *testing.T) {
+		t.Cleanup(func() {
+			viper.Reset()
+		})
+		viper.SetConfigType("toml")
+		require.NoError(t, viper.ReadConfig(strings.NewReader("title = \"inline\"\n")))
+		var vc ViperConfig
+		require.NoError(t, viper.Unmarshal(&vc))
+		cfg, err := vc.Translate()
+		require.NoError(t, err)
+		assert.Empty(t, cfg.ConfigFiles)
+	})
+
+	t.Run("extended file config is tracked", func(t *testing.T) {
+		t.Cleanup(func() {
+			viper.Reset()
+		})
+		base := writeConfig(t, "base.toml", "title = \"base\"\n")
+		main := writeConfig(t, "main.toml", "title = \"main\"\n[extend]\npath = \""+filepath.ToSlash(base)+"\"\n")
+		cfg := translateFile(t, main)
+		requireConfigFile(t, cfg.ConfigFiles, main)
+		requireConfigFile(t, cfg.ConfigFiles, base)
+	})
+
+	t.Run("nested extended file configs are tracked", func(t *testing.T) {
+		t.Cleanup(func() {
+			viper.Reset()
+		})
+		grand := writeConfig(t, "grand.toml", "title = \"grand\"\n")
+		base := writeConfig(t, "base.toml", "title = \"base\"\n[extend]\npath = \""+filepath.ToSlash(grand)+"\"\n")
+		main := writeConfig(t, "main.toml", "title = \"main\"\n[extend]\npath = \""+filepath.ToSlash(base)+"\"\n")
+		cfg := translateFile(t, main)
+		requireConfigFile(t, cfg.ConfigFiles, main)
+		requireConfigFile(t, cfg.ConfigFiles, base)
+		requireConfigFile(t, cfg.ConfigFiles, grand)
+	})
+}
+
+func requireConfigFile(t *testing.T, configFiles []string, want string) {
+	t.Helper()
+	wantAbs, err := filepath.Abs(want)
+	require.NoError(t, err)
+	wantInfo, err := os.Stat(wantAbs)
+	require.NoError(t, err)
+	for _, path := range configFiles {
+		gotAbs, err := filepath.Abs(path)
+		if err != nil {
+			continue
+		}
+		if filepath.Clean(gotAbs) == filepath.Clean(wantAbs) {
+			return
+		}
+		if gotInfo, err := os.Stat(gotAbs); err == nil && os.SameFile(gotInfo, wantInfo) {
+			return
+		}
+	}
+	t.Fatalf("configuration file %q not found in %v", want, configFiles)
+}
+
 func testTranslate(t *testing.T, test translateCase) {
 	t.Helper()
 	t.Cleanup(func() {
-		extendDepth = 0
 		viper.Reset()
 	})
 
@@ -675,4 +844,105 @@ func TestExtendedRuleKeywordsAreDowncase(t *testing.T) {
 			require.Truef(t, exists, "The expected keyword %s did not exist as a key of cfg.Keywords", tt.expectedKeywords)
 		})
 	}
+}
+
+func TestInvalidUserRegexReturnsError(t *testing.T) {
+	tests := []struct {
+		name      string
+		cfgName   string
+		wantParts []string
+	}{
+		{
+			name:      "rule regex",
+			cfgName:   "invalid/rule_bad_regex",
+			wantParts: []string{"bad-regex-rule: invalid rule regex", "[a-z"},
+		},
+		{
+			name:      "rule path",
+			cfgName:   "invalid/rule_bad_path_regex",
+			wantParts: []string{"bad-path-rule: invalid rule path regex", "*.py"},
+		},
+		{
+			name:      "global allowlist regex",
+			cfgName:   "invalid/allowlist_global_bad_regex",
+			wantParts: []string{"[[allowlists]] invalid allowlist regex", "[a-z"},
+		},
+		{
+			name:      "global allowlist path",
+			cfgName:   "invalid/allowlist_global_bad_path",
+			wantParts: []string{"[[allowlists]] invalid allowlist path regex", "*.test.js"},
+		},
+		{
+			name:      "rule allowlist regex",
+			cfgName:   "invalid/allowlist_rule_bad_regex",
+			wantParts: []string{"example: [[rules.allowlists]] invalid allowlist regex", "[a-z"},
+		},
+		{
+			name:      "rule allowlist path",
+			cfgName:   "invalid/allowlist_rule_bad_path",
+			wantParts: []string{"example: [[rules.allowlists]] invalid allowlist path regex", "*.test.js"},
+		},
+		{
+			name:      "legacy global allowlist regex",
+			cfgName:   "invalid/allowlist_global_old_bad_regex",
+			wantParts: []string{"[[allowlists]] invalid allowlist regex", "[a-z"},
+		},
+		{
+			name:      "legacy rule allowlist path",
+			cfgName:   "invalid/allowlist_rule_old_bad_path",
+			wantParts: []string{"example: [[rules.allowlists]] invalid allowlist path regex", "*.test.js"},
+		}, {
+			name:      "extended rule regex",
+			cfgName:   "invalid/extend_bad_regex",
+			wantParts: []string{"failed to load extended config", "bad-regex-rule: invalid rule regex", "[a-z"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Cleanup(func() {
+				viper.Reset()
+			})
+
+			viper.AddConfigPath(configPath)
+			viper.SetConfigName(tt.cfgName)
+			viper.SetConfigType("toml")
+			require.NoError(t, viper.ReadInConfig())
+
+			var vc ViperConfig
+			require.NoError(t, viper.Unmarshal(&vc))
+			_, err := vc.Translate()
+			require.Error(t, err)
+			for _, part := range tt.wantParts {
+				assert.Contains(t, err.Error(), part)
+			}
+		})
+	}
+}
+
+func TestTranslateDoesNotRetainExtensionDepth(t *testing.T) {
+	t.Cleanup(func() {
+		viper.Reset()
+	})
+
+	load := func(cfgName string) Config {
+		t.Helper()
+		viper.Reset()
+		viper.AddConfigPath(configPath)
+		viper.SetConfigName(cfgName)
+		viper.SetConfigType("toml")
+		require.NoError(t, viper.ReadInConfig())
+
+		var vc ViperConfig
+		require.NoError(t, viper.Unmarshal(&vc))
+		cfg, err := vc.Translate()
+		require.NoError(t, err)
+		return cfg
+	}
+
+	first := load("valid/extend")
+	require.Contains(t, first.Rules, "aws-secret-key-again")
+	second := load("valid/extend")
+	require.Contains(t, second.Rules, "aws-secret-key-again")
+	assert.Equal(t, first.Rules["aws-secret-key-again"].RuleID, second.Rules["aws-secret-key-again"].RuleID)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/logging"
 	"github.com/zricethezav/gitleaks/v8/sources"
 )
@@ -32,6 +33,7 @@ func runStdIn(cmd *cobra.Command, _ []string) {
 
 	// create detector
 	detector := Detector(cmd, cfg, "")
+	setInformativeSourceType(detector, "stdin")
 
 	// parse flag(s)
 	exitCode := mustGetIntFlag(cmd, "exit-code")
@@ -42,6 +44,8 @@ func runStdIn(cmd *cobra.Command, _ []string) {
 			Content:         os.Stdin,
 			MaxFileSize:     detector.MaxTargetMegaBytes * 1_000_000,
 			MaxArchiveDepth: detector.MaxArchiveDepth,
+			Informative:     detector.Informative,
+			TargetKind:      informative.KindStdin,
 		},
 	)
 

@@ -3,6 +3,7 @@ package detect
 import (
 	"testing"
 
+	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/zricethezav/gitleaks/v8/cmd/scm"
@@ -210,5 +211,87 @@ func Test_createScmLink(t *testing.T) {
 			actual := createScmLink(tt.remote, tt.finding)
 			assert.Equal(t, tt.want, actual)
 		})
+	}
+}
+
+// Test_printFinding_colorOutput guards the Lip Gloss v2 migration.
+//
+// Lip Gloss v2 always renders full-fidelity ANSI and leaves color down-sampling
+// to the output layer. The finding display path therefore writes through a
+// down-sampling writer: redirected or piped output must stay free of escape
+// sequences, while --no-color must keep winning regardless of the environment.
+func Test_printFinding_colorOutput(t *testing.T) {
+	// Sanity check that makes the assertions below meaningful: v2 styles render
+	// ANSI sequences even when the destination is not a terminal.
+	rendered := lipgloss.NewStyle().Foreground(lipgloss.Color("#f05c07")).Render("secret")
+	assert.Contains(t, rendered, "\x1b[", "Lip Gloss v2 should render ANSI sequences")
+
+	t.Setenv("CLICOLOR_FORCE", "0")
+	t.Setenv("NO_COLOR", "0")
+
+	finding := report.Finding{
+		RuleID:      "generic-api-key",
+		Match:       `token = "abcdef123456"`,
+		Secret:      "abcdef123456",
+		Line:        `token = "abcdef123456"`,
+		File:        "creds.txt",
+		Fingerprint: "creds.txt:generic-api-key:1",
+	}
+
+	// captureStdout replaces os.Stdout with a pipe, i.e. a redirected target.
+	redirected := captureStdout(func() { printFinding(finding, false) })
+	assert.Contains(t, redirected, "generic-api-key")
+	assert.Contains(t, redirected, "abcdef123456")
+	assert.NotContains(t, redirected, "\x1b[", "redirected output must not contain ANSI escape sequences")
+
+	noColor := captureStdout(func() { printFinding(finding, true) })
+	assert.Contains(t, noColor, "abcdef123456")
+	assert.NotContains(t, noColor, "\x1b[", "--no-color output must not contain ANSI escape sequences")
+}
+
+func TestFilterRedactsAdjacentSecrets(t *testing.T) {
+	findings := []report.Finding{
+		{
+			RuleID:    "alpha",
+			StartLine: 1,
+			EndLine:   1,
+			Match:     "ALPHA_12345678",
+			Line:      "left=ALPHA_12345678 right=BETA_87654321",
+			Secret:    "ALPHA_12345678",
+		},
+		{
+			RuleID:    "beta",
+			StartLine: 1,
+			EndLine:   1,
+			Match:     "BETA_87654321",
+			Line:      "left=ALPHA_12345678 right=BETA_87654321",
+			Secret:    "BETA_87654321",
+		},
+	}
+
+	got := filter(findings, 100)
+	if assert.Len(t, got, 2) {
+		for _, finding := range got {
+			assert.NotContains(t, finding.Line, "ALPHA_12345678")
+			assert.NotContains(t, finding.Line, "BETA_87654321")
+			assert.Equal(t, "REDACTED", finding.Secret)
+			assert.Equal(t, "REDACTED", finding.Match)
+		}
+	}
+}
+
+func TestFilterNoRedactPreservesFinding(t *testing.T) {
+	findings := []report.Finding{{
+		RuleID:    "alpha",
+		StartLine: 1,
+		EndLine:   1,
+		Match:     "ALPHA_12345678",
+		Line:      "left=ALPHA_12345678",
+		Secret:    "ALPHA_12345678",
+	}}
+	got := filter(findings, 0)
+	if assert.Len(t, got, 1) {
+		assert.Equal(t, "ALPHA_12345678", got[0].Secret)
+		assert.Equal(t, "left=ALPHA_12345678", got[0].Line)
 	}
 }

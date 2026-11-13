@@ -24,16 +24,18 @@ var directoryCmd = &cobra.Command{
 	Run:     runDirectory,
 }
 
-// resolveDirSource returns the scan target from the positional arguments,
-// defaulting to the current directory. It rejects extra arguments (e.g.
-// `gitleaks dir detect file`, where `detect` is not a valid subcommand) and
-// paths that do not exist instead of silently scanning the wrong target (#1979).
+// resolveDirSource preserves the single-target dir contract. Extra positional
+// arguments are rejected rather than silently falling back to the current
+// directory, and the selected path must exist.
 func resolveDirSource(args []string) (string, error) {
 	if len(args) > 1 {
 		return "", fmt.Errorf("expected at most one path argument, got %d", len(args))
 	}
 	source := "."
-	if len(args) == 1 && args[0] != "" {
+	if len(args) == 1 {
+		if args[0] == "" {
+			return "", fmt.Errorf("scan path cannot be explicitly empty")
+		}
 		source = args[0]
 	}
 	if _, err := os.Stat(source); err != nil {
@@ -43,7 +45,6 @@ func resolveDirSource(args []string) (string, error) {
 }
 
 func runDirectory(cmd *cobra.Command, args []string) {
-	// grab source
 	source, err := resolveDirSource(args)
 	if err != nil {
 		logging.Fatal().Err(err).Send()
@@ -59,6 +60,11 @@ func runDirectory(cmd *cobra.Command, args []string) {
 	start := time.Now()
 
 	detector := Detector(cmd, cfg, source)
+	sourceType := "directory"
+	if info, statErr := os.Stat(source); statErr == nil && !info.IsDir() {
+		sourceType = "file"
+	}
+	setInformativeSourceType(detector, sourceType)
 
 	// set follow symlinks flag
 	if detector.FollowSymlinks, err = cmd.Flags().GetBool("follow-symlinks"); err != nil {
@@ -80,6 +86,7 @@ func runDirectory(cmd *cobra.Command, args []string) {
 			Path:            source,
 			Sema:            detector.Sema,
 			MaxArchiveDepth: detector.MaxArchiveDepth,
+			Informative:     detector.Informative,
 		},
 	)
 

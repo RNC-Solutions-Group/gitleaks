@@ -22,3 +22,5 @@ testdata/expected/report/*.got.*
 *.out
 
 dist/
+
+AGENTS.md

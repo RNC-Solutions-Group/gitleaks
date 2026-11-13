@@ -17,8 +17,14 @@ type RemoteInfo sources.RemoteInfo
 //
 // Deprecated: Use sources.Git and detector.DetectSource instead
 func (d *Detector) DetectGit(cmd *sources.GitCmd, remote *RemoteInfo) ([]report.Finding, error) {
+	return d.DetectGitContext(context.Background(), cmd, remote)
+}
+
+// DetectGitContext runs detections against a GitCmd with its remote info and
+// propagates the supplied context to the source and detector workers.
+func (d *Detector) DetectGitContext(ctx context.Context, cmd *sources.GitCmd, remote *RemoteInfo) ([]report.Finding, error) {
 	return d.DetectSource(
-		context.Background(),
+		ctx,
 		&sources.Git{
 			Cmd:             cmd,
 			Config:          &d.Config,
@@ -26,6 +32,7 @@ func (d *Detector) DetectGit(cmd *sources.GitCmd, remote *RemoteInfo) ([]report.
 			Sema:            d.Sema,
 			MaxFileSize:     d.MaxTargetMegaBytes * 1_000_000,
 			MaxArchiveDepth: d.MaxArchiveDepth,
+			Informative:     d.Informative,
 		},
 	)
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/zricethezav/gitleaks/v8/config"
 	"github.com/zricethezav/gitleaks/v8/detect"
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/logging"
 	"github.com/zricethezav/gitleaks/v8/regexp"
 	"github.com/zricethezav/gitleaks/v8/report"
@@ -77,6 +77,8 @@ func init() {
 	rootCmd.PersistentFlags().StringP("report-path", "r", "", "report file (use \"-\" for stdout)")
 	rootCmd.PersistentFlags().StringP("report-format", "f", "", "output format (json, csv, junit, sarif, template)")
 	rootCmd.PersistentFlags().StringP("report-template", "", "", "template file used to generate the report (implies --report-format=template)")
+	rootCmd.PersistentFlags().Bool("overwrite", false, "replace an existing report file (overrides configured report policy)")
+	rootCmd.PersistentFlags().Bool("aggregate", false, "write a numbered report instead of replacing an existing one (overrides configured report policy)")
 	rootCmd.PersistentFlags().StringP("baseline-path", "b", "", "path to baseline with issues that can be ignored")
 	rootCmd.PersistentFlags().StringP("log-level", "l", "info", "log level (trace, debug, info, warn, error, fatal)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "show verbose output from scan")
@@ -156,9 +158,9 @@ func initConfig(source string) {
 	} else if os.Getenv("GITLEAKS_CONFIG_TOML") != "" {
 		configContent := []byte(os.Getenv("GITLEAKS_CONFIG_TOML"))
 		if err := viper.ReadConfig(bytes.NewBuffer(configContent)); err != nil {
-			logging.Fatal().Err(err).Str("content", os.Getenv("GITLEAKS_CONFIG_TOML")).Msg("unable to load gitleaks config from GITLEAKS_CONFIG_TOML env var")
+			logging.Fatal().Err(err).Msg("unable to load gitleaks config from GITLEAKS_CONFIG_TOML env var")
 		}
-		logging.Debug().Str("content", os.Getenv("GITLEAKS_CONFIG_TOML")).Msg("using gitleaks config from GITLEAKS_CONFIG_TOML env var content")
+		logging.Debug().Msg("using gitleaks config from GITLEAKS_CONFIG_TOML env var content")
 		return
 	} else {
 		fileInfo, err := os.Stat(source)
@@ -251,6 +253,9 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 
 	// Setup common detector
 	detector := detect.NewDetectorContext(cmd.Context(), cfg)
+	if cfg.InformativeReport {
+		detector.Informative = informative.New("directory")
+	}
 
 	if detector.MaxDecodeDepth, err = cmd.Flags().GetInt("max-decode-depth"); err != nil {
 		logging.Fatal().Err(err).Send()
@@ -302,22 +307,15 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		logging.Fatal().Err(err).Msg("could not get .gitleaksignore path")
 	}
 
-	if fileExists(gitleaksIgnorePath) {
-		if err = detector.AddGitleaksIgnore(gitleaksIgnorePath); err != nil {
-			logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
-		}
+	// The flag path may be a file or a directory containing .gitleaksignore.
+	// An explicitly requested path must exist; an auto-discovered source file
+	// is optional. Both paths reject directories and special files before
+	// opening them.
+	if err = loadGitleaksIgnorePath(detector, gitleaksIgnorePath, cmd.Flags().Changed("gitleaks-ignore-path")); err != nil {
+		logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
 	}
-
-	if fileExists(filepath.Join(gitleaksIgnorePath, ".gitleaksignore")) {
-		if err = detector.AddGitleaksIgnore(filepath.Join(gitleaksIgnorePath, ".gitleaksignore")); err != nil {
-			logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
-		}
-	}
-
-	if fileExists(filepath.Join(source, ".gitleaksignore")) {
-		if err = detector.AddGitleaksIgnore(filepath.Join(source, ".gitleaksignore")); err != nil {
-			logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
-		}
+	if err = loadGitleaksIgnoreFile(detector, filepath.Join(source, ".gitleaksignore")); err != nil {
+		logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
 	}
 
 	// ignore findings from the baseline (an existing report in json format generated earlier)
@@ -344,16 +342,18 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		detector.Config.Rules = ruleOverride
 	}
 
-	// Validate report settings.
+	// Validate report settings. Build and validate the reporter before
+	// inspecting the destination: an invalid format or template must not
+	// create, truncate, or remove an existing report.
+	mode, err := resolveReportMode(cfg, cmd)
+	if err != nil {
+		logging.Fatal().Err(err).Msg("invalid report options")
+	}
 	reportPath := mustGetStringFlag(cmd, "report-path")
 	if reportPath != "" {
-		// Do not create, truncate, or remove the destination during validation.
-		// The report writer opens it later and reports any write failure.
-
-		// Build report writer.
 		var (
 			reporter       report.Reporter
-			reportFormat   = mustGetStringFlag(cmd, "report-format")
+			reportFormat   = strings.TrimSpace(strings.ToLower(mustGetStringFlag(cmd, "report-format")))
 			reportTemplate = mustGetStringFlag(cmd, "report-template")
 		)
 		if reportFormat == "" {
@@ -370,7 +370,7 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 			}
 			logging.Debug().Msgf("No report format specified, inferred %q from %q", reportFormat, ext)
 		}
-		switch strings.TrimSpace(strings.ToLower(reportFormat)) {
+		switch reportFormat {
 		case "csv":
 			reporter = &report.CsvReporter{}
 		case "json":
@@ -396,9 +396,52 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 
 		detector.ReportPath = reportPath
 		detector.Reporter = reporter
+		if reportPath != report.StdoutReportPath {
+			// Protect every configuration file loaded from disk, including
+			// auto-discovered, GITLEAKS_CONFIG, and extended configurations.
+			// cfg.Path alone is not sufficient because it is reset from the
+			// --config flag elsewhere in the command layer.
+			configFiles := append([]string(nil), cfg.ConfigFiles...)
+			if len(configFiles) == 0 && cfg.Path != "" {
+				configFiles = append(configFiles, cfg.Path)
+			}
+			output, err := newReportOutput(
+				reportPath,
+				mode,
+				source,
+				configFiles,
+				baselinePath,
+				gitleaksIgnorePath,
+				reportTemplate,
+			)
+			if err != nil {
+				logging.Fatal().Err(err).Msg("invalid report destination")
+			}
+			if detector.Informative != nil && !cfg.ConsoleOnly {
+				if err := output.enableInformative(func(primaryPath string) ([]byte, error) {
+					return informative.Marshal(detector.Informative.Document(primaryPath, true))
+				}); err != nil {
+					logging.Fatal().Err(err).Msg("invalid informative report destination")
+				}
+				// Prevent a pre-existing companion from being scanned as source
+				// content. The actual aggregate filename is allocated later; it
+				// cannot exist before publication unless it is an older report.
+				detector.InformativeReportPath = output.companion.path
+			}
+			detector.ReportWriter = func(findings []report.Finding) (string, error) {
+				return output.write(reporter, findings)
+			}
+		}
 	}
 
 	return detector
+}
+
+func setInformativeSourceType(detector *detect.Detector, sourceType string) {
+	if detector == nil || detector.Informative == nil {
+		return
+	}
+	detector.Informative.SetSourceType(sourceType)
 }
 
 func bytesConvert(bytes uint64) string {
@@ -453,33 +496,42 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 		}
 	}
 
-	// write report if desired
+	// Write the report only for a scan that completed without a propagated
+	// error. The destination is never touched during validation, and an
+	// existing report is preserved if the scan or the write fails.
 	if detector.Reporter != nil {
-		var (
-			file      io.WriteCloser
-			reportErr error
-		)
-
-		if detector.ReportPath == report.StdoutReportPath {
-			file = os.Stdout
+		if err != nil {
+			logging.Warn().Msg("report not written because the scan was incomplete")
 		} else {
-			// Open the file.
-			if file, reportErr = openReportFile(detector.ReportPath); reportErr != nil {
-				goto ReportEnd
+			if detector.ReportPath == report.StdoutReportPath {
+				if reportErr := detector.Reporter.Write(os.Stdout, findings); reportErr != nil {
+					logging.Fatal().Err(reportErr).Msg("failed to write report")
+				}
+			} else {
+				if detector.ReportWriter == nil {
+					logging.Fatal().Msg("failed to write report: report writer is not configured")
+				}
+				outputPath, reportErr := detector.ReportWriter(findings)
+				if reportErr != nil {
+					logging.Fatal().Err(reportErr).Msg("failed to write report")
+				}
+				logging.Info().Str("path", outputPath).Msg("report written")
 			}
-			defer func() {
-				_ = file.Close()
-			}()
 		}
+	}
 
-		// Write to the file.
-		if reportErr = detector.Reporter.Write(file, findings); reportErr != nil {
-			goto ReportEnd
+	// Print the informative console summary after the primary report has been
+	// handled. When a companion file is configured, the summary lives in that
+	// file instead. Console output always uses stderr so a stdout report remains
+	// machine-readable.
+	if err == nil && detector.Informative != nil && detector.InformativeReportPath == "" {
+		primaryReport := ""
+		if detector.ReportPath != "" {
+			primaryReport = detector.ReportPath
 		}
-
-	ReportEnd:
-		if reportErr != nil {
-			logging.Fatal().Err(reportErr).Msg("failed to write report")
+		document := detector.Informative.Document(primaryReport, true)
+		if consoleErr := informative.WriteConsole(os.Stderr, document, informative.DefaultConsoleDetails); consoleErr != nil {
+			logging.Warn().Err(consoleErr).Msg("could not write informative console summary")
 		}
 	}
 
@@ -492,38 +544,57 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 	}
 }
 
-// reportFilePerm is the file mode used for report files. Reports catalog every
-// secret a scan found, so they must not be readable by other local users.
-const reportFilePerm = 0o600
-
-// openReportFile creates or truncates the report file at path with restrictive
-// permissions (0600). The mode passed to OpenFile only applies when the file is
-// created, so an explicit Chmod is applied as well to cover pre-existing files.
-func openReportFile(path string) (*os.File, error) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, reportFilePerm)
+func loadGitleaksIgnorePath(detector *detect.Detector, path string, required bool) error {
+	info, err := os.Lstat(path)
 	if err != nil {
-		return nil, err
-	}
-	if err := f.Chmod(reportFilePerm); err != nil {
-		_ = f.Close()
-		return nil, err
-	}
-	return f, nil
-}
-
-func fileExists(fileName string) bool {
-	// check for a .gitleaksignore file
-	info, err := os.Stat(fileName)
-	if err != nil && !os.IsNotExist(err) {
-		return false
+		if os.IsNotExist(err) && !required {
+			return nil
+		}
+		return fmt.Errorf("could not inspect .gitleaksignore path %q: %w", path, err)
 	}
 
-	if info != nil && err == nil {
-		if !info.IsDir() {
-			return true
+	if info.Mode()&os.ModeSymlink != 0 {
+		info, err = os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("could not resolve .gitleaksignore path %q: %w", path, err)
 		}
 	}
-	return false
+
+	if info.IsDir() {
+		return loadGitleaksIgnoreFile(detector, filepath.Join(path, ".gitleaksignore"))
+	}
+	return detector.AddGitleaksIgnore(path)
+}
+
+func loadGitleaksIgnoreFile(detector *detect.Detector, path string) error {
+	// An auto-discovered ignore file is a sibling of the scan target. When the
+	// target is a file, filepath.Join(target, ".gitleaksignore") is not a
+	// meaningful path; on Unix Lstat reports ENOTDIR rather than ENOENT.
+	if parent, parentErr := os.Stat(filepath.Dir(path)); parentErr == nil && !parent.IsDir() {
+		return nil
+	}
+
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("could not inspect .gitleaksignore file %q: %w", path, err)
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		info, err = os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("could not resolve .gitleaksignore file %q: %w", path, err)
+		}
+	}
+
+	// A directory named .gitleaksignore is not an ignore file. Preserve the
+	// historical absence behavior for auto-discovered source files.
+	if info.IsDir() {
+		return nil
+	}
+	return detector.AddGitleaksIgnore(path)
 }
 
 func FormatDuration(d time.Duration) string {

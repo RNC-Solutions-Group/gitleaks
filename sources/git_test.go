@@ -1,15 +1,11 @@
 package sources
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -20,238 +16,7 @@ import (
 	"github.com/zricethezav/gitleaks/v8/config"
 )
 
-// Test_NewGitDiffCmdContext_ColorForced reproduces
-// https://github.com/gitleaks/gitleaks/issues/2281: when a user has
-// `color.ui`/`color.diff` forced on in their git config, `--no-ext-diff`
-// alone doesn't stop `git diff` from emitting ANSI escape codes, which the
-// diff parser then silently fails to parse, dropping every finding.
-func Test_NewGitDiffCmdContext_ColorForced(t *testing.T) {
-	repoPath := t.TempDir()
-
-	runGit := func(args ...string) {
-		cmd := exec.Command("git", append([]string{"-C", repoPath}, args...)...)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, string(out))
-	}
-
-	runGit("init")
-	runGit("config", "user.email", "test@example.com")
-	runGit("config", "user.name", "test")
-	// Simulate a user who forces color output globally.
-	runGit("config", "color.ui", "always")
-	runGit("config", "color.diff", "always")
-
-	err := os.WriteFile(repoPath+"/secret.txt", []byte("SECRET_KEY_BASE: d4bc55107bd38130ea77e5b44cf37e2fda25cc79f312785369fc0681da9a5f36bc272b7c2891334d7346ed341b647c72235ac5e4e8895da3de03c638fb72d430\n"), 0o644)
-	require.NoError(t, err)
-	runGit("add", "secret.txt")
-
-	gitCmd, err := NewGitDiffCmdContext(context.Background(), repoPath, true)
-	require.NoError(t, err)
-
-	var files []string
-	for f := range gitCmd.DiffFilesCh() {
-		files = append(files, f.NewName)
-	}
-	require.NoError(t, gitCmd.Wait())
-	require.Contains(t, files, "secret.txt", "staged diff should still be parsed when color output is forced on")
-}
-
-// TODO: commenting out this test for now because it's flaky. Alternatives to consider to get this working:
-// TestGitFragments_ErrorPropagation verifies that a git failure (e.g. running
-// in a directory that is not a git repository) propagates as a non-nil error
-// from Fragments() rather than being silently swallowed. Regression test for
-// https://github.com/gitleaks/gitleaks/issues/1981.
-func TestGitFragments_ErrorPropagation(t *testing.T) {
-	// Use a temp dir that is not a git repository.
-	dir, err := os.MkdirTemp("", "gitleaks-no-git-*")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	ctx := context.Background()
-
-	gitCmd, err := NewGitLogCmdContext(ctx, dir, "")
-	require.NoError(t, err)
-
-	cfg := config.Config{}
-	src := &Git{
-		Cmd:    gitCmd,
-		Config: &cfg,
-		Sema:   semgroup.NewGroup(ctx, 1),
-	}
-
-	err = src.Fragments(ctx, func(_ Fragment, _ error) error {
-		return nil
-	})
-
-	assert.Error(t, err, "expected a non-nil error when git runs in a non-repository directory")
-}
-
-// TODO: the tests below are commented out because they are flaky.
-// Alternatives to consider to get this working:
-// -- use `git stash` instead of `restore()`
-
-// const repoBasePath = "../../testdata/repos/"
-
-// const expectPath = "../../testdata/expected/"
-
-// func TestGitLog(t *testing.T) {
-// 	tests := []struct {
-// 		source   string
-// 		logOpts  string
-// 		expected string
-// 	}{
-// 		{
-// 			source:   filepath.Join(repoBasePath, "small"),
-// 			expected: filepath.Join(expectPath, "git", "small.txt"),
-// 		},
-// 		{
-// 			source:   filepath.Join(repoBasePath, "small"),
-// 			expected: filepath.Join(expectPath, "git", "small-branch-foo.txt"),
-// 			logOpts:  "--all foo...",
-// 		},
-// 	}
-
-// 	err := moveDotGit("dotGit", ".git")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	defer func() {
-// 		if err = moveDotGit(".git", "dotGit"); err != nil {
-// 			t.Fatal(err)
-// 		}
-// 	}()
-
-// 	for _, tt := range tests {
-// 		files, err := git.GitLog(tt.source, tt.logOpts)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-
-// 		var diffSb strings.Builder
-// 		for f := range files {
-// 			for _, tf := range f.TextFragments {
-// 				diffSb.WriteString(tf.Raw(gitdiff.OpAdd))
-// 			}
-// 		}
-
-// 		expectedBytes, err := os.ReadFile(tt.expected)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 		expected := string(expectedBytes)
-// 		if expected != diffSb.String() {
-// 			// write string builder to .got file using os.Create
-// 			err = os.WriteFile(strings.Replace(tt.expected, ".txt", ".got.txt", 1), []byte(diffSb.String()), 0644)
-// 			if err != nil {
-// 				t.Error(err)
-// 			}
-// 			t.Error("expected: ", expected, "got: ", diffSb.String())
-// 		}
-// 	}
-// }
-
-// func TestGitDiff(t *testing.T) {
-// 	tests := []struct {
-// 		source    string
-// 		expected  string
-// 		additions string
-// 		target    string
-// 	}{
-// 		{
-// 			source:    filepath.Join(repoBasePath, "small"),
-// 			expected:  "this line is added\nand another one",
-// 			additions: "this line is added\nand another one",
-// 			target:    filepath.Join(repoBasePath, "small", "main.go"),
-// 		},
-// 	}
-
-// 	err := moveDotGit("dotGit", ".git")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	defer func() {
-// 		if err = moveDotGit(".git", "dotGit"); err != nil {
-// 			t.Fatal(err)
-// 		}
-// 	}()
-
-// 	for _, tt := range tests {
-// 		noChanges, err := os.ReadFile(tt.target)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 		err = os.WriteFile(tt.target, []byte(tt.additions), 0644)
-// 		if err != nil {
-// 			restore(tt.target, noChanges, t)
-// 			t.Error(err)
-// 		}
-
-// 		files, err := git.GitDiff(tt.source, false)
-// 		if err != nil {
-// 			restore(tt.target, noChanges, t)
-// 			t.Error(err)
-// 		}
-
-// 		for f := range files {
-// 			sb := strings.Builder{}
-// 			for _, tf := range f.TextFragments {
-// 				sb.WriteString(tf.Raw(gitdiff.OpAdd))
-// 			}
-// 			if sb.String() != tt.expected {
-// 				restore(tt.target, noChanges, t)
-// 				t.Error("expected: ", tt.expected, "got: ", sb.String())
-// 			}
-// 		}
-// 		restore(tt.target, noChanges, t)
-// 	}
-// }
-
-// func restore(path string, data []byte, t *testing.T) {
-// 	err := os.WriteFile(path, data, 0644)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// }
-
-// func moveDotGit(from, to string) error {
-// 	repoDirs, err := os.ReadDir("../../testdata/repos")
-// 	if err != nil {
-// 		return err
-// 	}
-// 	for _, dir := range repoDirs {
-// 		if to == ".git" {
-// 			_, err := os.Stat(fmt.Sprintf("%s/%s/%s", repoBasePath, dir.Name(), "dotGit"))
-// 			if os.IsNotExist(err) {
-// 				// dont want to delete the only copy of .git accidentally
-// 				continue
-// 			}
-// 			os.RemoveAll(fmt.Sprintf("%s/%s/%s", repoBasePath, dir.Name(), ".git"))
-// 		}
-// 		if !dir.IsDir() {
-// 			continue
-// 		}
-// 		_, err := os.Stat(fmt.Sprintf("%s/%s/%s", repoBasePath, dir.Name(), from))
-// 		if os.IsNotExist(err) {
-// 			continue
-// 		}
-
-// 		err = os.Rename(fmt.Sprintf("%s/%s/%s", repoBasePath, dir.Name(), from),
-// 			fmt.Sprintf("%s/%s/%s", repoBasePath, dir.Name(), to))
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
-
-// The diff below is the one reported in
-// https://github.com/gitleaks/gitleaks/issues/1338: `git` emitted a hunk header
-// whose old-file line count had overflowed, and `gitdiff.Parse` reacted the only
-// way its streaming API can, by dropping the error and closing its channel. That
-// leaves gitleaks with a diff it stopped reading and no way to tell a truncated
-// scan from a clean one.
-const (
-	wellFormedDiff = `commit 6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b
+const gitTestDiff = `commit 6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b
 Author: Test <test@example.com>
 Date:   Sun Feb 11 21:44:04 2024 +0000
 
@@ -264,29 +29,9 @@ index 0000000..1111111
 +++ b/first.txt
 @@ -0,0 +1 @@
 +first
-diff --git a/second.txt b/second.txt
-new file mode 100644
-index 0000000..2222222
---- /dev/null
-+++ b/second.txt
-@@ -0,0 +1 @@
-+second
 `
 
-	unparseableDiff = `commit 6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b
-Author: Test <test@example.com>
-Date:   Sun Feb 11 21:44:04 2024 +0000
-
-    a commit
-
-diff --git a/first.txt b/first.txt
-new file mode 100644
-index 0000000..1111111
---- /dev/null
-+++ b/first.txt
-@@ -0,0 +1 @@
-+first
-diff --git a/bad.txt b/bad.txt
+const gitTestMalformedDiff = gitTestDiff + `diff --git a/bad.txt b/bad.txt
 index 2222222..3333333 100644
 --- a/bad.txt
 +++ b/bad.txt
@@ -300,183 +45,231 @@ index 0000000..4444444
 @@ -0,0 +1 @@
 +second
 `
-)
 
-// gitCmdFromDiff returns a GitCmd whose `git` process writes diff to stdout,
-// padded with trailing comment lines so that it does not fit in the OS pipe
-// buffer. The bytes are stashed in a throwaway repository and replayed with
-// `git cat-file`, which keeps the test on real git without needing a repository
-// that can actually produce the diff.
-func gitCmdFromDiff(t *testing.T, diff string, pad int) *GitCmd {
+// TestGitOutputHelper is a subprocess used to produce controlled Git stdout,
+// stderr, exit status, and lifetime without invoking a real Git executable.
+func TestGitOutputHelper(t *testing.T) {
+	if os.Getenv("GITLEAKS_GIT_OUTPUT_HELPER") != "1" {
+		return
+	}
+	if path := os.Getenv("GITLEAKS_GIT_STDOUT"); path != "" {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			os.Exit(91)
+		}
+		if _, err := os.Stdout.Write(data); err != nil {
+			os.Exit(92)
+		}
+	}
+	if path := os.Getenv("GITLEAKS_GIT_STDERR"); path != "" {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			os.Exit(93)
+		}
+		if _, err := os.Stderr.Write(data); err != nil {
+			os.Exit(94)
+		}
+	}
+	if value := os.Getenv("GITLEAKS_GIT_SLEEP_MS"); value != "" {
+		milliseconds, err := strconv.Atoi(value)
+		if err != nil {
+			os.Exit(95)
+		}
+		time.Sleep(time.Duration(milliseconds) * time.Millisecond)
+	}
+	exitCode, err := strconv.Atoi(os.Getenv("GITLEAKS_GIT_EXIT_CODE"))
+	if err != nil {
+		os.Exit(96)
+	}
+	os.Exit(exitCode)
+}
+
+func newControlledGitCmd(
+	t *testing.T,
+	ctx context.Context,
+	stdout, stderr string,
+	exitCode int,
+	sleep time.Duration,
+) *GitCmd {
 	t.Helper()
+	dir := t.TempDir()
+	stdoutPath := filepath.Join(dir, "stdout")
+	stderrPath := filepath.Join(dir, "stderr")
+	require.NoError(t, os.WriteFile(stdoutPath, []byte(stdout), 0o600))
+	require.NoError(t, os.WriteFile(stderrPath, []byte(stderr), 0o600))
 
-	repo := t.TempDir()
-	require.NoError(t, exec.Command("git", "init", "--quiet", repo).Run())
-
-	payload := diff + strings.Repeat("# padding to fill the pipe buffer\n", pad)
-	hashObject := exec.Command("git", "-C", repo, "hash-object", "-w", "--stdin")
-	hashObject.Stdin = strings.NewReader(payload)
-	out, err := hashObject.Output()
-	require.NoError(t, err)
-
-	cmd := exec.Command("git", "-C", repo, "cat-file", "blob", string(bytes.TrimSpace(out)))
-	gitCmd, err := newGitCmd(cmd, repo)
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestGitOutputHelper$")
+	cmd.Env = append(os.Environ(),
+		"GITLEAKS_GIT_OUTPUT_HELPER=1",
+		"GITLEAKS_GIT_STDOUT="+stdoutPath,
+		"GITLEAKS_GIT_STDERR="+stderrPath,
+		"GITLEAKS_GIT_EXIT_CODE="+strconv.Itoa(exitCode),
+		"GITLEAKS_GIT_SLEEP_MS="+strconv.Itoa(int(sleep/time.Millisecond)),
+	)
+	gitCmd, err := newGitCmd(cmd, dir)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if gitCmd.cmd.Process != nil {
-			_ = gitCmd.cmd.Process.Kill()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
 		}
+		_ = gitCmd.Wait()
 	})
 	return gitCmd
 }
 
-func TestGitCmdUnparsedBytes(t *testing.T) {
-	cases := []struct {
-		name          string
-		diff          string
-		wantFiles     []string
-		wantTruncated bool
-	}{
-		{
-			name:      "diff read to the end",
-			diff:      wellFormedDiff,
-			wantFiles: []string{"first.txt", "second.txt"},
-		},
-		{
-			// second.txt sits behind the bad hunk header, so it is never scanned.
-			name:          "diff abandoned on a bad hunk header",
-			diff:          unparseableDiff,
-			wantFiles:     []string{"first.txt"},
-			wantTruncated: true,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			gitCmd := gitCmdFromDiff(t, tc.diff, 0)
-
-			var files []string
-			for f := range gitCmd.DiffFilesCh() {
-				files = append(files, f.NewName)
-			}
-			require.Equal(t, tc.wantFiles, files)
-
-			unparsed := gitCmd.UnparsedBytes()
-			if tc.wantTruncated {
-				require.Greater(t, unparsed, int64(0), "leftover output is the only sign that the scan stopped early")
-			} else {
-				require.Zero(t, unparsed, "a diff that parsed to the end must not look truncated")
-			}
-			require.NoError(t, gitCmd.Wait())
-		})
-	}
-}
-
-// TestGitFragmentsUnparseableDiff covers gitleaks#1338: when the parser gives up
-// partway through, whatever git has not written yet stays in the pipe. Nothing
-// drains it, so git never exits, its stderr never reaches EOF, and Fragments
-// waits on a channel that will never close.
-func TestGitFragmentsUnparseableDiff(t *testing.T) {
-	// Enough padding to overflow the pipe buffer, which is what makes git block.
-	gitCmd := gitCmdFromDiff(t, unparseableDiff, 32*1024)
-
+func collectGitFragments(t *testing.T, ctx context.Context, gitCmd *GitCmd) ([]Fragment, error) {
+	t.Helper()
 	source := &Git{
 		Cmd:    gitCmd,
 		Config: &config.Config{},
-		Remote: &RemoteInfo{},
-		Sema:   semgroup.NewGroup(context.Background(), 4),
+		Sema:   semgroup.NewGroup(ctx, 4),
 	}
+	var fragments []Fragment
+	err := source.Fragments(ctx, func(fragment Fragment, err error) error {
+		if err != nil {
+			return err
+		}
+		fragments = append(fragments, fragment)
+		return nil
+	})
+	return fragments, err
+}
 
-	var (
-		mu       sync.Mutex
-		scanned  []string
-		yielded  []error
-		finished = make(chan error, 1)
-	)
+func TestGitFragmentsReportsNonzeroExitWithoutStderr(t *testing.T) {
+	first := newControlledGitCmd(t, context.Background(), "", "", 128, 0)
+	_, err := collectGitFragments(t, context.Background(), first)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "git command failed")
+	assert.Contains(t, err.Error(), "exit status 128")
+}
+
+func TestGitFragmentsReportsNonzeroExitWithStderr(t *testing.T) {
+	gitCmd := newControlledGitCmd(t, context.Background(), "", "fatal: synthetic git failure\n", 128, 0)
+	_, err := collectGitFragments(t, context.Background(), gitCmd)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fatal: synthetic git failure")
+}
+
+func TestGitFragmentsAllowsNonfatalStderr(t *testing.T) {
+	gitCmd := newControlledGitCmd(t, context.Background(), gitTestDiff, "warning: synthetic nonfatal warning\n", 0, 0)
+	fragments, err := collectGitFragments(t, context.Background(), gitCmd)
+	require.NoError(t, err)
+	require.Len(t, fragments, 1)
+	assert.Equal(t, "first.txt", fragments[0].FilePath)
+}
+
+func TestGitFragmentsReportsFatalStderrWithZeroExit(t *testing.T) {
+	gitCmd := newControlledGitCmd(t, context.Background(), "", "fatal: synthetic zero-exit failure\n", 0, 0)
+	_, err := collectGitFragments(t, context.Background(), gitCmd)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "git reported an error on stderr")
+	assert.Contains(t, err.Error(), "synthetic zero-exit failure")
+}
+
+func TestGitFragmentsReportsIncompleteDiff(t *testing.T) {
+	gitCmd := newControlledGitCmd(t, context.Background(), gitTestMalformedDiff, "", 0, 0)
+	finished := make(chan error, 1)
+	var fragments []Fragment
 	go func() {
-		finished <- source.Fragments(context.Background(), func(f Fragment, err error) error {
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				yielded = append(yielded, err)
-			} else {
-				scanned = append(scanned, f.FilePath)
-			}
-			return nil
-		})
+		var err error
+		fragments, err = collectGitFragments(t, context.Background(), gitCmd)
+		finished <- err
 	}()
 
 	select {
 	case err := <-finished:
-		require.NoError(t, err)
-	case <-time.After(30 * time.Second):
-		t.Fatal("Fragments did not return: git is still blocked writing a diff nobody is reading")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "diff parsing stopped early")
+		assert.Contains(t, err.Error(), "results are incomplete")
+		require.Len(t, fragments, 1)
+		assert.Equal(t, "first.txt", fragments[0].FilePath)
+	case <-time.After(10 * time.Second):
+		t.Fatal("Git.Fragments did not return after the parser stopped early")
 	}
-
-	mu.Lock()
-	defer mu.Unlock()
-	require.Equal(t, []string{"first.txt"}, scanned)
-	require.Len(t, yielded, 1, "an unfinished scan has to be reported, not passed off as a clean one")
-	require.ErrorContains(t, yielded[0], "diff parsing stopped early")
-	require.ErrorContains(t, yielded[0], "results are incomplete")
 }
 
-// TestGitFragmentsPropagatesGitExitError covers a git subprocess that fails
-// without writing to stderr (for example, one killed by a signal). Its exit
-// status must surface as a scan error instead of a clean pass.
-// https://github.com/gitleaks/gitleaks/issues/1981
-func TestGitFragmentsPropagatesGitExitError(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("test shadows the git executable with a POSIX shell shim")
+func TestGitFragmentsCancellationWaitsForProcess(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
+
+	gitCmd := newControlledGitCmd(t, ctx, gitTestDiff, "", 0, 10*time.Second)
+	start := time.Now()
+	_, err := collectGitFragments(t, ctx, gitCmd)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, elapsed, 5*time.Second, "cancellation must not wait for the helper's full sleep")
+	require.NotNil(t, gitCmd.cmd.ProcessState, "the Git process must be reaped before Fragments returns")
+}
+
+func TestGitCmdWaitIsIdempotent(t *testing.T) {
+	gitCmd := newControlledGitCmd(t, context.Background(), gitTestDiff, "", 0, 0)
+	for range gitCmd.DiffFilesCh() {
 	}
-
-	cases := []struct {
-		name      string
-		exitCode  int
-		wantError bool
-	}{
-		{
-			name:      "git exits non-zero with no output",
-			exitCode:  128,
-			wantError: true,
-		},
-		{
-			name:      "git exits zero with no output",
-			exitCode:  0,
-			wantError: false,
-		},
+	for range gitCmd.ErrCh() {
 	}
+	require.NoError(t, gitCmd.Wait())
+	require.NoError(t, gitCmd.Wait())
+}
 
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			// Arrange: shadow the real git executable with a shim that
-			// exits silently, leaving both stdout and stderr empty.
-			shimDir := t.TempDir()
-			shim := "#!/bin/sh\nexit " + strconv.Itoa(c.exitCode) + "\n"
-			require.NoError(t, os.WriteFile(filepath.Join(shimDir, "git"), []byte(shim), 0o755))
-			t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+const gitTestTruncatedDiff = `commit 6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b
+Author: Test <test@example.com>
+Date:   Sun Feb 11 21:44:04 2024 +0000
 
-			ctx := context.Background()
-			gitCmd, err := NewGitDiffCmdContext(ctx, ".", true)
-			require.NoError(t, err)
+    a commit
 
-			source := Git{
-				Cmd:    gitCmd,
-				Config: &config.Config{},
-				Sema:   semgroup.NewGroup(ctx, 1),
-			}
+diff --git a/truncated.txt b/truncated.txt
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/truncated.txt
+@@ -0,0 +1,2 @@
++only one line of a two-line hunk
+`
 
-			// Act
-			err = source.Fragments(ctx, func(_ Fragment, err error) error {
-				return err
-			})
+func TestGitFragmentsReportsTruncatedDiff(t *testing.T) {
+	gitCmd := newControlledGitCmd(t, context.Background(), gitTestTruncatedDiff, "", 0, 0)
+	_, err := collectGitFragments(t, context.Background(), gitCmd)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "diff parsing stopped early")
+	assert.Contains(t, err.Error(), "results are incomplete")
+}
 
-			// Assert
-			if c.wantError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-		})
+func TestGitCmdStartFailure(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	_, err := NewGitLogCmdContext(context.Background(), ".", "")
+	require.Error(t, err)
+}
+
+func TestGitOutputTrackerCountsDiffSections(t *testing.T) {
+	tracker := &gitOutputTracker{}
+	_, _ = tracker.Write([]byte("    diff --git a/message b/message\n"))
+	_, _ = tracker.Write([]byte("diff --git a/one b/one\n--- a/one\n+++ b/one\n"))
+	_, _ = tracker.Write([]byte("diff --git a/two b/two"))
+	tracker.finish()
+	require.Equal(t, int64(2), tracker.sectionCount())
+}
+
+func TestSanitizeGitDiagnostic(t *testing.T) {
+	tests := map[string]string{
+		"fatal: synthetic git failure": "fatal: synthetic git failure",
+		"fatal: unable to access 'https://user:ghp_SECRETTOKEN@example.com/repo?token=QUERYVALUE': denied": "fatal: unable to access 'https://REDACTED@example.com/repo?token=REDACTED': denied",
+		"fatal: bad token AKIAABCDEFGHIJKLMNOP": "fatal: bad token REDACTED",
 	}
+	for input, expected := range tests {
+		assert.Equal(t, expected, sanitizeGitDiagnostic(input))
+	}
+}
+
+func TestGitFragmentsSanitizesStderrSecrets(t *testing.T) {
+	gitCmd := newControlledGitCmd(t, context.Background(), "",
+		"fatal: unable to access 'https://user:ghp_SECRETTOKEN@example.com/repo?token=QUERYVALUE': denied\n",
+		128, 0)
+	_, err := collectGitFragments(t, context.Background(), gitCmd)
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "ghp_SECRETTOKEN")
+	assert.NotContains(t, err.Error(), "QUERYVALUE")
+	assert.Contains(t, err.Error(), "https://REDACTED@example.com")
+	assert.Contains(t, err.Error(), "token=REDACTED")
 }

@@ -1,0 +1,6 @@
+[[rules]]
+id = "example"
+regex = '''example\d+'''
+
+[rules.allowlist]
+paths = ["*.test.js"]

@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/logging"
 	"github.com/zricethezav/gitleaks/v8/report"
 	"github.com/zricethezav/gitleaks/v8/sources"
@@ -47,30 +48,31 @@ func (d *Detector) DetectFiles(scanTargets <-chan sources.ScanTarget) ([]report.
 
 			// Empty; nothing to do here.
 			if info.Size() == 0 {
+				target := scanTarget.Informative
+				if target == nil && d.Informative != nil {
+					target = d.Informative.Track(informative.KindFile, scanTarget.Path, "", 0, true)
+				}
+				target.Exclude(informative.ReasonEmptyFile, informative.ExclusionOptions{
+					Detail: "empty file",
+				})
 				logger.Debug().Msg("skipping empty file")
 				return nil
 			}
 
-			// Too large; nothing to do here.
-			if d.MaxTargetMegaBytes > 0 {
-				rawLength := info.Size() / 1_000_000
-				if rawLength > int64(d.MaxTargetMegaBytes) {
-					logger.Warn().Msgf(
-						"skipping file: too large max_size=%dMB, size=%dMB",
-						d.MaxTargetMegaBytes, rawLength,
-					)
-					return nil
-				}
-			}
-
-			// Convert this to a file source
+			// Convert this to a file source. File enforces the configured
+			// limit after archive verification, using the actual content for
+			// archive members rather than the container size.
 			file := sources.File{
 				Content:         f,
 				Path:            scanTarget.Path,
 				Symlink:         scanTarget.Symlink,
+				Root:            scanTarget.Root,
 				Config:          &d.Config,
 				MaxFileSize:     d.MaxTargetMegaBytes * 1_000_000,
+				Size:            info.Size(),
 				MaxArchiveDepth: d.MaxArchiveDepth,
+				Informative:     d.Informative,
+				Target:          scanTarget.Informative,
 			}
 
 			ctx := context.Background()
@@ -81,6 +83,9 @@ func (d *Detector) DetectFiles(scanTargets <-chan sources.ScanTarget) ([]report.
 				}
 
 				for _, finding := range d.Detect(Fragment(fragment)) {
+					if d.knownRelativeToRoot(fragment, finding) {
+						continue
+					}
 					d.AddFinding(finding)
 				}
 				return nil

@@ -11,6 +11,21 @@
 > [!WARNING]
 > Gitleaks is feature complete. I'm not merging new features into Gitleaks. Future releases will be security patches only. I'm shifting my focus to [Betterleaks](https://github.com/betterleaks/betterleaks)
 
+## RNC validation fork — engineering status (2026-11-13)
+
+This is the RNC scanner's **`fix/validation` development line**, not an upstream release. The last source-code checkpoint is [CP-V10 `bd42a95`](https://github.com/RNC-Solutions-Group/gitleaks/commit/bd42a958f7476e9a6d8e17bd2dbb2abe3ff060ea), with [12/12 CI checks passing](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43321594496). Technical verification does not substitute for final operator acceptance and the independent RNC scanner harness's oracle/compatibility tests.
+
+- Normal `make build`, `make test`, `make test-race`, `make verify` and `make version` no longer intentionally mutate tracked source/config/module files or fetch remote tags; `make format`, `make tidy`, `make generate` and `make clean` are explicit maintenance operations. See [CONTRIBUTING.md](CONTRIBUTING.md) for version resolution and platform-specific checks.
+- Both standard and full `gore2regex` repository builds/tests are supported after CP-V10's generator fixes, with the independently resolved `go-re2 v1.13.0` dependency. This does **not** close the release RE2 address-space constraints under sandbox or memory limits.
+- Default `docker build` and runtime remain the historic **root-based** image. `docker build --target runtime-nonroot` is an additional tested **opt-in** target with UID/GID 10001:10001; its source/report mount permissions must be granted appropriately.
+- CP-V8 corrected scan-root-relative ignore/allowlist/baseline matching without rewriting reported paths/fingerprints; CP-V9 corrected system-hook filename forwarding, mitigated transient Windows report rename errors and added informative-only UTC `scan.generated_at`.
+- Open exceptions include merge-only Git default coverage, chunk boundaries, commit/line/boolean allowlist defects, diagnostic redaction residuals, non-atomic paired reports and a parent-rename orphan-temp cleanup limitation. The upstream Gitleaks Action scanner workflow is **not** part of RNC's desired test pipeline.
+
+**Dependency attribution:** Historical version proposals that match the independently resolved RNC module graph have profile-only appreciation in the [engineering ledger](fixes-qol-tracking.md); newer pins and different implementations supersede other proposals without contributor tags. No upstream dependency PRs were merged or cherry-picked. The RE2 constrained-runtime release issue and Go minimum/toolchain policy remain active.
+
+**Status and provenance:** [fixes/QOL implementation ledger](fixes-qol-tracking.md) · [active backlog categories](https://github.com/RNC-Solutions-Group/gitleaks/tree/feat/issues-and-pr/_backlog/categories) · [corrected, superseded and declined upstream dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). Original upstream snapshot: **285 issues / 252 PRs / 388 package slots**; RNC active: **197 issues / 155 PRs / 239 slots**; dispositioned: **88 issues / 97 PRs / 149 slots**.
+
+
 [license]: ./LICENSE
 [badge-license]: https://img.shields.io/github/license/gitleaks/gitleaks.svg
 [go-docs-badge]: https://pkg.go.dev/badge/github.com/gitleaks/gitleaks/v8?status
@@ -60,13 +75,16 @@ Fingerprint: cd5226711335c68be1e720b318b7bc3135a30eb2:cmd/generate/config/rules/
 
 ## Getting Started
 
-Gitleaks can be installed using Homebrew, Docker, or Go. Gitleaks is also available in binary form for many popular platforms and OS types on the [releases page](https://github.com/gitleaks/gitleaks/releases). In addition, Gitleaks can be implemented as a pre-commit hook directly in your repo or as a GitHub action using [Gitleaks-Action](https://github.com/gitleaks/gitleaks-action).
+Gitleaks can be installed using Homebrew, mise, Docker, or Go. Gitleaks is also available in binary form for many popular platforms and OS types on the [releases page](https://github.com/gitleaks/gitleaks/releases). In addition, Gitleaks can be implemented as a pre-commit hook directly in your repo or as a GitHub action using [Gitleaks-Action](https://github.com/gitleaks/gitleaks-action).
 
 ### Installing
 
 ```bash
 # MacOS
 brew install gitleaks
+
+# Linux, MacOS, or Windows with mise installed
+mise use -g gitleaks@latest
 
 # Docker (DockerHub)
 docker pull zricethezav/gitleaks:latest
@@ -82,6 +100,35 @@ cd gitleaks
 make build
 ```
 
+### Docker runtime identities
+
+A plain `docker build` continues to produce the established root-based image. The optional non-root image is a separate, explicitly selected build target; it is not the default:
+
+```bash
+# Established default (runs as root)
+docker build -t gitleaks:latest .
+
+# Optional non-root variant (stable UID/GID 10001:10001)
+docker build --target runtime-nonroot -t gitleaks:nonroot .
+```
+
+Both variants contain the same scanner and runtime packages. The non-root image has a writable home directory at `/home/gitleaks`, runs with `HOME=/home/gitleaks`, and retains `safe.directory '*'` so it can scan repositories whose bind-mounted ownership does not match the container user. A narrower trust list is possible by supplying an operator-managed Git global configuration, but an arbitrary mount path then has to be listed explicitly.
+
+Source mounts can stay read-only. A report destination must be writable by the runtime user:
+
+```bash
+mkdir -p reports
+# On Linux, make the destination writable by the stable non-root UID.
+sudo chown 10001:10001 reports
+
+docker run --rm \
+  -v "$PWD:/scan:ro" \
+  -v "$PWD/reports:/reports" \
+  gitleaks:nonroot dir /scan --report-path /reports/report.json
+```
+
+The non-root image cannot read a `0700` repository owned by a different host UID unless the host grants access through group ownership or ACLs. Likewise, it cannot write a report into a host directory owned by another user. These are expected permission failures and produce a nonzero scanner result, not a clean scan. The root image remains available for cases that require root-owned mount access. For console-only read-only containers, `--read-only --tmpfs /tmp` works with both images.
+
 ### Pre-Commit
 
 1. Install pre-commit from https://pre-commit.com/#install
@@ -95,7 +142,9 @@ make build
          - id: gitleaks
    ```
 
-   for a [native execution of gitleaks](https://github.com/gitleaks/gitleaks/releases) or use the [`gitleaks-docker` pre-commit ID](https://github.com/gitleaks/gitleaks/blob/master/.pre-commit-hooks.yaml) for executing gitleaks using the [official Docker images](#docker)
+   for a [native execution of gitleaks](https://github.com/gitleaks/gitleaks/releases) or use the [`gitleaks-docker` pre-commit ID](https://github.com/gitleaks/gitleaks/blob/master/.pre-commit-hooks.yaml) for executing gitleaks using the [official Docker images](#installing). If `gitleaks` is already installed on your `PATH` and you want pre-commit to use that executable directly, select the `gitleaks-system` hook instead.
+
+   All three hook IDs scan the staged Git index with `--staged`; they are not directory scans. `pass_filenames` is disabled because pre-commit's selected filenames must not be forwarded as Git target arguments. As a consequence, `pre-commit run --all-files` still scans only the staged changes for this hook, not every tracked file. Use an explicit `gitleaks git` or `gitleaks dir` command when an all-files or history scan is intended.
 
 3. Auto-update the config to the latest repos' versions by executing `pre-commit autoupdate`
 4. Install with `pre-commit install`
@@ -148,7 +197,7 @@ Flags:
       --ignore-gitleaks-allow         ignore gitleaks:allow comments
   -l, --log-level string              log level (trace, debug, info, warn, error, fatal) (default "info")
       --max-archive-depth int         allow scanning into nested archives up to this depth (default "0", no archive traversal is done)
-      --max-decode-depth int          allow recursive decoding up to this depth (default "0", no decoding is done)
+      --max-decode-depth int          allow recursive decoding up to this depth (default 5)
       --max-target-megabytes int      files larger than this will be skipped
       --no-banner                     suppress banner
       --no-color                      turn off color for verbose output
@@ -156,6 +205,8 @@ Flags:
   -f, --report-format string          output format (json, csv, junit, sarif, template)
   -r, --report-path string            report file
       --report-template string        template file used to generate the report (implies --report-format=template)
+      --overwrite                     replace an existing report file (overrides configured report policy)
+      --aggregate                     write a numbered report instead of replacing an existing one (overrides configured report policy)
       --timeout int                   set a timeout for gitleaks commands in seconds (default "0", no timeout is set)
   -v, --verbose                       show verbose output from scan
       --version                       version for gitleaks
@@ -179,10 +230,14 @@ For example, if you wanted to run gitleaks on a range of commits you could use t
 command: `gitleaks git -v --log-opts="--all commitA..commitB" path_to_repo`. See the [git log](https://git-scm.com/docs/git-log) documentation for more information.
 If there is no target specified as a positional argument, then gitleaks will attempt to scan the current working directory as a git repo.
 
+A `git log -p` scan, including one restricted with `--log-opts`, examines the lines **added** by each commit in range. It does not scan a file's pre-existing unchanged content. If a credential was committed before the scanned range and a later in-range commit changes only another line of that file, the credential is not found. This matters for commit-range enforcement such as a pre-receive hook scanning `oldrev..newrev`; pair such scans with a periodic full-history scan when complete repository coverage is required.
+
 #### Dir
 
 The `dir` (aliases include `files`, `directory`) command lets you scan directories and files. Example: `gitleaks dir -v path_to_directory_or_file`.
 If there is no target specified as a positional argument, then gitleaks will scan the current working directory.
+
+Directory scans report each file using the spelling of the supplied root, but path-based matching also evaluates the path relative to that root. An allowlist path such as `^src/vendor/`, a `.gitleaksignore` fingerprint generated by `gitleaks dir .`, and a saved baseline therefore apply consistently when the same tree is scanned as `gitleaks dir .`, `gitleaks dir repo`, or `gitleaks dir /absolute/path/to/repo`. The reported `File` and `Fingerprint` values are unchanged; Git scans and single-file targets keep their existing path semantics.
 
 #### Stdin
 
@@ -197,13 +252,23 @@ gitleaks will ignore any old findings that are present in the baseline. A baseli
 gitleaks git --report-path gitleaks-report.json # This will save the report in a file called gitleaks-report.json
 ```
 
-Once as baseline is created it can be applied when running the detect command again:
+Once a baseline is created, it can be applied to a subsequent `git` scan:
 
 ```
 gitleaks git --baseline-path gitleaks-report.json --report-path findings.json
 ```
 
-After running the detect command with the --baseline-path parameter, report output (findings.json) will only contain new issues.
+After running the `git` command with the `--baseline-path` parameter, the report output (`findings.json`) will only contain new issues. For directory scans, baseline entries and the baseline file's own path are matched against both the reported path spelling and the scan-root-relative path, so a baseline recorded with one equivalent root spelling works with the others. The baseline file itself is not scanned.
+
+### Baseline storage and handling
+
+Baseline JSON is a findings report. Unless the report was generated with redaction, its `Secret` and `Match` fields can contain the actual credential material, including values that were intended to be suppressed by the baseline. Treat a baseline as sensitive data:
+
+- Store it with access restricted to the scanning service and authorized operators; do not commit it to the repository whose secrets it contains.
+- Avoid attaching it to public CI artifacts, build logs, issue reports, or release assets. Upload artifacts only to a private, access-controlled backend.
+- Apply a retention limit and delete baseline copies when the underlying findings are removed or the credential is revoked.
+- Review baselines periodically. Updating a baseline to add a new finding can hide a live exposure; prefer fixing or revoking the credential first.
+- When a fingerprint-only allowlist is sufficient, use [`.gitleaksignore`](#gitleaksignore) instead. It contains fingerprints rather than secret and match fields.
 
 ## Pre-Commit hook
 
@@ -300,7 +365,7 @@ path = '''a-file-path-regex'''
 # Keywords are used for pre-regex check filtering. Rules that contain
 # keywords will perform a quick string compare check to make sure the
 # keyword(s) are in the content being scanned. Ideally these values should
-# either be part of the identiifer or unique strings specific to the rule's regex
+# either be part of the identifier or unique strings specific to the rule's regex
 # (introduced in v8.6.0)
 keywords = [
   "auth",
@@ -391,7 +456,7 @@ description = "Our test assets trigger false-positives in a couple rules."
 paths = ['''tests/expected/._\.json$''']
 ```
 
-Refer to the default [gitleaks config](https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml) for examples or follow the [contributing guidelines](https://github.com/gitleaks/gitleaks/blob/master/CONTRIBUTING.md) if you would like to contribute to the default configuration. Additionally, you can check out [this gitleaks blog post](https://blog.gitleaks.io/stop-leaking-secrets-configuration-2-3-aeed293b1fbf) which covers advanced configuration setups.
+Refer to the default [gitleaks config](https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml) for examples or follow the [contributing guidelines](https://github.com/gitleaks/gitleaks/blob/master/CONTRIBUTING.md) if you would like to contribute to the default configuration. Additionally, you can check out [this gitleaks blog post](https://medium.com/gitleaks/stop-leaking-secrets-configuration-2-3-aeed293b1fbf) which covers advanced configuration setups.
 
 ### Additional Configuration
 
@@ -481,7 +546,7 @@ fragment = section of data gitleaks is looking at
    └───-3C────0L───+3C┴─┘ └────────────┘
 ```
 
-<details><summary>Some final quick thoughts on composite rules.</summary>This is an experimental feature! It's subject to change so don't go sellin' a new B2B SaaS feature built ontop of this feature. Scan type (git vs dir) based context is interesting. I'm monitoring the situation. Composite rules might not be super useful for git scans because gitleaks only looks at additions in the git history. It could be useful to scan non-additions in git history for `required` rules. Oh, right this is a readme, I'll shut up now.</details>
+<details><summary>Some final quick thoughts on composite rules.</summary>This is an experimental feature! It's subject to change so don't go sellin' a new B2B SaaS feature built on top of this feature. Scan type (git vs dir) based context is interesting. I'm monitoring the situation. Composite rules might not be super useful for git scans because gitleaks only looks at additions in the git history. It could be useful to scan non-additions in git history for `required` rules. Oh, right this is a readme, I'll shut up now.</details>
 
 #### gitleaks:allow
 
@@ -496,14 +561,14 @@ class CustomClass:
 
 #### .gitleaksignore
 
-You can ignore specific findings by creating a `.gitleaksignore` file at the root of your repo. In release v8.10.0 Gitleaks added a `Fingerprint` value to the Gitleaks report. Each leak, or finding, has a Fingerprint that uniquely identifies a secret. Add this fingerprint to the `.gitleaksignore` file to ignore that specific secret. See Gitleaks' [.gitleaksignore](https://github.com/gitleaks/gitleaks/blob/master/.gitleaksignore) for an example. Note: this feature is experimental and is subject to change in the future.
+You can ignore specific findings by creating a `.gitleaksignore` file at the root of your repo. In release v8.10.0 Gitleaks added a `Fingerprint` value to the Gitleaks report. Each leak, or finding, has a Fingerprint that uniquely identifies a secret. Add this fingerprint to the `.gitleaksignore` file to ignore that specific secret. See Gitleaks' [.gitleaksignore](https://github.com/gitleaks/gitleaks/blob/master/.gitleaksignore) for an example. For directory scans, a fingerprint using the path relative to the scan root (the form printed by `gitleaks dir .`) also matches when the same tree is scanned with a relative or absolute root. Note: this feature is experimental and is subject to change in the future.
 
 #### Decoding
 
 Sometimes secrets are encoded in a way that can make them difficult to find
-with just regex. Now you can tell gitleaks to automatically find and decode
-encoded text. The flag `--max-decode-depth` enables this feature (the default
-value "0" means the feature is disabled by default).
+with just regex. Gitleaks automatically finds and decodes encoded text, up to a
+recursion depth of 5 by default. The flag `--max-decode-depth` controls this
+recursion limit; set it to `0` to disable decoding entirely.
 
 Recursive decoding is supported since decoded text can also contain encoded
 text.  The flag `--max-decode-depth` sets the recursion limit. Recursion stops
@@ -572,6 +637,55 @@ Gitleaks has built-in support for several report formats: [`json`](https://githu
 
 If none of these formats fit your need, you can create your own report format with a [Go `text/template` .tmpl file](https://www.digitalocean.com/community/tutorials/how-to-use-templates-in-go#step-4-writing-a-template) and the `--report-template` flag. The template can use [extended functionality from the `Masterminds/sprig` template library](https://masterminds.github.io/sprig/).
 
+#### Report output policy
+
+File reports replace an existing destination by default. This preserves the original Gitleaks behavior and keeps existing automation working without new flags. Report output can be configured with two top-level settings:
+
+```toml
+# Replace an existing report after a successful scan.
+# Default: true
+auto-overwrite = true
+
+# Write a numbered report instead of replacing an existing one.
+# Default: false
+aggregation = false
+```
+
+When both settings are omitted, Gitleaks uses `auto-overwrite = true` and `aggregation = false`.
+
+| `auto-overwrite` | `aggregation` | Existing destination |
+| --- | --- | --- |
+| `true` | `true` | Write a numbered report (aggregation takes precedence) |
+| `true` | `false` | Replace the existing report |
+| `false` | `true` | Write a numbered report |
+| `false` | `false` | Fail before scanning |
+
+When the requested destination does not exist, every combination writes to that requested path.
+
+The `--overwrite` and `--aggregate` flags override the configuration for one run. Supplying both flags is an error and is rejected before scanning. The flags may appear before or after other options.
+
+```sh
+# Replace the existing report even if the configuration disables overwrite.
+gitleaks dir . --report-path report.json --overwrite
+
+# Create numbered reports even if the configuration does not enable aggregation.
+gitleaks dir . --report-path report.json --aggregate
+```
+
+Aggregation does not merge findings and does not manage report retention. It writes separate files with the same directory, filename stem, and extension. The first scan writes the requested path when it is available; later scans use `_001`, `_002`, and so on:
+
+```text
+reports/report.json
+reports/report_001.json
+reports/report_002.json
+```
+
+Numbering starts at `_001` and advances until an available filename is found. Existing reports are never replaced in aggregation mode, including when several scans allocate filenames concurrently. The actual output filename is logged as diagnostic output; when `--report-path -` is used, report data on stdout is not contaminated by those diagnostics.
+
+If both settings are false and the destination already exists, Gitleaks exits before scanning and leaves the file untouched. The error identifies the conflicting path and recommends `auto-overwrite`/`aggregation` or the `--overwrite`/`--aggregate` flags.
+
+Report writing still validates the format and template first, writes through a temporary file, publishes each file atomically, rejects symlink and special-file destinations, prevents collisions with a direct scan-target file, configuration, baseline, ignore file, or report template, and preserves an existing report when the scan or report write fails. A primary report and its optional informative companion are two independent filesystem paths and are not atomic as a pair. Reports inside the scan target are ordinary destinations under this policy; the experimental `--allow-in-tree-report-overwrite` flag has been removed. Validation is repeated immediately before publication, but validation and rename are separate filesystem operations. A local actor that replaces the destination with a symlink, hardlink, directory, or another file cannot redirect publication into the substituted target; a temporary report can remain in a parent directory that is renamed during publication, which is a cleanup limitation of the two-step filesystem operation.
+
 For example, the following template provides a custom JSON output:
 ```gotemplate
 # jsonextra.tmpl
@@ -607,6 +721,136 @@ Usage:
 $ gitleaks dir ~/leaky-repo/ --report-path "report.json" --report-format template --report-template testdata/report/jsonextra.tmpl
 ```
 
+#### Informative scan report
+
+Gitleaks can optionally report the targets it intentionally did not examine. This is an additive, opt-in report: it does not change detection, archive processing, findings reports, scan-completion status, or exit codes. When it is disabled, the original console and report behavior is unchanged.
+
+```toml
+# Enable informative scan reporting.
+# Default: false
+informative-report = true
+
+# Keep informative output on the console even when a report file is selected.
+# This controls only the informative output.
+# Default: false
+console-only = false
+```
+
+Both are top-level TOML settings read from the active Gitleaks configuration. They are not new command-line flags. The active configuration is selected using the normal precedence described in [Load Configuration](#load-configuration). Like `auto-overwrite` and `aggregation`, these reporting settings belong to the active configuration and are not inherited from an `[extend]` file; set them explicitly in the configuration selected for the run.
+
+The complete output behavior is:
+
+| `informative-report` | `console-only` | `--report-path` | Behavior |
+| --- | --- | --- | --- |
+| `false` | either | omitted | Original console behavior |
+| `false` | either | file | Original primary findings report only |
+| `true` | `false` | omitted | Original console behavior plus informative summary on stderr; no file |
+| `true` | `false` | file | Primary findings report plus `*-informative.json` |
+| `true` | `true` | omitted | Original console behavior plus informative summary on stderr; no file |
+| `true` | `true` | file | Primary findings report plus informative summary on stderr; no informative file |
+| `true` | either | `-` | Primary report on stdout plus informative summary on stderr |
+
+`console-only` has no effect when `informative-report` is false. Omitting `--report-path` never turns into an implicit report file. When the primary report uses stdout (`--report-path -`), informative console output uses stderr so the machine-readable primary output is not contaminated.
+
+Informative companion files are derived from the actual primary report filename. The informative file is always JSON, even when the primary report is CSV, SARIF, JUnit, or a template:
+
+```text
+report.json       -> report-informative.json
+report.csv        -> report-informative.json
+report.sarif      -> report-informative.json
+report_001.json   -> report_001-informative.json
+report_002.csv    -> report_002-informative.json
+```
+
+Aggregation allocates one logical pair at a time. If either member of the requested pair already exists, Gitleaks advances to the next numbered pair whose primary and informative names are both available. The companion is not numbered independently. `auto-overwrite`/`--overwrite` replaces the requested primary and its matching companion after a completed scan. The reject policy requires both names to be absent before scanning. The two files are rendered and validated before publication; they are two filesystem paths and are **not** published as one atomic operation. If the primary cannot be published after the companion was published, Gitleaks reports the failure instead of claiming a successful pair. In overwrite mode this late failure can leave the new companion published while the previous primary remains; the error identifies both paths, and the next successful run replaces the pair. Aggregate/reject pair allocations that were newly reserved are rolled back.
+
+The informative document is a separate, versioned schema. It never contains finding secrets, matched source lines, configuration contents, or raw Git diagnostics.
+
+```json
+{
+  "schema_version": 1,
+  "scan": {
+    "source_type": "directory",
+    "completed": true,
+    "primary_report": "report.json",
+    "generated_at": "2026-11-12T20:04:12Z"
+  },
+  "summary": {
+    "observed_targets": 1284,
+    "inspected_targets": 1216,
+    "excluded_targets": 68,
+    "exclusions_by_reason": {
+      "binary_content": 35,
+      "path_allowlist": 18,
+      "size_limit": 12,
+      "archive_depth": 3
+    }
+  },
+  "exclusions": [
+    {
+      "path": "vendor/large-bundle.bin",
+      "kind": "file",
+      "reason": "size_limit",
+      "size_bytes": 12500000,
+      "limit_bytes": 5000000
+    },
+    {
+      "path": "backups/archive.zip",
+      "kind": "file",
+      "reason": "archive_depth"
+    }
+  ]
+}
+```
+
+The schema version is `1`. Consumers must ignore unknown fields. `scan.generated_at` is an additive optional field: it is the UTC RFC3339 time at which the informative document was assembled. It is captured once for that document, so a console summary and JSON rendering of the same scan agree. It appears only when informative reporting is enabled and is never added to the primary findings report. The field does not prove that a primary report and its companion were published atomically or that an older primary report came from the same scan.
+
+`scan.source_type` is `directory`, `file`, `git`, or `stdin` for the CLI scan modes; the direct-reader API uses `stream`. Exclusion `kind` is one of `file`, `archive_member`, `directory`, `stdin`, `stream`, `git_diff`, or `git_blob`. The supported exclusion reasons are:
+
+| Reason | Meaning |
+| --- | --- |
+| `size_limit` | The target or archive member exceeded the configured size policy |
+| `binary_content` | Content was classified as binary |
+| `archive_depth` | Archive traversal was disabled or the maximum archive depth was reached |
+| `path_allowlist` | The target path matched a path-level allowlist |
+| `commit_allowlist` | A Git commit matched a commit-level allowlist |
+| `symlink_not_followed` | A symlink was not followed under the active traversal policy |
+| `empty_file` | An empty target was skipped |
+| `excluded_input` | A report, configuration, or baseline input was excluded from scanning |
+
+Coverage counts have a defined scope:
+
+- `observed_targets` counts non-directory filesystem entries encountered, archive members reached, Git diff files/blobs considered, and stdin when supplied. A directory excluded by a path allowlist counts as one observed target because its contents were not enumerated.
+- `inspected_targets` is `observed_targets - excluded_targets` under the configured scanning policy. It is not a claim that every file in a repository was examined.
+- `excluded_targets` counts intentional exclusions, not finding suppressions.
+- Fragment counts are not file counts. A file can produce zero, one, or many fragments.
+- Git history scanning remains diff-based. Textual-history coverage describes the commits and added lines Gitleaks actually scanned; it does not claim a complete historical file inventory. Staged binary or archive blobs that are intentionally read from the index are counted as targets when they are considered.
+- Archive containers and their members are distinct targets. A container can be inspected while a member is excluded.
+
+Finding suppression is different from target exclusion. `.gitleaksignore`, baselines, global or rule allowlists that suppress an already-detected finding, and `gitleaks:allow` suppress findings from content that was inspected. They are not reported as unexamined files. A separate aggregate suppression count is not currently part of the schema.
+
+A completed scan with intentional exclusions is still successful, and a zero-finding report remains valid even when some targets were excluded. Real acquisition failures, corrupt archive failures, Git process failures, scanner errors, and incomplete scans keep their existing operational-error behavior and do not publish a report, including when `--exit-code 0` is used. No `inconclusive` status is introduced.
+
+Informative reporting is disabled by default. When disabled, collection is not started. When enabled, Gitleaks records one target record per observed target and does not perform a second scan or read additional file content for reporting. Aggregate counts are exact. Exclusion detail records are bounded at 10,000, with the smallest deterministic keys retained and the omitted count disclosed through `details_truncated` and `omitted_exclusions`; the console summary displays at most 20 detail lines and states how many were omitted. The console summary also reports `Generated at (UTC):` with the same value serialized as `scan.generated_at`.
+
+Paths and non-sensitive metadata such as commit IDs can still disclose operational information. Report files are written with restrictive permissions where the platform supports it. Existing CP-V5 redaction protections and primary finding output are unchanged.
+
+Existing size and archive limitations still apply. Archive containers are not skipped solely because their compressed outer file is large; uncompressed members and decompressed streams are bounded by the configured size policy. Nonseekable ZIP/7z temporary copies remain bounded, archive identification remains content-verified, and archive depth behavior is unchanged.
+
+A complete configuration example that keeps the normal detection rules and enables the report:
+
+```toml
+title = "Gitleaks configuration with informative reporting"
+informative-report = true
+console-only = false
+
+[extend]
+# Load the embedded default rules. A custom configuration without extend or
+# explicit [[rules]] does not automatically load the default rules merely
+# because it contains informative-report or console-only.
+useDefault = true
+```
+
 ## Sponsorships
 
 <p align="left">
@@ -626,5 +870,7 @@ You can always set the exit code when leaks are encountered with the --exit-code
 1 - leaks or error encountered
 126 - unknown flag
 ```
+
+A scan that could not be completed is an operational failure, not a clean result. Unreadable files or directories, failed Git commands, malformed or incomplete diff output, and cancellation exit nonzero and are reported as partial scans. `--exit-code` applies only to findings from completed scans; `--exit-code 0` does not suppress an operational failure. When a scan fails, an existing report is preserved and no misleading replacement report is written.
 
 ### Join the Discord! [![Discord](https://img.shields.io/discord/1102689410522284044.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/8Hzbrnkr7E)

@@ -3,9 +3,8 @@ package detect
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
-	"os"
+	"io"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -14,6 +13,8 @@ import (
 
 	"github.com/zricethezav/gitleaks/v8/config"
 	"github.com/zricethezav/gitleaks/v8/detect/codec"
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
+	"github.com/zricethezav/gitleaks/v8/internal/scanerr"
 	"github.com/zricethezav/gitleaks/v8/logging"
 	"github.com/zricethezav/gitleaks/v8/regexp"
 	"github.com/zricethezav/gitleaks/v8/report"
@@ -104,6 +105,17 @@ type Detector struct {
 	// report-related settings.
 	ReportPath string
 	Reporter   report.Reporter
+	// ReportWriter, when set, validates and writes the report for a completed
+	// scan, returning the actual output filename. The CLI sets it so
+	// destination policy and atomic publication stay in the command layer.
+	ReportWriter func([]report.Finding) (string, error)
+
+	// Informative is the optional per-scan coverage collector. Nil disables
+	// informative reporting and imposes no collection work.
+	Informative *informative.Collector
+	// InformativeReportPath is the companion file destination. It prevents a
+	// previous informative report from being scanned as source input.
+	InformativeReportPath string
 
 	TotalBytes atomic.Uint64
 }
@@ -112,6 +124,49 @@ type Detector struct {
 //
 // Deprecated: This will be replaced with sources.Fragment in v9
 type Fragment sources.Fragment
+
+// fragmentPaths holds the path representations used for matching. The original
+// reported path is always evaluated first. Directory scans add the
+// scan-root-relative form, plus its native-separator spelling on Windows so
+// existing backslash allowlist patterns keep working.
+type fragmentPaths struct {
+	file               string
+	windows            string
+	rootRelative       string
+	rootRelativeNative string
+}
+
+func newFragmentPaths(fragment Fragment) fragmentPaths {
+	paths := fragmentPaths{
+		file:    fragment.FilePath,
+		windows: fragment.WindowsFilePath,
+	}
+	rel := sources.RootRelativePath(fragment.Root, fragment.FilePath)
+	if rel == "" || rel == fragment.FilePath {
+		return paths
+	}
+	paths.rootRelative = rel
+	if native := filepath.FromSlash(rel); native != rel {
+		paths.rootRelativeNative = native
+	}
+	return paths
+}
+
+func (p fragmentPaths) allowed(a *config.Allowlist) bool {
+	if a == nil {
+		return false
+	}
+	if a.PathAllowed(p.file) {
+		return true
+	}
+	if p.windows != "" && a.PathAllowed(p.windows) {
+		return true
+	}
+	if p.rootRelative != "" && a.PathAllowed(p.rootRelative) {
+		return true
+	}
+	return p.rootRelativeNative != "" && a.PathAllowed(p.rootRelativeNative)
+}
 
 // NewDetector creates a new detector with the given config
 func NewDetector(cfg config.Config) *Detector {
@@ -154,24 +209,76 @@ func NewDetectorDefaultConfig() (*Detector, error) {
 
 func (d *Detector) AddGitleaksIgnore(gitleaksIgnorePath string) error {
 	logging.Debug().Str("path", gitleaksIgnorePath).Msgf("found .gitleaksignore file")
-	file, err := os.Open(gitleaksIgnorePath)
+	file, err := openIgnoreFile(gitleaksIgnorePath)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		// https://github.com/securego/gosec/issues/512
-		if err := file.Close(); err != nil {
-			logging.Warn().Err(err).Msgf("Error closing .gitleaksignore file")
-		}
-	}()
 
-	scanner := bufio.NewScanner(file)
+	info, statErr := file.Stat()
+	if statErr != nil {
+		_ = file.Close()
+		return fmt.Errorf("could not stat .gitleaksignore %q: %w", gitleaksIgnorePath, statErr)
+	}
+	if info.Size() > maxGitleaksIgnoreBytes {
+		_ = file.Close()
+		return fmt.Errorf(".gitleaksignore %q is %d bytes, exceeds limit of %d bytes", gitleaksIgnorePath, info.Size(), maxGitleaksIgnoreBytes)
+	}
+
+	entries, parseErr := parseGitleaksIgnore(file)
+	closeErr := file.Close()
+	if parseErr != nil {
+		return fmt.Errorf("could not read .gitleaksignore %q: %w", gitleaksIgnorePath, parseErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("could not close .gitleaksignore %q: %w", gitleaksIgnorePath, closeErr)
+	}
+
+	// Merge only after the complete file has been parsed successfully so an
+	// incomplete read cannot leave a partially loaded suppression set.
+	for entry := range entries {
+		d.gitleaksIgnore[entry] = struct{}{}
+	}
+	return nil
+}
+
+const (
+	maxGitleaksIgnoreBytes   = 16 << 20
+	maxGitleaksIgnoreEntries = 100_000
+	maxGitleaksIgnoreLine    = 1 << 20
+)
+
+type countingReader struct {
+	reader io.Reader
+	bytes  int64
+}
+
+func (r *countingReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	r.bytes += int64(n)
+	return n, err
+}
+
+func parseGitleaksIgnore(reader io.Reader) (map[string]struct{}, error) {
+	entries := make(map[string]struct{})
+	counted := &countingReader{reader: reader}
+	scanner := bufio.NewScanner(counted)
+	scanner.Buffer(make([]byte, 64*1024), maxGitleaksIgnoreLine)
 	replacer := strings.NewReplacer("\\", "/")
+	entryCount := 0
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		// Skip lines that start with a comment
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
+		}
+
+		entryCount++
+		if entryCount > maxGitleaksIgnoreEntries {
+			return nil, fmt.Errorf("contains more than %d entries", maxGitleaksIgnoreEntries)
+		}
+		if counted.bytes > maxGitleaksIgnoreBytes {
+			return nil, fmt.Errorf("exceeds limit of %d bytes", maxGitleaksIgnoreBytes)
 		}
 
 		// Normalize the path.
@@ -189,9 +296,15 @@ func (d *Detector) AddGitleaksIgnore(gitleaksIgnorePath string) error {
 		default:
 			logging.Warn().Str("fingerprint", line).Msg("Invalid .gitleaksignore entry")
 		}
-		d.gitleaksIgnore[strings.Join(s, ":")] = struct{}{}
+		entries[strings.Join(s, ":")] = struct{}{}
 	}
-	return nil
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	if counted.bytes > maxGitleaksIgnoreBytes {
+		return nil, fmt.Errorf("exceeds limit of %d bytes", maxGitleaksIgnoreBytes)
+	}
+	return entries, nil
 }
 
 // DetectBytes scans the given bytes and returns a list of findings
@@ -208,15 +321,7 @@ func (d *Detector) DetectString(content string) []report.Finding {
 
 // DetectSource scans the given source and returns a list of findings
 func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]report.Finding, error) {
-	// A fragment that fails to read is logged and skipped rather than abandoning
-	// the rest of the scan, but the failure still has to reach the caller. Without
-	// that, a scan whose source produced nothing at all still reports "no leaks
-	// found" and exits 0, which reads as a clean result rather than a broken run.
-	var (
-		fragmentErrsMu sync.Mutex
-		fragmentErrs   []error
-	)
-
+	collector := scanerr.New(10)
 	err := source.Fragments(ctx, func(fragment sources.Fragment, err error) error {
 		logContext := logging.With()
 
@@ -237,18 +342,19 @@ func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]r
 		logger := logContext.Logger()
 
 		if err != nil {
-			// Log the error and move on to the next fragment. yield is called from
-			// several goroutines, so guard the collection.
+			// Log the error but keep scanning so findings from readable input
+			// are preserved. The error is returned after the source completes.
 			logger.Error().Err(err).Send()
-			fragmentErrsMu.Lock()
-			fragmentErrs = append(fragmentErrs, err)
-			fragmentErrsMu.Unlock()
+			collector.Add(err)
 			return nil
 		}
 
 		// both the fragment's content and path should be empty for it to be
 		// considered empty at this point because of path based matches
 		if len(fragment.Raw) == 0 && len(fragment.FilePath) == 0 {
+			fragment.InformativeTarget.Exclude(informative.ReasonEmptyFile, informative.ExclusionOptions{
+				Detail: "empty fragment",
+			})
 			logger.Trace().Msg("skipping empty fragment")
 			return nil
 		}
@@ -275,17 +381,83 @@ func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]r
 
 		return nil
 	})
+	if err != nil {
+		collector.Add(err)
+	}
+
+	// Sources may return before their semgroup workers have finished. Waiting
+	// here both joins those workers and preserves any errors they accumulated.
+	if d.Sema != nil {
+		collector.Add(d.Sema.Wait())
+	}
 
 	if _, isGit := source.(*sources.Git); isGit {
 		logging.Info().Msgf("%d commits scanned.", len(d.commitMap))
 		logging.Debug().Msg("Note: this number might be smaller than expected due to commits with no additions")
 	}
 
-	if err == nil && len(fragmentErrs) > 0 {
-		err = errors.Join(fragmentErrs...)
+	return d.Findings(), collector.Err()
+}
+
+// knownRelativeToRoot checks .gitleaksignore fingerprints and baseline entries
+// against the finding's scan-root-relative path. The reported path was already
+// checked by AddFinding and remains the primary identity; this only adds the
+// equivalent spelling a directory scan can produce.
+func (d *Detector) knownRelativeToRoot(fragment sources.Fragment, finding report.Finding) bool {
+	rel := sources.RootRelativePath(fragment.Root, finding.File)
+	if rel == "" || rel == finding.File {
+		return false
+	}
+	logger := logging.With().Str("path", finding.File).Str("rule-id", finding.RuleID).Logger()
+
+	if finding.Commit == "" && len(d.gitleaksIgnore) > 0 {
+		fingerprint := fmt.Sprintf("%s:%s:%d", rel, finding.RuleID, finding.StartLine)
+		if _, ok := d.gitleaksIgnore[fingerprint]; ok {
+			logger.Debug().
+				Str("fingerprint", fingerprint).
+				Msg("skipping finding: global fingerprint relative to the scan root")
+			return true
+		}
 	}
 
-	return d.Findings(), err
+	if d.baseline != nil {
+		relative := finding
+		relative.File = rel
+		if !IsNew(relative, d.Redact, d.baseline) {
+			logger.Debug().
+				Str("file", rel).
+				Msg("skipping finding: baseline entry relative to the scan root")
+			return true
+		}
+	}
+	return false
+}
+
+// configOrBaselinePath identifies the configuration or baseline input under
+// either the reported spelling or the scan-root-relative spelling. Baseline
+// paths are stored relative to the source, while config paths are joined onto
+// the source; fragment paths keep the source spelling.
+func (d *Detector) configOrBaselinePath(fragment Fragment, paths fragmentPaths) (string, bool) {
+	if d.baselinePath != "" &&
+		(samePath(fragment.FilePath, d.baselinePath) || samePathAtRoot(fragment.Root, paths.rootRelative, d.baselinePath)) {
+		return "baseline file", true
+	}
+	if d.Config.Path != "" &&
+		(samePath(fragment.FilePath, d.Config.Path) || samePathAtRoot(fragment.Root, paths.rootRelative, d.Config.Path)) {
+		return "configuration file", true
+	}
+	return "", false
+}
+
+func samePathAtRoot(root, rootRelative, target string) bool {
+	if root == "" || rootRelative == "" || target == "" {
+		return false
+	}
+	if filepath.ToSlash(filepath.Clean(target)) == rootRelative {
+		return true
+	}
+	rel := sources.RootRelativePath(root, target)
+	return rel != "" && rel == rootRelative
 }
 
 // Detect scans the given fragment and returns a list of findings
@@ -312,17 +484,49 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 		}()
 	)
 
+	target := fragment.InformativeTarget
+	paths := newFragmentPaths(fragment)
+
 	// check if filepath is allowed
 	if fragment.FilePath != "" {
+		// Do not scan the requested report destination. Scanning it would
+		// re-report findings embedded in a previous report. Aggregated reports
+		// use newly allocated filenames and are not existing scan inputs.
+		if d.ReportPath != "" && d.ReportPath != report.StdoutReportPath &&
+			sameFileOrPath(fragment.FilePath, d.ReportPath) {
+			target.Exclude(informative.ReasonExcludedInput, informative.ExclusionOptions{
+				Detail: "primary report destination",
+			})
+			logging.Trace().Msg("skipping file: matches report path")
+			return findings
+		}
+		if d.InformativeReportPath != "" &&
+			sameFileOrPath(fragment.FilePath, d.InformativeReportPath) {
+			target.Exclude(informative.ReasonExcludedInput, informative.ExclusionOptions{
+				Detail: "informative report destination",
+			})
+			logging.Trace().Msg("skipping file: matches informative report path")
+			return findings
+		}
 		// is the path our config or baseline file?
-		if d.isConfigOrBaseline(fragment) {
+		if detail, ok := d.configOrBaselinePath(fragment, paths); ok {
+			target.Exclude(informative.ReasonExcludedInput, informative.ExclusionOptions{
+				Detail: detail,
+			})
 			logging.Trace().Msg("skipping file: matches config or baseline path")
 			return findings
 		}
 	}
 	// check if commit or filepath is allowed.
-	if isAllowed, event := checkCommitOrPathAllowed(logger, fragment, d.Config.Allowlists); isAllowed {
+	if isAllowed, event := checkCommitOrPathAllowed(logger, fragment, paths, d.Config.Allowlists); isAllowed {
 		event.Msg("skipping file: global allowlist")
+		reason := informative.ReasonPathAllowlist
+		detail := "global path allowlist"
+		if fragment.CommitSHA != "" && commitAllowed(fragment.CommitSHA, d.Config.Allowlists) {
+			reason = informative.ReasonCommitAllowlist
+			detail = "global commit allowlist"
+		}
+		target.Exclude(reason, informative.ExclusionOptions{Detail: detail})
 		return findings
 	}
 
@@ -354,14 +558,14 @@ ScanLoop:
 					if len(rule.Keywords) == 0 {
 						// if no keywords are associated with the rule always scan the
 						// fragment using the rule
-						findings = append(findings, d.detectRule(fragment, currentRaw, rule, encodedSegments)...)
+						findings = append(findings, d.detectRuleWithPaths(fragment, currentRaw, rule, encodedSegments, paths)...)
 						continue
 					}
 
 					// check if keywords are in the fragment
 					for _, k := range rule.Keywords {
 						if _, ok := keywords[strings.ToLower(k)]; ok {
-							findings = append(findings, d.detectRule(fragment, currentRaw, rule, encodedSegments)...)
+							findings = append(findings, d.detectRuleWithPaths(fragment, currentRaw, rule, encodedSegments, paths)...)
 							break
 						}
 					}
@@ -391,6 +595,10 @@ ScanLoop:
 
 // detectRule scans the given fragment for the given rule and returns a list of findings
 func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment) []report.Finding {
+	return d.detectRuleWithPaths(fragment, currentRaw, r, encodedSegments, newFragmentPaths(fragment))
+}
+
+func (d *Detector) detectRuleWithPaths(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, paths fragmentPaths) []report.Finding {
 	var (
 		findings []report.Finding
 		logger   = func() zerolog.Logger {
@@ -407,7 +615,7 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 	}
 
 	// check if commit or file is allowed for this rule.
-	if isAllowed, event := checkCommitOrPathAllowed(logger, fragment, r.Allowlists); isAllowed {
+	if isAllowed, event := checkCommitOrPathAllowed(logger, fragment, paths, r.Allowlists); isAllowed {
 		event.Msg("skipping file: rule allowlist")
 		return findings
 	}
@@ -531,7 +739,6 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 		}
 		if !d.IgnoreGitleaksAllow && strings.Contains(finding.Line, gitleaksAllowSignature) {
 			logger.Trace().
-				Str("finding", finding.Secret).
 				Msg("skipping finding: 'gitleaks:allow' signature")
 			continue
 		}
@@ -568,7 +775,6 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 			// entropy is too low, skip this finding
 			if entropy <= r.Entropy {
 				logger.Trace().
-					Str("finding", finding.Secret).
 					Float32("entropy", finding.Entropy).
 					Msg("skipping finding: low entropy")
 				continue
@@ -576,13 +782,13 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 		}
 
 		// check if the result matches any of the global allowlists.
-		if isAllowed, event := checkFindingAllowed(logger, finding, fragment, currentLine, d.Config.Allowlists); isAllowed {
+		if isAllowed, event := checkFindingAllowed(logger, finding, fragment, paths, currentLine, d.Config.Allowlists); isAllowed {
 			event.Msg("skipping finding: global allowlist")
 			continue
 		}
 
 		// check if the result matches any of the rule allowlists.
-		if isAllowed, event := checkFindingAllowed(logger, finding, fragment, currentLine, r.Allowlists); isAllowed {
+		if isAllowed, event := checkFindingAllowed(logger, finding, fragment, paths, currentLine, r.Allowlists); isAllowed {
 			event.Msg("skipping finding: rule allowlist")
 			continue
 		}
@@ -595,11 +801,11 @@ func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rul
 	}
 
 	// Process required rules and create findings with auxiliary findings
-	return d.processRequiredRules(fragment, currentRaw, r, encodedSegments, findings, logger)
+	return d.processRequiredRules(fragment, currentRaw, r, encodedSegments, findings, logger, paths)
 }
 
 // processRequiredRules handles the logic for multi-part rules with auxiliary findings
-func (d *Detector) processRequiredRules(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, primaryFindings []report.Finding, logger zerolog.Logger) []report.Finding {
+func (d *Detector) processRequiredRules(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, primaryFindings []report.Finding, logger zerolog.Logger, paths fragmentPaths) []report.Finding {
 	if len(primaryFindings) == 0 {
 		logger.Debug().Msg("no primary findings to process for required rules")
 		return primaryFindings
@@ -620,7 +826,7 @@ func (d *Detector) processRequiredRules(fragment Fragment, currentRaw string, r 
 		inheritedFragment.InheritedFromFinding = true
 
 		// Call detectRule once for each required rule
-		requiredFindings := d.detectRule(inheritedFragment, currentRaw, rule, encodedSegments)
+		requiredFindings := d.detectRuleWithPaths(inheritedFragment, currentRaw, rule, encodedSegments, paths)
 		allRequiredFindings[requiredRule.RuleID] = requiredFindings
 
 		logger.Debug().
@@ -721,70 +927,6 @@ func (d *Detector) withinProximity(primary, required report.Finding, requiredRul
 	return true
 }
 
-// isConfigOrBaseline reports whether the fragment is the config file or the
-// baseline report, neither of which should be scanned. The baseline path is
-// stored relative to the scan root (see AddBaseline) and the default config
-// path is joined onto the root, so both are compared against the fragment's
-// root-relative path as well as the path as reported.
-func (d *Detector) isConfigOrBaseline(fragment Fragment) bool {
-	if fragment.FilePath == d.Config.Path || (d.baselinePath != "" && fragment.FilePath == d.baselinePath) {
-		return true
-	}
-	rel := sources.RootRelativePath(fragment.Root, fragment.FilePath)
-	if rel == "" {
-		return false
-	}
-	if d.baselinePath != "" && rel == filepath.ToSlash(d.baselinePath) {
-		return true
-	}
-	// Both paths are spelled relative to the same place when the config was
-	// found under the root, so Rel needs no absolute form; when the config
-	// lives elsewhere (--config) Rel yields a path that never matches, which
-	// is the right answer.
-	if d.Config.Path != "" {
-		if relConfig, err := filepath.Rel(fragment.Root, d.Config.Path); err == nil && rel == filepath.ToSlash(relConfig) {
-			return true
-		}
-	}
-	return false
-}
-
-// knownRelativeToRoot reports whether a .gitleaksignore entry or a baseline
-// finding names this finding by its root-relative path. `src/x.py:rule:1` is
-// what `gitleaks dir .` prints and what the documentation shows; it has to
-// keep matching when the same tree is scanned as `gitleaks dir /abs/path`.
-// AddFinding still matches the path as reported, so nothing that matched
-// before stops matching.
-func (d *Detector) knownRelativeToRoot(fragment sources.Fragment, finding report.Finding) bool {
-	rel := sources.RootRelativePath(fragment.Root, finding.File)
-	if rel == "" || rel == finding.File {
-		return false
-	}
-	logger := logging.With().Str("finding", finding.Secret).Logger()
-
-	if finding.Commit == "" && len(d.gitleaksIgnore) > 0 {
-		fingerprint := fmt.Sprintf("%s:%s:%d", rel, finding.RuleID, finding.StartLine)
-		if _, ok := d.gitleaksIgnore[fingerprint]; ok {
-			logger.Debug().
-				Str("fingerprint", fingerprint).
-				Msg("skipping finding: global fingerprint relative to the scan root")
-			return true
-		}
-	}
-
-	if d.baseline != nil {
-		relative := finding
-		relative.File = rel
-		if !IsNew(relative, d.Redact, d.baseline) {
-			logger.Debug().
-				Str("file", rel).
-				Msg("skipping finding: baseline entry relative to the scan root")
-			return true
-		}
-	}
-	return false
-}
-
 // abs returns the absolute value of an integer
 func abs(x int) int {
 	if x < 0 {
@@ -803,7 +945,7 @@ func (d *Detector) AddFinding(finding report.Finding) {
 	}
 
 	// check if we should ignore this finding
-	logger := logging.With().Str("finding", finding.Secret).Logger()
+	logger := logging.With().Str("path", finding.File).Str("rule-id", finding.RuleID).Logger()
 	if _, ok := d.gitleaksIgnore[globalFingerprint]; ok {
 		logger.Debug().
 			Str("fingerprint", globalFingerprint).
@@ -846,15 +988,19 @@ func (d *Detector) addCommit(commit string) {
 	d.commitMutex.Unlock()
 }
 
-// pathAllowedRelativeToRoot matches an allowlist path against the fragment's
-// path relative to the scan root, so `paths = ['^src/vendor/']` means the same
-// thing for `gitleaks dir .` and `gitleaks dir /abs/path`.
-func pathAllowedRelativeToRoot(a *config.Allowlist, fragment Fragment) bool {
-	rel := sources.RootRelativePath(fragment.Root, fragment.FilePath)
-	if rel == "" || rel == fragment.FilePath {
+// commitAllowed reports whether any allowlist contains a matching commit.
+// Informative reporting uses it only to label an already-made exclusion
+// decision accurately.
+func commitAllowed(commit string, allowlists []*config.Allowlist) bool {
+	if commit == "" {
 		return false
 	}
-	return a.PathAllowed(rel)
+	for _, a := range allowlists {
+		if ok, _ := a.CommitAllowed(commit); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // checkCommitOrPathAllowed evaluates |fragment| against all provided |allowlists|.
@@ -864,6 +1010,7 @@ func pathAllowedRelativeToRoot(a *config.Allowlist, fragment Fragment) bool {
 func checkCommitOrPathAllowed(
 	logger zerolog.Logger,
 	fragment Fragment,
+	paths fragmentPaths,
 	allowlists []*config.Allowlist,
 ) (bool, *zerolog.Event) {
 	if fragment.FilePath == "" && fragment.CommitSHA == "" {
@@ -875,9 +1022,7 @@ func checkCommitOrPathAllowed(
 			isAllowed        bool
 			allowlistChecks  []bool
 			commitAllowed, _ = a.CommitAllowed(fragment.CommitSHA)
-			pathAllowed      = a.PathAllowed(fragment.FilePath) ||
-				(fragment.WindowsFilePath != "" && a.PathAllowed(fragment.WindowsFilePath)) ||
-				pathAllowedRelativeToRoot(a, fragment)
+			pathAllowed      = paths.allowed(a)
 		)
 		// If the condition is "AND" we need to check all conditions.
 		if a.MatchCondition == config.AllowlistMatchAnd {
@@ -923,6 +1068,7 @@ func checkFindingAllowed(
 	logger zerolog.Logger,
 	finding report.Finding,
 	fragment Fragment,
+	paths fragmentPaths,
 	currentLine string,
 	allowlists []*config.Allowlist,
 ) (bool, *zerolog.Event) {
@@ -936,13 +1082,13 @@ func checkFindingAllowed(
 		}
 
 		var (
-			checks                 []bool
-			isAllowed              bool
-			commitAllowed          bool
-			commit                 string
-			pathAllowed            bool
-			regexAllowed           = a.RegexAllowed(allowlistTarget)
-			containsStopword, word = a.ContainsStopWord(finding.Secret)
+			checks              []bool
+			isAllowed           bool
+			commitAllowed       bool
+			commit              string
+			pathAllowed         bool
+			regexAllowed        = a.RegexAllowed(allowlistTarget)
+			containsStopword, _ = a.ContainsStopWord(finding.Secret)
 		)
 		// If the condition is "AND" we need to check all conditions.
 		if a.MatchCondition == config.AllowlistMatchAnd {
@@ -952,7 +1098,7 @@ func checkFindingAllowed(
 				checks = append(checks, commitAllowed)
 			}
 			if len(a.Paths) > 0 {
-				pathAllowed = a.PathAllowed(fragment.FilePath) || (fragment.WindowsFilePath != "" && a.PathAllowed(fragment.WindowsFilePath))
+				pathAllowed = paths.allowed(a)
 				checks = append(checks, pathAllowed)
 			}
 			if len(a.Regexes) > 0 {
@@ -969,7 +1115,6 @@ func checkFindingAllowed(
 
 		if isAllowed {
 			event := logger.Trace().
-				Str("finding", finding.Secret).
 				Str("condition", a.MatchCondition.String())
 			if commitAllowed {
 				event.Str("allowed-commit", commit)
@@ -981,7 +1126,7 @@ func checkFindingAllowed(
 				event.Bool("allowed-regex", regexAllowed)
 			}
 			if containsStopword {
-				event.Str("allowed-stopword", word)
+				event.Bool("allowed-stopword", true)
 			}
 			return true, event
 		}

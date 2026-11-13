@@ -76,8 +76,8 @@ func Test_readUntilSafeBoundary(t *testing.T) {
 }
 
 func TestShouldSkipPath(t *testing.T) {
-	mustCompile := func(pat string) []*regexp.Regexp {
-		return []*regexp.Regexp{regexp.MustCompile(pat)}
+	mustCompile := func(pattern string) []*regexp.Regexp {
+		return []*regexp.Regexp{regexp.MustCompile(pattern)}
 	}
 
 	tests := map[string]struct {
@@ -85,7 +85,7 @@ func TestShouldSkipPath(t *testing.T) {
 		path      string
 		want      bool
 	}{
-		"or condition, path matches": {
+		"or path matches": {
 			allowlist: &config.Allowlist{
 				MatchCondition: config.AllowlistMatchOr,
 				Paths:          mustCompile(`\.md$`),
@@ -93,7 +93,7 @@ func TestShouldSkipPath(t *testing.T) {
 			path: "docs/README.md",
 			want: true,
 		},
-		"or condition, path does not match": {
+		"or path does not match": {
 			allowlist: &config.Allowlist{
 				MatchCondition: config.AllowlistMatchOr,
 				Paths:          mustCompile(`\.md$`),
@@ -101,9 +101,7 @@ func TestShouldSkipPath(t *testing.T) {
 			path: "main.go",
 			want: false,
 		},
-		"or condition with regexes, path alone still allowlists": {
-			// Under OR any single criterion is sufficient, so skipping on the
-			// path without reading the file is correct.
+		"or path alone is sufficient with regexes": {
 			allowlist: &config.Allowlist{
 				MatchCondition: config.AllowlistMatchOr,
 				Paths:          mustCompile(`\.md$`),
@@ -112,10 +110,7 @@ func TestShouldSkipPath(t *testing.T) {
 			path: "docs/README.md",
 			want: true,
 		},
-		"and condition with regexes, must not skip on path alone": {
-			// The regression this guards: the regex can only be evaluated
-			// against file content, so skipping here would hide real secrets in
-			// every .md file rather than allowlisting one pattern within them.
+		"and path with nonmatching regex must be evaluated": {
 			allowlist: &config.Allowlist{
 				MatchCondition: config.AllowlistMatchAnd,
 				Paths:          mustCompile(`\.md$`),
@@ -124,7 +119,7 @@ func TestShouldSkipPath(t *testing.T) {
 			path: "docs/README.md",
 			want: false,
 		},
-		"and condition with stopwords, must not skip on path alone": {
+		"and path with stopword must be evaluated": {
 			allowlist: &config.Allowlist{
 				MatchCondition: config.AllowlistMatchAnd,
 				Paths:          mustCompile(`\.md$`),
@@ -133,11 +128,7 @@ func TestShouldSkipPath(t *testing.T) {
 			path: "docs/README.md",
 			want: false,
 		},
-		"and condition with commits, must not skip on path alone": {
-			// Commits cannot be evaluated during enumeration, and a non-git
-			// source has no commit at all, so this allowlist can never match
-			// there. Skipping on the path would drop the file for an allowlist
-			// that will never apply.
+		"and path with commit must be evaluated": {
 			allowlist: &config.Allowlist{
 				MatchCondition: config.AllowlistMatchAnd,
 				Paths:          mustCompile(`\.md$`),
@@ -146,13 +137,7 @@ func TestShouldSkipPath(t *testing.T) {
 			path: "docs/README.md",
 			want: false,
 		},
-		"nil allowlist entry is skipped rather than panicking": {
-			allowlist: nil,
-			path:      "docs/README.md",
-			want:      false,
-		},
-		"and condition, paths are the only criterion": {
-			// Nothing else has to be checked, so the path is sufficient.
+		"and path only is sufficient": {
 			allowlist: &config.Allowlist{
 				MatchCondition: config.AllowlistMatchAnd,
 				Paths:          mustCompile(`\.md$`),
@@ -160,22 +145,24 @@ func TestShouldSkipPath(t *testing.T) {
 			path: "docs/README.md",
 			want: true,
 		},
+		"nil allowlist is safe": {
+			allowlist: nil,
+			path:      "docs/README.md",
+			want:      false,
+		},
 	}
 
-	for name, tt := range tests {
+	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			// Validate is not nil-safe upstream, and a nil entry never arrives
-			// from a validated config -- it arrives from one built in code.
-			// shouldSkipPath still has to survive it.
-			if tt.allowlist != nil {
-				require.NoError(t, tt.allowlist.Validate())
+			if test.allowlist != nil {
+				require.NoError(t, test.allowlist.Validate())
 			}
-			cfg := &config.Config{Allowlists: []*config.Allowlist{tt.allowlist}}
-			assert.Equal(t, tt.want, shouldSkipPath(cfg, tt.path))
+			cfg := &config.Config{Allowlists: []*config.Allowlist{test.allowlist}}
+			assert.Equal(t, test.want, shouldSkipPath(cfg, test.path))
 		})
 	}
-}
 
-func TestShouldSkipPathNilConfig(t *testing.T) {
-	assert.False(t, shouldSkipPath(nil, "any/path.md"))
+	t.Run("nil config", func(t *testing.T) {
+		assert.False(t, shouldSkipPath(nil, "any/path.md"))
+	})
 }

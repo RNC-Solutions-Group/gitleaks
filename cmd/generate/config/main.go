@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"slices"
 	"text/template"
@@ -22,8 +23,12 @@ func main() {
 		_, _ = os.Stderr.WriteString("Specify path to the gitleaks.toml config\n")
 		os.Exit(2)
 	}
-	gitleaksConfigPath := os.Args[1]
+	if err := generate(os.Args[1]); err != nil {
+		logging.Fatal().Err(err).Msg("failed to generate config")
+	}
+}
 
+func generate(gitleaksConfigPath string) error {
 	configRules := []*config.Rule{
 		rules.OnePasswordSecretKey(),
 		rules.OnePasswordServiceAccountToken(),
@@ -255,16 +260,12 @@ func main() {
 	ruleLookUp := make(map[string]config.Rule, len(configRules))
 	for _, rule := range configRules {
 		if err := rule.Validate(); err != nil {
-			logging.Fatal().Err(err).
-				Str("rule-id", rule.RuleID).
-				Msg("Failed to validate rule")
+			return fmt.Errorf("failed to validate rule %q: %w", rule.RuleID, err)
 		}
 
 		// check if rule is in ruleLookUp
 		if _, ok := ruleLookUp[rule.RuleID]; ok {
-			logging.Fatal().
-				Str("rule-id", rule.RuleID).
-				Msg("rule id is not unique")
+			return fmt.Errorf("rule id %q is not unique", rule.RuleID)
 		}
 		// TODO: eventually change all the signatures to get ride of this
 		// nasty dereferencing.
@@ -280,12 +281,12 @@ func main() {
 
 	tmpl, err := template.ParseFiles(templatePath)
 	if err != nil {
-		logging.Fatal().Err(err).Msg("Failed to parse template")
+		return fmt.Errorf("failed to parse template: %w", err)
 	}
 
 	f, err := os.Create(gitleaksConfigPath)
 	if err != nil {
-		logging.Fatal().Err(err).Msg("Failed to create rules.toml")
+		return fmt.Errorf("failed to create %s: %w", gitleaksConfigPath, err)
 	}
 	defer f.Close()
 
@@ -296,6 +297,7 @@ func main() {
 		slices.Sort(allowlist.StopWords)
 	}
 	if err = tmpl.Execute(f, cfg); err != nil {
-		logging.Fatal().Err(err).Msg("could not execute template")
+		return fmt.Errorf("could not execute template: %w", err)
 	}
+	return nil
 }

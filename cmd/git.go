@@ -47,6 +47,7 @@ func runGit(cmd *cobra.Command, args []string) {
 
 	// create detector
 	detector := Detector(cmd, cfg, source)
+	setInformativeSourceType(detector, "git")
 
 	// parse flags
 	exitCode := mustGetIntFlag(cmd, "exit-code")
@@ -85,6 +86,7 @@ func runGit(cmd *cobra.Command, args []string) {
 			Sema:            detector.Sema,
 			MaxFileSize:     detector.MaxTargetMegaBytes * 1_000_000,
 			MaxArchiveDepth: detector.MaxArchiveDepth,
+			Informative:     detector.Informative,
 		},
 	)
 

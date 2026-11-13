@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zricethezav/gitleaks/v8/cmd/scm"
+	"github.com/zricethezav/gitleaks/v8/internal/informative"
 	"github.com/zricethezav/gitleaks/v8/logging"
 	"github.com/zricethezav/gitleaks/v8/report"
 	"github.com/zricethezav/gitleaks/v8/sources"
@@ -65,6 +66,18 @@ func runDetect(cmd *cobra.Command, args []string) {
 	exitCode := mustGetIntFlag(cmd, "exit-code")
 	noGit := mustGetBoolFlag(cmd, "no-git")
 	fromPipe := mustGetBoolFlag(cmd, "pipe")
+	switch {
+	case fromPipe:
+		setInformativeSourceType(detector, "stdin")
+	case noGit:
+		sourceType := "directory"
+		if info, statErr := os.Stat(sourcePath); statErr == nil && !info.IsDir() {
+			sourceType = "file"
+		}
+		setInformativeSourceType(detector, sourceType)
+	default:
+		setInformativeSourceType(detector, "git")
+	}
 	// determine what type of scan:
 	// - git: scan the history of the repo
 	// - no-git: scan files by treating the repo as a plain directory
@@ -81,6 +94,7 @@ func runDetect(cmd *cobra.Command, args []string) {
 				Path:            sourcePath,
 				Sema:            detector.Sema,
 				MaxArchiveDepth: detector.MaxArchiveDepth,
+				Informative:     detector.Informative,
 			},
 		)
 
@@ -94,6 +108,8 @@ func runDetect(cmd *cobra.Command, args []string) {
 				Content:         os.Stdin,
 				MaxFileSize:     detector.MaxTargetMegaBytes * 1_000_000,
 				MaxArchiveDepth: detector.MaxArchiveDepth,
+				Informative:     detector.Informative,
+				TargetKind:      informative.KindStdin,
 			},
 		)
 
@@ -125,6 +141,7 @@ func runDetect(cmd *cobra.Command, args []string) {
 				Sema:            detector.Sema,
 				MaxFileSize:     detector.MaxTargetMegaBytes * 1_000_000,
 				MaxArchiveDepth: detector.MaxArchiveDepth,
+				Informative:     detector.Informative,
 			},
 		)
 

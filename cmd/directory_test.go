@@ -9,75 +9,45 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Regression test for #1979: `gitleaks dir detect <file>` silently ignored the
-// given path and scanned the entire current directory. Extra arguments and
-// non-existent paths must be rejected instead of scanning the wrong target.
 func TestResolveDirSource(t *testing.T) {
-	tmpDir := t.TempDir()
-	secretFile := filepath.Join(tmpDir, "secret.txt")
-	require.NoError(t, os.WriteFile(secretFile, []byte("VAULT_TOKEN=hvs.Va1234567123asdqwasd"), 0o600))
+	root := t.TempDir()
+	dir := filepath.Join(root, "dir with spaces")
+	require.NoError(t, os.Mkdir(dir, 0o700))
+	file := filepath.Join(dir, "secret.txt")
+	require.NoError(t, os.WriteFile(file, []byte("synthetic"), 0o600))
+	unicodeDir := filepath.Join(root, "unicodé")
+	require.NoError(t, os.Mkdir(unicodeDir, 0o700))
 
 	tests := []struct {
-		name     string
-		args     []string
-		expected string
-		wantErr  bool
+		name    string
+		args    []string
+		want    string
+		wantErr bool
 	}{
-		{
-			name:     "no args defaults to current dir",
-			args:     nil,
-			expected: ".",
-		},
-		{
-			name:     "empty arg defaults to current dir",
-			args:     []string{""},
-			expected: ".",
-		},
-		{
-			name:     "single file arg is used as-is",
-			args:     []string{secretFile},
-			expected: secretFile,
-		},
-		{
-			name:     "single dir arg is used as-is",
-			args:     []string{tmpDir},
-			expected: tmpDir,
-		},
-		{
-			name:    "legacy detect subcommand with file is rejected",
-			args:    []string{"detect", "secret.txt"},
-			wantErr: true,
-		},
-		{
-			name:    "multiple paths are rejected",
-			args:    []string{"secret.txt", "clean.txt"},
-			wantErr: true,
-		},
-		{
-			name:    "non-existent path is rejected",
-			args:    []string{"detect"},
-			wantErr: true,
-		},
+		{name: "no arguments uses current directory", want: "."},
+		{name: "explicitly empty argument is rejected", args: []string{""}, wantErr: true},
+		{name: "one directory", args: []string{dir}, want: dir},
+		{name: "one file", args: []string{file}, want: file},
+		{name: "unicode path", args: []string{unicodeDir}, want: unicodeDir},
+		{name: "multiple arguments rejected", args: []string{file, file}, wantErr: true},
+		{name: "nonexistent target rejected", args: []string{filepath.Join(root, "missing")}, wantErr: true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			source, err := resolveDirSource(tt.args)
-			if tt.wantErr {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := resolveDirSource(test.args)
+			if test.wantErr {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tt.expected, source)
+			assert.Equal(t, test.want, got)
 		})
 	}
 }
 
-// The `dir` command must reject extra positional arguments at the CLI level,
-// e.g. `gitleaks dir detect secret.txt`, instead of silently falling back to
-// scanning the current directory. See #1979.
-func TestDirectoryCmdRejectsExtraArgs(t *testing.T) {
-	require.Error(t, directoryCmd.Args(directoryCmd, []string{"detect", "secret.txt"}))
-	require.NoError(t, directoryCmd.Args(directoryCmd, []string{"secret.txt"}))
+func TestDirectoryCommandArgs(t *testing.T) {
 	require.NoError(t, directoryCmd.Args(directoryCmd, nil))
+	require.NoError(t, directoryCmd.Args(directoryCmd, []string{"target"}))
+	require.Error(t, directoryCmd.Args(directoryCmd, []string{"first", "second"}))
 }
