@@ -11,6 +11,19 @@
 > [!WARNING]
 > Gitleaks is feature complete. I'm not merging new features into Gitleaks. Future releases will be security patches only. I'm shifting my focus to [Betterleaks](https://github.com/betterleaks/betterleaks)
 
+## RNC validation fork — engineering status (2026-11-13)
+
+This is the RNC scanner's **`fix/validation` development line**, not an upstream release. The last source-code checkpoint is [CP-V10 `bd42a95`](https://github.com/RNC-Solutions-Group/gitleaks/commit/bd42a958f7476e9a6d8e17bd2dbb2abe3ff060ea), with [12/12 CI checks passing](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43321594496). Technical verification does not substitute for final operator acceptance and the independent RNC scanner harness's oracle/compatibility tests.
+
+- Normal `make build`, `make test`, `make test-race`, `make verify` and `make version` no longer intentionally mutate tracked source/config/module files or fetch remote tags; `make format`, `make tidy`, `make generate` and `make clean` are explicit maintenance operations. See [CONTRIBUTING.md](CONTRIBUTING.md) for version resolution and platform-specific checks.
+- Both standard and full `gore2regex` repository builds/tests are supported after CP-V10's generator fixes. This does **not** close release RE2 address-space constraints under sandbox or memory limits.
+- Default `docker build` and runtime remain the historic **root-based** image. `docker build --target runtime-nonroot` is an additional tested **opt-in** target with UID/GID 10001:10001; its source/report mount permissions must be granted appropriately.
+- CP-V8 corrected scan-root-relative ignore/allowlist/baseline matching without rewriting reported paths/fingerprints; CP-V9 corrected system-hook filename forwarding, mitigated transient Windows report rename errors and added informative-only UTC `scan.generated_at`.
+- Open exceptions include merge-only Git default coverage, chunk boundaries, commit/line/boolean allowlist defects, diagnostic redaction residuals, non-atomic paired reports and a parent-rename orphan-temp cleanup limitation. The upstream Gitleaks Action scanner workflow is **not** part of RNC's desired test pipeline.
+
+**Status and provenance:** [fixes/QOL implementation ledger](fixes-qol-tracking.md) · [active backlog categories](https://github.com/RNC-Solutions-Group/gitleaks/tree/feat/issues-and-pr/_backlog/categories) · [corrected, superseded and declined upstream dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). Original upstream snapshot: **285 issues / 252 PRs / 388 package slots**; RNC active: **201 issues / 169 PRs / 254 slots**; dispositioned: **84 issues / 83 PRs / 134 slots**.
+
+
 [license]: ./LICENSE
 [badge-license]: https://img.shields.io/github/license/gitleaks/gitleaks.svg
 [go-docs-badge]: https://pkg.go.dev/badge/github.com/gitleaks/gitleaks/v8?status
