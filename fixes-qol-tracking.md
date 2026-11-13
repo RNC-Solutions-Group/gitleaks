@@ -183,7 +183,7 @@ CP-V3 delivered four commits: `105c0a8` (source errors), `56458e7` (Git process/
 
 ### Current resolved-work / attribution crosswalk — 2026-11-13
 
-The historical upstream 285 issues / 252 PRs / 388 package slots remain immutable in `feat/issues-and-pr`. **28 work packages (20 issue IDs, 30 PR IDs)** have been removed from its active categories and recorded under [RNC resolved/superseded/declined dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). They represent scoped fixes, completed documentation, implementation with pending owner sign-off, a superseded incomplete PR, or an explicitly declined upstream Action. **No upstream issue/PR was closed or cherry-picked by this reconciliation.** The corresponding RNC commit, CI and contributor source are recorded below. Separate issues for remaining bugs stay in the active backlog.
+The historical upstream 285 issues / 252 PRs / 388 package slots remain immutable in `feat/issues-and-pr`. **31 work packages (21 issue IDs, 33 PR IDs)** have been removed from its active categories and recorded under [RNC resolved/superseded/declined dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). They represent scoped fixes, completed documentation, implementation with pending owner sign-off, a superseded incomplete PR, or an explicitly declined upstream Action. **No upstream issue/PR was closed or cherry-picked by this reconciliation.** The corresponding RNC commit, CI and contributor source are recorded below. Separate issues for remaining bugs stay in the active backlog.
 
 | Original upstream issue / PR | RNC scope | Implementation and evidence | Original contributor / adoption status |
 | --- | --- | --- | --- |
@@ -213,8 +213,13 @@ The historical upstream 285 issues / 252 PRs / 388 package slots remain immutabl
 | #1855 / PR #2247 | Configuration guide URL | CP-V9 87897e7 | @CAOShurong credited. |
 | PR #2008 | Optional mise installation docs | CP-V9 87897e7 | @jylenhof credited; command verified. |
 | #1263 | Baseline credential-storage guidance | CP-V9 87897e7 | Issue research credited; restricted storage/retention guidance implemented. |
+| PR #2261 | F03/F17 rune-safe secret redaction | CP-V5 `920b3e2`, [CI 43109905591](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43109905591) | @arpitjain099 design adapted and credited in source; no upstream cherry-pick. Unknown adjacent secrets remain separate residuals. |
+| PR #2099 | F15 byte-accurate file/archive size handling | CP-V7 `cccdef6`, [CI 43121770371](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43121770371) | @alephnull-sh design partially adapted/informed, not copied; accepted ZIP/7z outer-size exclusion remains intentional. |
+| #2176 / PR #2206 | Optional non-root Docker image; default-root change rejected | CP-V10 `3b49af5`, [CI 43321594496](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43321594496) | @trinathone PR reviewed, not cherry-picked. RNC optional `runtime-nonroot` UID/GID 10001 supported, historical UID 0 root default retained by explicit owner direction. |
 | #1588 | Build/Makefile side-effect defect | CP-V10 03a44f4, CI 43321594496 | RNC-origin implementation; release-binary/module path questions separate. |
 | PR #2209 | Upstream Gitleaks Action scan in RNC | DECLINED_RNC; no implementation | @trinathone historical proposal credited; operator explicitly rejected activation. This is not a scanner patch. |
+
+**Post-reconciliation work-queue accounting:** 200 active upstream issues, 166 active upstream PRs and 251 active package slots; 85 issues / 86 PRs / 137 package slots resolved, declined or otherwise excluded. The 31 moved packages include three supplemental source-audit matches (#2176/#2206, #2261, #2099) whose original issue/PR entries were still active despite implemented, scoped corrections. No upstream issue/PR state was changed.
 
 **Attribution policy:** *adapted/informed* credits the author without asserting their commit is in RNC history; *reviewed, not adopted* does not imply their PR fixed the fork; RNC code commits are identified separately. CP-V8 F16 and CP-V9/V10 are verified but retain final owner-acceptance and harness gates. Release-time exact code-overlap audit under §5 is still required.
 
