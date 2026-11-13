@@ -6,8 +6,8 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 
 | Canonical category | Issues | PRs | Work packages |
 | --- | ---: | ---: | ---: |
-| [Security and hardening](security-hardening.md) | 8 | 6 | 11 |
-| [Scan integrity and file readers](scan-integrity.md) | 15 | 10 | 19 |
+| [Security and hardening](security-hardening.md) | 7 | 5 | 10 |
+| [Scan integrity and file readers](scan-integrity.md) | 15 | 8 | 17 |
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
 | [Configuration and allowlists](configuration-allowlists.md) | 35 | 21 | 33 |
@@ -18,12 +18,12 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | [Integrations and releases](integrations-release.md) | 4 | 3 | 6 |
 | [Optional features](features.md) | 20 | 13 | 22 |
 | [Documentation](documentation.md) | 3 | 5 | 4 |
-| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 84 | 83 | 134 |
+| [RNC dispositions — corrected, superseded, excluded](exclusions.md) | 85 | 86 | 137 |
 | **Total assigned from open snapshot** | **285** | **252** | **388** |
 
-**Current RNC queue (2026-11-13):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **201 active issues / 169 active PRs** in the technical categories and **84 removed issues / 83 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **254 active and 134 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
+**Current RNC queue (2026-11-13):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **200 active issues / 166 active PRs** in the technical categories and **85 removed issues / 86 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **251 active and 137 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
-The inventories and `_backlog/data/` remain the original dated snapshot. A separate 2026-11-13 correction moved 28 actioned packages (20 issue IDs, 30 PR IDs) to [dispositions](exclusions.md), with RNC build/CI proof and original contributor attribution cross-referenced in the [validation implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
+The inventories and `_backlog/data/` remain the original dated snapshot. The 2026-11-13 reconciliation moved 31 actioned packages (21 issue IDs, 33 PR IDs), including three additional CP-V5/V7/V10 packages discovered in the final source audit to [dispositions](exclusions.md), with RNC build/CI proof and original contributor attribution cross-referenced in the [validation implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 
 ### Scan-integrity second-pass reconciliation (2026-11-09)
 
