@@ -154,9 +154,12 @@ func (o *reportOutput) writePaired(reporter report.Reporter, findings []report.F
 	if err != nil {
 		return "", err
 	}
-	if companionBackup != "" {
-		defer os.Remove(companionBackup)
-	}
+	keepBackup := false
+	defer func() {
+		if companionBackup != "" && !keepBackup {
+			_ = os.Remove(companionBackup)
+		}
+	}()
 
 	// Publish the companion first so a primary publication failure leaves the
 	// primary output untouched. The reverse order would risk losing the primary
@@ -170,18 +173,69 @@ func (o *reportOutput) writePaired(reporter report.Reporter, findings []report.F
 		// rename. Windows may replace the reservation's identity, so a current
 		// stat is used rather than the pre-publication reservation.
 		if hadCompanion {
-			removeIfSame(allocation.companion, companionPublished)
-			if restoreErr := o.rename(companionBackup, allocation.companion); restoreErr != nil {
+			current, statErr := os.Lstat(allocation.companion)
+			switch {
+			case errors.Is(statErr, fs.ErrNotExist):
+				if restoreErr := o.rename(companionBackup, allocation.companion); restoreErr != nil {
+					keepBackup = true
+					return "", fmt.Errorf(
+						"could not publish report %q after publishing informative report %q: %w (companion restore failed: %v; preserved backup at %q)",
+						allocation.primary,
+						allocation.companion,
+						err,
+						restoreErr,
+						companionBackup,
+					)
+				}
+			case statErr != nil:
+				keepBackup = true
 				return "", fmt.Errorf(
-					"could not publish report %q after publishing informative report %q: %w (companion restore failed: %v)",
+					"could not publish report %q after publishing informative report %q: %w (could not inspect companion for rollback: %v; preserved backup at %q)",
 					allocation.primary,
 					allocation.companion,
 					err,
-					restoreErr,
+					statErr,
+					companionBackup,
+				)
+			case sameReportSnapshot(current, companionPublished):
+				if removeErr := os.Remove(allocation.companion); removeErr != nil {
+					keepBackup = true
+					return "", fmt.Errorf(
+						"could not publish report %q after publishing informative report %q: %w (could not remove the newly published companion: %v; preserved backup at %q)",
+						allocation.primary,
+						allocation.companion,
+						err,
+						removeErr,
+						companionBackup,
+					)
+				}
+				if restoreErr := o.rename(companionBackup, allocation.companion); restoreErr != nil {
+					keepBackup = true
+					return "", fmt.Errorf(
+						"could not publish report %q after publishing informative report %q: %w (companion restore failed: %v; preserved backup at %q)",
+						allocation.primary,
+						allocation.companion,
+						err,
+						restoreErr,
+						companionBackup,
+					)
+				}
+			default:
+				// A concurrent writer replaced our companion after publication.
+				// Never overwrite or delete that output; retain the prior
+				// companion for operator recovery instead of the deferred cleanup.
+				keepBackup = true
+				return "", fmt.Errorf(
+					"could not publish report %q after publishing informative report %q: %w (companion was replaced concurrently; concurrent output preserved at %q; prior companion preserved at %q)",
+					allocation.primary,
+					allocation.companion,
+					err,
+					allocation.companion,
+					companionBackup,
 				)
 			}
 		} else {
-			removeIfSame(allocation.companion, companionPublished)
+			removeIfSnapshot(allocation.companion, companionPublished)
 		}
 		return "", fmt.Errorf(
 			"could not publish report %q after publishing informative report %q: %w",
@@ -266,6 +320,23 @@ func removeIfSame(path string, expected os.FileInfo) {
 	if err == nil && os.SameFile(current, expected) {
 		_ = os.Remove(path)
 	}
+}
+
+func removeIfSnapshot(path string, expected os.FileInfo) {
+	if expected == nil {
+		return
+	}
+	current, err := os.Lstat(path)
+	if err == nil && sameReportSnapshot(current, expected) {
+		_ = os.Remove(path)
+	}
+}
+
+func sameReportSnapshot(current, expected os.FileInfo) bool {
+	if current == nil || expected == nil || !os.SameFile(current, expected) {
+		return false
+	}
+	return current.Size() == expected.Size() && current.ModTime().Equal(expected.ModTime())
 }
 
 // backupCompanion preserves an existing overwrite-mode companion before

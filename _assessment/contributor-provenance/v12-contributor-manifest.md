@@ -4,7 +4,8 @@
 **Integration base:** `rnc-mod` at `197a7e5516b0029d0b7bb2554552fc9ed54efb68`
 **V12 development HEAD:** `1ff69b7836b32e4f738883a09bc2a3daeccbd69b`
 **RNC reconciliation commit:** `9092703a25f4c10edc162699955a6993ec66ce37`
-**V12 product tree:** `a348eea61670da139b89b410efa5156325091e87`
+**Follow-up correction:** RNC-authored V12-10 report-publication correction on PR #5; no contributor commit changed
+**V12 product tree (pre-report-publication correction):** `a348eea61670da139b89b410efa5156325091e87`
 
 ## Retained upstream commits
 
@@ -33,7 +34,7 @@ All five integration commits retain their original author and the exact `(cherry
 - Authors are preserved; no co-author trailer was fabricated.
 - RNC V12 development checkpoint commits are not present in the integration history.
 - Five squash conflicts (`report/csv.go`, `report/sarif.go`, `sources/common.go`, `sources/common_test.go`, `sources/git.go`) were resolved by restoring the accepted V12 development tree.
-- The final product tree matches V12 development HEAD exactly: `a348eea61670da139b89b410efa5156325091e87`.
+- The pre-correction product tree matched V12 development HEAD exactly: `a348eea61670da139b89b410efa5156325091e87`. The later RNC-authored V12-10 correction changes the product tree on PR #5 without changing contributor ancestry.
 - Only the V11/V12 provenance documentation differs from the raw product tree.
 
 ## Reconciliation

@@ -19,8 +19,8 @@ const maxPeekSize = 25 * 1_000 // 25kb
 // maxLinePeekSize bounds the extra read used to finish a long line at a
 // blank-line boundary. It keeps the normal 25 KB whitespace lookahead while
 // allowing lines beyond 125 KB to be scanned without splitting a secret across
-// fragments. Memory remains bounded per file; lines larger than this cap still
-// require a chunked fallback and are documented as a residual limit.
+// fragments. Memory remains bounded per file; a line that cannot be finished
+// within this cap is an operational error rather than a silent split.
 const maxLinePeekSize = 1 * 1024 * 1024 // 1 MiB
 
 var isWhitespace [256]bool

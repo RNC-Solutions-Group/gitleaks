@@ -18,7 +18,7 @@
 | V12-07 | CSV formula injection | FIXED — LOCALLY VALIDATED | All string cells neutralized, including whitespace/control/zero-width/fullwidth triggers. |
 | V12-08 | SARIF Unicode columns | FIXED — LOCALLY VALIDATED | SARIF-only codepoint columns; historical JSON/CSV column contract unchanged. |
 | V12-09 | SARIF artifact URI | FIXED — LOCALLY VALIDATED | Single-escaped relative/path URIs; Windows drive/UNC handling. |
-| V12-10 | Paired report publication | PARTIALLY CORRECTED — RESIDUAL CONFIRMED | Handled overwrite primary failure restores/removes companion; crash atomicity remains impossible. |
+| V12-10 | Paired report publication | PARTIALLY CORRECTED — RESIDUAL CONFIRMED | Handled overwrite primary failure restores/removes the companion only when it is still the file this run published; concurrent replacements are preserved and failed restores retain the backup. Crash atomicity remains impossible. |
 | V12-11 | Duplicate regex scan | FIXED — LOCALLY VALIDATED | Reuses the first match slice; benchmark improved. |
 | V12-12 | Recursive decode resources | NOT REPRODUCED — EVIDENCE INSUFFICIENT | Finite probes show depth-linear allocation but no correctness defect; no default depth change. |
 | V12-13 | CRLF baseline identity | FIXED — LOCALLY VALIDATED | Detector normalizes CRLF findings; legacy baseline entries migrated. |
@@ -65,7 +65,7 @@ Artifact paths are single-escaped via `net/url`; relative and POSIX absolute pat
 
 ### V12-10 — paired reports
 
-Overwrite-mode publication now backs up an existing companion (hardlink or copy), publishes the new companion, and restores the old one if the primary rename fails. If no companion existed, the new one is removed. Published identity is captured to avoid deleting a concurrent replacement. Crash atomicity across two files remains impossible and is documented; tests cover both restore and remove paths.
+Overwrite-mode publication backs up an existing companion (hardlink or copy), publishes the new companion, and restores the old one if the primary rename fails. The rollback now compares the current companion against the published file identity and a size/modtime snapshot, including the no-prior-companion branch. A detected concurrent replacement is not removed or overwritten; the prior companion remains in the retained backup and the error reports its path. If the primary failed and the new companion is still current, it is removed and the prior file restored. If restoration itself fails, the backup is retained rather than deleted by deferred cleanup. If no companion existed, only this run's new companion is removed. Crash atomicity across two files remains impossible. Tests cover normal restore, no-previous-companion removal, concurrent replacement, failed restoration and aggregate rollback.
 
 ### V12-11 — duplicate regex scan
 

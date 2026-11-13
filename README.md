@@ -11,20 +11,19 @@
 > [!WARNING]
 > Gitleaks is feature complete. I'm not merging new features into Gitleaks. Future releases will be security patches only. I'm shifting my focus to [Betterleaks](https://github.com/betterleaks/betterleaks)
 
-## RNC validation fork — engineering status (2026-11-13)
+## RNC-Mod — engineering status (2026-11-13)
 
-This is the RNC scanner's **`fix/validation` development line**, not an upstream release. The last source-code checkpoint is [CP-V10 `bd42a95`](https://github.com/RNC-Solutions-Group/gitleaks/commit/bd42a958f7476e9a6d8e17bd2dbb2abe3ff060ea), with [12/12 CI checks passing](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43321594496). Technical verification does not substitute for final operator acceptance and the independent RNC scanner harness's oracle/compatibility tests.
+This is the **RNC-Mod V12 integration candidate**, not an upstream release. The candidate is delivered through [PR #5](https://github.com/RNC-Solutions-Group/gitleaks/pull/5) targeting `rnc-mod`; the V12 implementation corrects Git/parser integrity, report publication, redaction, CSV/SARIF output, CRLF baselines, long-line handling, and pre-commit file selection. The complete operational and engineering record is [RNC-MOD.md](RNC-MOD.md).
 
-- Normal `make build`, `make test`, `make test-race`, `make verify` and `make version` no longer intentionally mutate tracked source/config/module files or fetch remote tags; `make format`, `make tidy`, `make generate` and `make clean` are explicit maintenance operations. See [CONTRIBUTING.md](CONTRIBUTING.md) for version resolution and platform-specific checks.
-- Both standard and full `gore2regex` repository builds/tests are supported after CP-V10's generator fixes, with the independently resolved `go-re2 v1.13.0` dependency. This does **not** close the release RE2 address-space constraints under sandbox or memory limits.
-- Default `docker build` and runtime remain the historic **root-based** image. `docker build --target runtime-nonroot` is an additional tested **opt-in** target with UID/GID 10001:10001; its source/report mount permissions must be granted appropriately.
-- CP-V8 corrected scan-root-relative ignore/allowlist/baseline matching without rewriting reported paths/fingerprints; CP-V9 corrected system-hook filename forwarding, mitigated transient Windows report rename errors and added informative-only UTC `scan.generated_at`.
-- Open exceptions include merge-only Git default coverage, chunk boundaries, commit/line/boolean allowlist defects, diagnostic redaction residuals, non-atomic paired reports and a parent-rename orphan-temp cleanup limitation. The upstream Gitleaks Action scanner workflow is **not** part of RNC's desired test pipeline.
+- The V12 report-publication correction preserves concurrent companion output and retains a backup when rollback cannot safely restore the prior companion. Crash atomicity across two files is not claimed.
+- Local validation passes the standard and RE2 suites, vet, module verification, generator cleanliness, real pre-commit integration, and a non-root Linux race run. GitHub Actions runs only for PRs to `rnc-mod` and pushes to `rnc-mod`; results for the final correction head are recorded on PR #5.
+- Default `docker build` remains the historic **root-based** image. `docker build --target runtime-nonroot` is the tested opt-in UID/GID 10001 target; its source/report mount permissions must be granted appropriately.
+- RE2 constrained-runtime address-space limits, merge-only default coverage, source-local configuration trust, recursive-decoding resources, and the independent scanner-harness gate remain explicit limitations in [RNC-MOD.md](RNC-MOD.md#28-remaining-engineering-limitations).
+- The existing upstream Gitleaks Action scanner workflow is **not** part of RNC's test pipeline.
 
-**Dependency attribution:** Historical version proposals that match the independently resolved RNC module graph have profile-only appreciation in the [engineering ledger](fixes-qol-tracking.md); newer pins and different implementations supersede other proposals without contributor tags. No upstream dependency PRs were merged or cherry-picked. The RE2 constrained-runtime release issue and Go minimum/toolchain policy remain active.
+**Dependency attribution:** Historical version proposals that match the independently resolved RNC module graph receive profile-only recognition in [RNC-MOD.md](RNC-MOD.md). Newer pins and different implementations supersede other proposals without contributor tags. No upstream dependency PR was merged or cherry-picked. The RE2 constrained-runtime release issue and Go minimum/toolchain policy remain active.
 
-**Status and provenance:** [fixes/QOL implementation ledger](fixes-qol-tracking.md) · [active backlog categories](https://github.com/RNC-Solutions-Group/gitleaks/tree/feat/issues-and-pr/_backlog/categories) · [corrected, superseded and declined upstream dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). Original upstream snapshot: **285 issues / 252 PRs / 388 package slots**; RNC active: **197 issues / 155 PRs / 239 slots**; dispositioned: **88 issues / 97 PRs / 149 slots**.
-
+**Status and provenance:** [RNC-Mod engineering reference](RNC-MOD.md) · [historical assessment archive](_assessment/) · [active backlog categories](https://github.com/RNC-Solutions-Group/gitleaks/tree/feat/issues-and-pr/_backlog/categories) · [corrected, superseded and declined upstream dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). The canonical contributor register is Section 3 of `RNC-MOD.md`.
 
 [license]: ./LICENSE
 [badge-license]: https://img.shields.io/github/license/gitleaks/gitleaks.svg

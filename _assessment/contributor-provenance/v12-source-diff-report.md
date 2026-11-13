@@ -2,18 +2,18 @@
 
 **V10 authority:** `48c76717ccbbe2159185edb4510fb1924d7dbcc6` (tree `39b13207713d7102d7ac813a0599b2eaabf5d29f`)
 **V12 development HEAD:** `1ff69b7836b32e4f738883a09bc2a3daeccbd69b`
-**V12 integration product:** `9092703a25f4c10edc162699955a6993ec66ce37` (tree `a348eea61670da139b89b410efa5156325091e87`)
+**V12 integration product (pre-report-publication correction):** `9092703a25f4c10edc162699955a6993ec66ce37` (tree `a348eea61670da139b89b410efa5156325091e87`)
 
 ## Product equality
 
-`git diff --exit-code fix/v12-hardening 9092703` returned zero for the entire tree before the documentation-only addendum. The integration product and the validated development HEAD are the same object:
+`git diff --exit-code fix/v12-hardening 9092703` returned zero for the entire tree before the documentation-only addendum and before the V12-10 report-publication correction. The pre-correction integration product and the then-validated development HEAD were the same object:
 
 ```text
 V12 development tree: a348eea61670da139b89b410efa5156325091e87
 integration tree:     a348eea61670da139b89b410efa5156325091e87
 ```
 
-The V12 provenance manifest and this report are the only additional files on the final audit tip.
+The V12 provenance manifest and this report are additional documentation paths. The subsequent RNC-authored V12-10 correction changes the product tree on PR #5; it is described below and does not alter upstream contributor ancestry.
 
 ## Difference from V10
 
@@ -61,9 +61,9 @@ Known redaction exposures are grouped by file and commit instead of exact line r
 - SARIF columns: SARIF-only codepoint fields are populated from the V11 line start. JSON/CSV/console byte columns and baselines remain compatible.
 - SARIF URIs: relative and POSIX paths are percent-escaped once; Windows drive paths become `file:///C:/...`; UNC paths become `file://server/share/...`. Percent/hash/query/space/Unicode cases are covered.
 
-### V12-10 — paired reports
+### V12-10 — paired reports (corrected)
 
-Overwrite mode backs up an existing informative companion, restores it if the primary rename fails, and removes only the newly published companion when none existed. The published file identity is captured for cleanup safety. Crash-window/atomicity limitations remain explicit and are not misrepresented as transactional.
+Overwrite mode backs up an existing informative companion before publishing. If the primary rename fails, rollback removes and restores only when the current companion is still the file this run published (identity plus size/modtime snapshot). A detected concurrent replacement is preserved, and the prior companion remains in a retained backup reported in the error. Failed restoration likewise retains the backup instead of allowing deferred cleanup to delete the only recoverable copy. If no companion existed, only this run's new companion is removed. Crash-window/atomicity limitations remain explicit and are not misrepresented as transactional. The correction tests cover the handled paths, including controlled concurrent replacement with and without a prior companion, successful restoration, no-prior-companion removal, aggregate rollback and controlled restoration failure.
 
 ### V12-11 — duplicate regex work
 
