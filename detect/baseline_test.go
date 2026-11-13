@@ -1,14 +1,86 @@
 package detect
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zricethezav/gitleaks/v8/config"
+	"github.com/zricethezav/gitleaks/v8/regexp"
 	"github.com/zricethezav/gitleaks/v8/report"
 )
+
+func TestDetectRuleNormalizesCRLFAndBaseline(t *testing.T) {
+	d, err := NewDetectorDefaultConfig()
+	require.NoError(t, err)
+	rule := config.Rule{
+		RuleID:      "crlf-test",
+		Description: "crlf test",
+		Regex:       regexp.MustCompile(`(?i)token\s*=\s*([^\n]+)`),
+		SecretGroup: 1,
+	}
+
+	lfRaw := "token = SECRET123\n"
+	crlfRaw := "token = SECRET123\r\n"
+	lf := d.detectRule(Fragment{Raw: lfRaw}, lfRaw, rule, nil)
+	crlf := d.detectRule(Fragment{Raw: crlfRaw}, crlfRaw, rule, nil)
+	require.Len(t, lf, 1)
+	require.Len(t, crlf, 1)
+	assert.Equal(t, lf[0].Match, crlf[0].Match)
+	assert.Equal(t, lf[0].Secret, crlf[0].Secret)
+	assert.Equal(t, lf[0].EndColumn, crlf[0].EndColumn)
+	assert.Equal(t, lf[0].Entropy, crlf[0].Entropy)
+	assert.False(t, IsNew(crlf[0], 0, lf), "LF-created baseline must suppress the CRLF finding")
+}
+
+func TestLoadBaselineMigratesLegacyCRLFFinding(t *testing.T) {
+	legacy := []report.Finding{{
+		RuleID:      "crlf-test",
+		Description: "crlf test",
+		StartLine:   1,
+		EndLine:     1,
+		StartColumn: 1,
+		EndColumn:   18,
+		Match:       "token = SECRET123\r",
+		Secret:      "SECRET123\r",
+		File:        "secret.txt",
+	}}
+	raw, err := json.Marshal(legacy)
+	require.NoError(t, err)
+	path := filepath.Join(t.TempDir(), "baseline.json")
+	require.NoError(t, os.WriteFile(path, raw, 0o600))
+
+	loaded, err := LoadBaseline(path)
+	require.NoError(t, err)
+	require.Len(t, loaded, 1)
+	assert.Equal(t, "token = SECRET123", loaded[0].Match)
+	assert.Equal(t, "SECRET123", loaded[0].Secret)
+	assert.Equal(t, 17, loaded[0].EndColumn)
+	assert.InDelta(t, shannonEntropy("SECRET123"), loaded[0].Entropy, 0.0001)
+}
+
+func TestIsNewNormalizesCRLFBaseline(t *testing.T) {
+	lf := report.Finding{
+		RuleID:      "test-rule",
+		Description: "test rule",
+		StartLine:   1,
+		EndLine:     1,
+		StartColumn: 1,
+		EndColumn:   6,
+		Match:       "secret\n",
+		Secret:      "secret",
+		File:        "src/secret.txt",
+	}
+	crlf := lf
+	crlf.Match = "secret\r\n"
+	assert.False(t, IsNew(crlf, 0, []report.Finding{lf}),
+		"LF and CRLF spellings of a baseline finding must be equivalent")
+}
 
 func TestIsNew(t *testing.T) {
 	t.Parallel()

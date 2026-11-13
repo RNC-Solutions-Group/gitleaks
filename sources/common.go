@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 	"runtime"
@@ -14,6 +15,14 @@ import (
 )
 
 const maxPeekSize = 25 * 1_000 // 25kb
+
+// maxLinePeekSize bounds the extra read used to finish a long line at a
+// blank-line boundary. It keeps the normal 25 KB whitespace lookahead while
+// allowing lines beyond 125 KB to be scanned without splitting a secret across
+// fragments. Memory remains bounded per file; lines larger than this cap still
+// require a chunked fallback and are documented as a residual limit.
+const maxLinePeekSize = 1 * 1024 * 1024 // 1 MiB
+
 var isWhitespace [256]bool
 var isWindows = runtime.GOOS == "windows"
 
@@ -152,11 +161,10 @@ func readUntilSafeBoundary(r *bufio.Reader, n int, maxPeekSize int, peekBuf *byt
 			newlineCount = 0 // Reset if a non-newline character is found
 		}
 
-		// Stop looking for a blank line if the buffer reaches maxSize.
-		// Finish the current line instead, so that a secret on the line at the
-		// boundary isn't split across two fragments.
+		// Stop looking for a blank line at the normal lookahead limit and
+		// finish the current line instead, up to the bounded line cap.
 		if (peekBuf.Len() - n) >= maxPeekSize {
-			return readUntilNewline(r, maxPeekSize, peekBuf)
+			return readUntilNewline(r, maxLinePeekSize, peekBuf)
 		}
 
 		// Read additional data into a temporary buffer
@@ -172,14 +180,14 @@ func readUntilSafeBoundary(r *bufio.Reader, n int, maxPeekSize int, peekBuf *byt
 	return nil
 }
 
-// readUntilNewline consumes |r| until the end of the current line, up to |maxPeekSize|.
-// Lines longer than that are still split.
-func readUntilNewline(r *bufio.Reader, maxPeekSize int, peekBuf *bytes.Buffer) error {
+// readUntilNewline consumes r until the end of the current line or until the
+// bounded extra-read budget is exhausted. It is used when the blank-line
+// lookahead ends inside a long line; a later chunk must not start mid-secret.
+func readUntilNewline(r *bufio.Reader, maxBytes int, peekBuf *bytes.Buffer) error {
 	if data := peekBuf.Bytes(); len(data) > 0 && data[len(data)-1] == '\n' {
 		return nil
 	}
-
-	for i := 0; i < maxPeekSize; i++ {
+	for i := 0; i < maxBytes; i++ {
 		b, err := r.ReadByte()
 		if err != nil {
 			if err == io.EOF {
@@ -192,5 +200,5 @@ func readUntilNewline(r *bufio.Reader, maxPeekSize int, peekBuf *bytes.Buffer) e
 			return nil
 		}
 	}
-	return nil
+	return fmt.Errorf("line exceeds the %d-byte safe boundary; refusing to report a complete scan", maxBytes)
 }

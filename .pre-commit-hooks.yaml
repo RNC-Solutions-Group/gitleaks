@@ -16,3 +16,15 @@
   entry: gitleaks git --pre-commit --redact --staged --verbose
   language: system
   pass_filenames: false
+- id: gitleaks-files
+  name: Detect hardcoded secrets in explicit files
+  description: Scan only the files forwarded by pre-commit --files/--all-files
+  entry: gitleaks files --redact --verbose
+  language: golang
+  pass_filenames: true
+- id: gitleaks-files-system
+  name: Detect hardcoded secrets in explicit files
+  description: Scan only the files forwarded by pre-commit --files/--all-files
+  entry: gitleaks files --redact --verbose
+  language: system
+  pass_filenames: true

@@ -5,6 +5,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/zricethezav/gitleaks/v8/cmd/scm"
 	"github.com/zricethezav/gitleaks/v8/report"
@@ -277,6 +278,63 @@ func TestFilterRedactsAdjacentSecrets(t *testing.T) {
 			assert.Equal(t, "REDACTED", finding.Secret)
 			assert.Equal(t, "REDACTED", finding.Match)
 		}
+	}
+}
+
+func TestFilterRedactsAcrossMultilineRanges(t *testing.T) {
+	findings := []report.Finding{
+		{
+			RuleID:    "multiline",
+			File:      "config.txt",
+			Commit:    "abc",
+			StartLine: 1,
+			EndLine:   2,
+			Line:      "BETA_87654321\npayload END",
+			Match:     "BETA_87654321\npayload END",
+			Secret:    "BETA_87654321",
+		},
+		{
+			RuleID:    "neighbor",
+			File:      "config.txt",
+			Commit:    "abc",
+			StartLine: 2,
+			EndLine:   2,
+			Line:      "prefix ALPHA_12345678 suffix",
+			Match:     "ALPHA_12345678",
+			Secret:    "ALPHA_12345678",
+		},
+	}
+	got := filter(findings, 100)
+	require.Len(t, got, 2)
+	for _, finding := range got {
+		assert.NotContains(t, finding.Line, "BETA_87654321")
+		assert.NotContains(t, finding.Line, "ALPHA_12345678")
+	}
+}
+
+func TestFilterRedactsEmptyCaptureMatch(t *testing.T) {
+	findings := []report.Finding{
+		{
+			RuleID: "empty-capture",
+			File:   "config.txt",
+			Commit: "abc",
+			Line:   "prefix=SUPERSECRET suffix",
+			Match:  "prefix=SUPERSECRET",
+		},
+		{
+			RuleID: "neighbor",
+			File:   "config.txt",
+			Commit: "abc",
+			Line:   "prefix=SUPERSECRET suffix",
+			Match:  "SUPERSECRET",
+			Secret: "SUPERSECRET",
+		},
+	}
+	got := filter(findings, 100)
+	require.Len(t, got, 2)
+	for _, finding := range got {
+		assert.NotContains(t, finding.Line, "SUPERSECRET")
+		assert.NotContains(t, finding.Match, "SUPERSECRET")
 	}
 }
 

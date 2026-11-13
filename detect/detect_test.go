@@ -121,12 +121,22 @@ func compare(t *testing.T, a, b []report.Finding) {
 			return a.Secret < b.Secret
 		}),
 		cmpopts.IgnoreFields(report.Finding{},
-			"Fingerprint", "Author", "Email", "Date", "Message", "Commit", "requiredFindings"),
+			"Fingerprint", "Author", "Email", "Date", "Message", "Commit", "requiredFindings",
+			"StartColumnCodepoint", "EndColumnCodepoint"),
 		cmpopts.EquateApprox(0.0001, 0), // For floating point Entropy comparison
 	); diff != "" {
 		t.Errorf("findings mismatch (-want +got):\n%s", diff)
 	}
 
+}
+
+func withoutCodepointColumns(findings []report.Finding) []report.Finding {
+	out := append([]report.Finding(nil), findings...)
+	for i := range out {
+		out[i].StartColumnCodepoint = 0
+		out[i].EndColumnCodepoint = 0
+	}
+	return out
 }
 
 func TestDetect(t *testing.T) {
@@ -1350,7 +1360,7 @@ func TestFromGit(t *testing.T) {
 			for _, f := range findings {
 				f.Match = "" // remove lines cause copying and pasting them has some wack formatting
 			}
-			assert.ElementsMatch(t, tt.expectedFindings, findings)
+			assert.ElementsMatch(t, withoutCodepointColumns(tt.expectedFindings), withoutCodepointColumns(findings))
 		})
 	}
 }
@@ -1422,7 +1432,7 @@ func TestFromGitStaged(t *testing.T) {
 		for _, f := range findings {
 			f.Match = "" // remove lines cause copying and pasting them has some wack formatting
 		}
-		assert.ElementsMatch(t, tt.expectedFindings, findings)
+		assert.ElementsMatch(t, withoutCodepointColumns(tt.expectedFindings), withoutCodepointColumns(findings))
 	}
 }
 
@@ -1551,7 +1561,7 @@ func TestFromFiles(t *testing.T) {
 				}
 				normalizedFindings[i] = f
 			}
-			assert.ElementsMatch(t, tt.expectedFindings, normalizedFindings)
+			assert.ElementsMatch(t, withoutCodepointColumns(tt.expectedFindings), withoutCodepointColumns(normalizedFindings))
 		})
 	}
 }
@@ -2154,7 +2164,7 @@ func TestDetectWithArchives(t *testing.T) {
 				}
 				normalizedFindings[i] = f
 			}
-			assert.ElementsMatch(t, tt.expectedFindings, normalizedFindings)
+			assert.ElementsMatch(t, withoutCodepointColumns(tt.expectedFindings), withoutCodepointColumns(normalizedFindings))
 		})
 	}
 
@@ -2215,7 +2225,7 @@ func TestDetectWithSymlinks(t *testing.T) {
 
 		findings, err := detector.DetectFiles(paths)
 		require.NoError(t, err)
-		assert.ElementsMatch(t, tt.expectedFindings, findings)
+		assert.ElementsMatch(t, withoutCodepointColumns(tt.expectedFindings), withoutCodepointColumns(findings))
 	}
 }
 
@@ -2469,6 +2479,22 @@ let password = 'Summer2024!';`
 // https://github.com/gitleaks/gitleaks/issues/2320: Finding.Line must hold
 // exactly the matched line, so that ^-anchored regexTarget="line"
 // allowlists match on every line, not just the first.
+func BenchmarkDetectRuleWithMatches(b *testing.B) {
+	raw := `token = "0123456789abcdef0123456789abcdef"`
+	detector := NewDetector(config.Config{})
+	fragment := Fragment{Raw: raw, FilePath: "config.txt"}
+	rule := config.Rule{
+		RuleID: "benchmark-rule",
+		Regex:  regexp.MustCompile(`0123456789abcdef0123456789abcdef`),
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = detector.detectRule(fragment, raw, rule, nil)
+	}
+}
+
 func TestDetectLineExcludesPreviousNewline(t *testing.T) {
 	rule := config.Rule{
 		RuleID: "test-rule",
@@ -2883,21 +2909,5 @@ func TestWindowsFileSeparator_RuleAllowlistPaths(t *testing.T) {
 			actual := d.detectRule(test.fragment, test.fragment.Raw, test.rule, []*codec.EncodedSegment{})
 			compare(t, test.expected, actual)
 		})
-	}
-}
-
-func BenchmarkDetectRuleWithMatches(b *testing.B) {
-	raw := `token = "0123456789abcdef0123456789abcdef"`
-	detector := NewDetector(config.Config{})
-	fragment := Fragment{Raw: raw, FilePath: "config.txt"}
-	rule := config.Rule{
-		RuleID: "benchmark-rule",
-		Regex:  regexp.MustCompile(`0123456789abcdef0123456789abcdef`),
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = detector.detectRule(fragment, raw, rule, nil)
 	}
 }

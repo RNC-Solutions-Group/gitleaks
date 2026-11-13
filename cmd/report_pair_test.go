@@ -393,6 +393,48 @@ func TestInformativePairCompanionPublicationFailure(t *testing.T) {
 	requireNoTemporaryReports(t, dir)
 }
 
+func TestInformativePairOverwritePrimaryFailureRestoresCompanion(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	companion := filepath.Join(dir, "report-informative.json")
+	require.NoError(t, os.WriteFile(dest, []byte("OLD-PRIMARY"), 0o600))
+	require.NoError(t, os.WriteFile(companion, []byte("OLD-INFORMATIVE"), 0o600))
+
+	out := newInformativeTestOutput(t, dest, reportOverwrite, nil)
+	out.rename = func(oldPath, newPath string) error {
+		if strings.Contains(newPath, "informative") {
+			return os.Rename(oldPath, newPath)
+		}
+		return errors.New("primary publish failed")
+	}
+	_, err := out.write(&stringReporter{payload: "NEW-PRIMARY"}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "primary publish failed")
+	assert.Equal(t, "OLD-PRIMARY", string(mustReadFile(t, dest)))
+	assert.Equal(t, "OLD-INFORMATIVE", string(mustReadFile(t, companion)))
+	requireNoTemporaryReports(t, dir)
+}
+
+func TestInformativePairOverwritePrimaryFailureRemovesNewCompanion(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	companion := filepath.Join(dir, "report-informative.json")
+	require.NoError(t, os.WriteFile(dest, []byte("OLD-PRIMARY"), 0o600))
+
+	out := newInformativeTestOutput(t, dest, reportOverwrite, nil)
+	out.rename = func(oldPath, newPath string) error {
+		if strings.Contains(newPath, "informative") {
+			return os.Rename(oldPath, newPath)
+		}
+		return errors.New("primary publish failed")
+	}
+	_, err := out.write(&stringReporter{payload: "NEW-PRIMARY"}, nil)
+	require.Error(t, err)
+	assert.Equal(t, "OLD-PRIMARY", string(mustReadFile(t, dest)))
+	assert.NoFileExists(t, companion)
+	requireNoTemporaryReports(t, dir)
+}
+
 func TestInformativePairPrimaryPublicationFailureRollsBackNewCompanion(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "report.json")

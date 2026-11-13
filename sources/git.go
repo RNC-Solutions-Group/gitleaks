@@ -31,6 +31,27 @@ var quotedOptPattern = regexp.MustCompile(`^(?:"[^"]+"|'[^']+')$`)
 // the option as a pathspec. A later --no-color wins over user-provided
 // --color/--color=... options; when the user supplied a "--" separator, it is
 // inserted immediately before the separator rather than after it.
+// forceGitOutputFlags pins the machine-readable Git presentation used by the
+// scanner. Repository-local format.pretty, log.date, color and textconv
+// settings must not change the parser's input or execute repository-controlled
+// helpers. The flags are inserted before a user pathspec separator.
+func forceGitOutputFlags(args []string) []string {
+	args = forceNoColor(args)
+	extra := []string{"--no-ext-diff", "--no-textconv", "--date=default", "--pretty=medium"}
+	separator := len(args)
+	for i, arg := range args {
+		if arg == "--" {
+			separator = i
+			break
+		}
+	}
+	out := make([]string, 0, len(args)+len(extra))
+	out = append(out, args[:separator]...)
+	out = append(out, extra...)
+	out = append(out, args[separator:]...)
+	return out
+}
+
 func forceNoColor(args []string) []string {
 	separator := len(args)
 	for i, arg := range args {
@@ -281,11 +302,12 @@ func NewGitLogCmd(source string, logOpts string) (*GitCmd, error) {
 // NewGitLogCmdContext is the same as NewGitLogCmd but supports passing in a
 // context to use for timeouts
 func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*GitCmd, error) {
+	if err := validateGitLogOpts(logOpts); err != nil {
+		return nil, err
+	}
 	sourceClean := filepath.Clean(source)
-	var cmd *exec.Cmd
+	args := []string{"-C", sourceClean, "log", "-p", "-U0"}
 	if logOpts != "" {
-		args := []string{"-c", "format.pretty=medium", "-C", sourceClean, "log", "-p", "-U0", "--no-color"}
-
 		// Ensure that the user-provided |logOpts| aren't wrapped in quotes.
 		// https://github.com/gitleaks/gitleaks/issues/1153
 		userArgs := strings.Split(logOpts, " ")
@@ -298,18 +320,42 @@ func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*G
 		if len(quotedOpts) > 0 {
 			logging.Warn().Msgf("the following `--log-opts` values may not work as expected: %v\n\tsee https://github.com/gitleaks/gitleaks/issues/1153 for more information", quotedOpts)
 		}
-
 		args = append(args, userArgs...)
-		args = forceNoColor(args)
-		cmd = exec.CommandContext(ctx, "git", args...)
 	} else {
-		cmd = exec.CommandContext(ctx, "git", "-c", "format.pretty=medium", "-C", sourceClean, "log", "-p", "-U0", "--no-color",
-			"--full-history", "--all", "--diff-filter=tuxdb")
+		args = append(args, "--full-history", "--all", "--diff-filter=tuxdb")
 	}
+	args = forceGitOutputFlags(args)
+	cmd := exec.CommandContext(ctx, "git", args...)
 
 	logging.Debug().Msgf("executing: %s", cmd.String())
 
 	return newGitCmd(cmd, sourceClean)
+}
+
+// validateGitLogOpts rejects user Git options that suppress patch output or
+// emit combined/remerge diffs the line parser cannot turn into complete
+// fragments. Silently returning a clean scan for those formats is unsafe.
+func validateGitLogOpts(logOpts string) error {
+	for _, option := range strings.Fields(logOpts) {
+		switch {
+		case option == "--name-only",
+			option == "--name-status",
+			option == "--raw",
+			option == "--numstat",
+			option == "--shortstat",
+			option == "--no-patch",
+			option == "-s",
+			option == "--remerge-diff",
+			option == "--diff-merges=cc",
+			option == "--diff-merges=combined",
+			option == "--diff-merges=dense-combined",
+			option == "--diff-merges=remerge",
+			option == "--cc",
+			option == "-c":
+			return fmt.Errorf("unsupported --log-opts value %q: the scanner requires ordinary patch output (use --diff-merges=first-parent for merge-only changes)", option)
+		}
+	}
+	return nil
 }
 
 // NewGitDiffCmd returns `*DiffFilesCmd` with two channels: `<-chan *gitdiff.File` and `<-chan error`.
@@ -324,9 +370,9 @@ func NewGitDiffCmd(source string, staged bool) (*GitCmd, error) {
 func NewGitDiffCmdContext(ctx context.Context, source string, staged bool) (*GitCmd, error) {
 	sourceClean := filepath.Clean(source)
 	var cmd *exec.Cmd
-	cmd = exec.CommandContext(ctx, "git", "-C", sourceClean, "diff", "-U0", "--no-ext-diff", "--no-color", ".")
+	cmd = exec.CommandContext(ctx, "git", "-C", sourceClean, "diff", "-U0", "--no-ext-diff", "--no-textconv", "--no-color", ".")
 	if staged {
-		cmd = exec.CommandContext(ctx, "git", "-C", sourceClean, "diff", "-U0", "--no-ext-diff",
+		cmd = exec.CommandContext(ctx, "git", "-C", sourceClean, "diff", "-U0", "--no-ext-diff", "--no-textconv",
 			"--no-color", "--staged", ".")
 	}
 	logging.Debug().Msgf("executing: %s", cmd.String())

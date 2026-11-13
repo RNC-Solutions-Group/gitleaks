@@ -5,6 +5,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 type CsvReporter struct {
@@ -12,23 +14,48 @@ type CsvReporter struct {
 
 var _ Reporter = (*CsvReporter)(nil)
 
-// csvInjectionLeadingChars are characters that spreadsheet applications such as
-// Excel, LibreOffice Calc, and Google Sheets may interpret as the start of a
-// formula. A cell that begins with one of these can trigger CSV/formula
-// injection (CWE-1236) when a report generated from an untrusted repository is
-// later opened in a spreadsheet. Findings contain attacker-influenced data
-// (commit author/email/message, file paths, and the matched content), so each
-// cell value is neutralized before it is written.
-// See https://owasp.org/www-community/attacks/CSV_Injection
+// sanitizeCSVCell neutralizes spreadsheet formula prefixes. Findings can carry
+// attacker-controlled paths, author metadata, matches and messages, and a CSV
+// opened in Excel/LibreOffice/Sheets may otherwise evaluate those cells. The
+// leading apostrophe is the conventional text marker; the original value is
+// otherwise preserved. Leading whitespace, controls and a UTF-8 BOM are
+// skipped when deciding whether the cell begins like a formula.
 func sanitizeCSVCell(value string) string {
 	if value == "" {
 		return value
 	}
-	switch value[0] {
-	case '=', '+', '-', '@', '\t', '\r':
+	candidate := strings.TrimLeftFunc(value, func(r rune) bool {
+		return unicode.IsSpace(r) || unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || r == '\ufeff'
+	})
+	if candidate == "" {
+		return value
+	}
+	first, _ := utf8.DecodeRuneInString(candidate)
+	if isCSVFormulaRune(first) {
 		return "'" + value
 	}
 	return value
+}
+
+func isCSVFormulaRune(r rune) bool {
+	switch r {
+	case '=', '+', '-', '@':
+		// ASCII spreadsheet formula prefixes.
+		return true
+	case '＝', '＋', '－', '＠':
+		// Fullwidth variants accepted by some spreadsheet input paths.
+		return true
+	default:
+		return false
+	}
+}
+
+func sanitizeCSVRow(row []string) []string {
+	out := make([]string, len(row))
+	for i, value := range row {
+		out[i] = sanitizeCSVCell(value)
+	}
+	return out
 }
 
 func (r *CsvReporter) Write(w io.WriteCloser, findings []Finding) error {
@@ -66,28 +93,28 @@ func (r *CsvReporter) Write(w io.WriteCloser, findings []Finding) error {
 		return err
 	}
 	for _, f := range findings {
-		row := []string{sanitizeCSVCell(f.RuleID),
-			sanitizeCSVCell(f.Commit),
-			sanitizeCSVCell(f.File),
-			sanitizeCSVCell(f.SymlinkFile),
-			sanitizeCSVCell(f.Secret),
-			sanitizeCSVCell(f.Match),
+		row := []string{f.RuleID,
+			f.Commit,
+			f.File,
+			f.SymlinkFile,
+			f.Secret,
+			f.Match,
 			strconv.Itoa(f.StartLine),
 			strconv.Itoa(f.EndLine),
 			strconv.Itoa(f.StartColumn),
 			strconv.Itoa(f.EndColumn),
-			sanitizeCSVCell(f.Author),
-			sanitizeCSVCell(f.Message),
-			sanitizeCSVCell(f.Date),
-			sanitizeCSVCell(f.Email),
-			sanitizeCSVCell(f.Fingerprint),
-			sanitizeCSVCell(strings.Join(f.Tags, " ")),
+			f.Author,
+			f.Message,
+			f.Date,
+			f.Email,
+			f.Fingerprint,
+			strings.Join(f.Tags, " "),
 		}
 		if findings[0].Link != "" {
-			row = append(row, sanitizeCSVCell(f.Link))
+			row = append(row, f.Link)
 		}
 
-		if err = cw.Write(row); err != nil {
+		if err = cw.Write(sanitizeCSVRow(row)); err != nil {
 			return err
 		}
 	}

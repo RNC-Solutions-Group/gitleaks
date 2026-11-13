@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 
 	"github.com/zricethezav/gitleaks/v8/config"
 )
@@ -108,12 +109,51 @@ func getResults(findings []Finding) []Results {
 	return results
 }
 
+// sarifArtifactURI converts a scanner path into a URI reference suitable for
+// SARIF artifactLocation.uri. Spaces, percent signs, fragments, queries and
+// non-ASCII bytes are escaped exactly once. Windows drive and UNC separators
+// are normalized before escaping; POSIX backslashes remain literal path bytes.
+func sarifArtifactURI(uri string) string {
+	if uri == "" {
+		return uri
+	}
+	if isWindowsDrivePath(uri) {
+		// A drive path cannot be emitted bare because the drive letter would be
+		// parsed as a URI scheme. A file URI preserves its absolute identity.
+		path := "/" + strings.ReplaceAll(uri, `\`, "/")
+		return (&url.URL{Scheme: "file", Path: path}).String()
+	}
+	if strings.HasPrefix(uri, `\\`) || strings.HasPrefix(uri, "//") {
+		normalized := strings.ReplaceAll(uri, `\`, "/")
+		normalized = strings.TrimPrefix(normalized, "//")
+		host, path, _ := strings.Cut(normalized, "/")
+		return (&url.URL{Scheme: "file", Host: host, Path: "/" + path}).String()
+	}
+	return (&url.URL{Path: uri}).String()
+}
+
+func isWindowsDrivePath(path string) bool {
+	if len(path) < 3 || path[1] != ':' || (path[2] != '/' && path[2] != '\\') {
+		return false
+	}
+	c := path[0]
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
 func getLocation(f Finding) []Locations {
 	uri := f.File
 	if f.SymlinkFile != "" {
 		uri = f.SymlinkFile
 	}
-	uri = (&url.URL{Path: uri}).String()
+	uri = sarifArtifactURI(uri)
+	startColumn := f.StartColumn
+	if f.StartColumnCodepoint > 0 {
+		startColumn = f.StartColumnCodepoint
+	}
+	endColumn := f.EndColumn
+	if f.EndColumnCodepoint > 0 {
+		endColumn = f.EndColumnCodepoint
+	}
 	return []Locations{
 		{
 			PhysicalLocation: PhysicalLocation{
@@ -123,8 +163,8 @@ func getLocation(f Finding) []Locations {
 				Region: Region{
 					StartLine:   f.StartLine,
 					EndLine:     f.EndLine,
-					StartColumn: f.StartColumn,
-					EndColumn:   f.EndColumn,
+					StartColumn: startColumn,
+					EndColumn:   endColumn,
 					Snippet: Snippet{
 						Text: f.Secret,
 					},

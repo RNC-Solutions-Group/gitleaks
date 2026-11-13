@@ -21,7 +21,7 @@ func IsNew(finding report.Finding, redact uint, baseline []report.Finding) bool 
 			finding.EndLine == b.EndLine &&
 			finding.StartColumn == b.StartColumn &&
 			finding.EndColumn == b.EndColumn &&
-			(redact > 0 || (finding.Match == b.Match && finding.Secret == b.Secret)) &&
+			(redact > 0 || (sameBaselineContent(finding.Match, b.Match) && sameBaselineContent(finding.Secret, b.Secret))) &&
 			finding.File == b.File &&
 			finding.Commit == b.Commit &&
 			finding.Author == b.Author &&
@@ -36,6 +36,22 @@ func IsNew(finding report.Finding, redact uint, baseline []report.Finding) bool 
 	return true
 }
 
+// sameBaselineContent treats LF and CRLF spellings of the same matched text as
+// equivalent. Baselines are frequently generated on one platform and reused
+// after a checkout with different line-ending conversion; line/column identity
+// stays exact, while the line-ending convention must not resurrect a known
+// credential.
+func sameBaselineContent(a, b string) bool {
+	return normalizeBaselineLineEndings(a) == normalizeBaselineLineEndings(b)
+}
+
+func normalizeBaselineLineEndings(value string) string {
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	// Legacy CRLF scans trimmed only the trailing \n, leaving a bare \r on
+	// field values (including finding.Match/Secret in saved baselines).
+	return strings.TrimSuffix(value, "\r")
+}
+
 func LoadBaseline(baselinePath string) ([]report.Finding, error) {
 	bytes, err := os.ReadFile(baselinePath)
 	if err != nil {
@@ -46,6 +62,20 @@ func LoadBaseline(baselinePath string) ([]report.Finding, error) {
 	err = json.Unmarshal(bytes, &previousFindings)
 	if err != nil {
 		return nil, fmt.Errorf("the format of the file %s is not supported", baselinePath)
+	}
+
+	// Canonicalize baselines written by older CRLF scans. Those findings can
+	// contain a trailing bare \r and an EndColumn/entropy that included it.
+	for i := range previousFindings {
+		previous := &previousFindings[i]
+		oldMatch := previous.Match
+		oldSecret := previous.Secret
+		previous.Match = normalizeBaselineLineEndings(oldMatch)
+		previous.Secret = normalizeBaselineLineEndings(oldSecret)
+		if strings.HasSuffix(oldMatch, "\r") && !strings.HasSuffix(oldMatch, "\r\n") && previous.EndColumn > 0 {
+			previous.EndColumn--
+		}
+		previous.Entropy = float32(shannonEntropy(previous.Secret))
 	}
 
 	return previousFindings, nil

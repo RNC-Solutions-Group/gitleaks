@@ -35,6 +35,12 @@ type Finding struct {
 	StartColumn int
 	EndColumn   int
 
+	// SARIF defines columns in Unicode codepoints. These values are populated
+	// from the corrected line start for SARIF output while the historical
+	// byte-based StartColumn/EndColumn contract remains unchanged.
+	StartColumnCodepoint int `json:"-"`
+	EndColumnCodepoint   int `json:"-"`
+
 	Line string `json:"-"`
 
 	Match string

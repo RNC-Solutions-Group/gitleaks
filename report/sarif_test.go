@@ -11,6 +11,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSarifArtifactURI(t *testing.T) {
+	tests := map[string]string{
+		"ApplicationCode/Java/sensitive data exposure/keystore.p12": "ApplicationCode/Java/sensitive%20data%20exposure/keystore.p12",
+		"reports/a%b#c?.txt":     "reports/a%25b%23c%3F.txt",
+		"src/秘密.py":              "src/%E7%A7%98%E5%AF%86.py",
+		"/tmp/reports/a b.txt":   "/tmp/reports/a%20b.txt",
+		`C:\Users\name\a b.txt`:  "file:///C:/Users/name/a%20b.txt",
+		`\\server\share\a b.txt`: "file://server/share/a%20b.txt",
+		"relative/clean.txt":     "relative/clean.txt",
+	}
+	for input, want := range tests {
+		t.Run(input, func(t *testing.T) {
+			assert.Equal(t, want, sarifArtifactURI(input))
+		})
+	}
+}
+
+func TestGetLocationUsesCodepointColumns(t *testing.T) {
+	locations := getLocation(Finding{
+		File:                 "src/秘密.py",
+		StartColumn:          9,
+		EndColumn:            12,
+		StartColumnCodepoint: 5,
+		EndColumnCodepoint:   8,
+	})
+	require.Len(t, locations, 1)
+	region := locations[0].PhysicalLocation.Region
+	assert.Equal(t, 5, region.StartColumn)
+	assert.Equal(t, 8, region.EndColumn)
+}
+
 func TestWriteSarif(t *testing.T) {
 	tests := []struct {
 		findings       []Finding
@@ -83,14 +114,4 @@ func TestWriteSarif(t *testing.T) {
 			assert.Equal(t, wantStr, gotStr)
 		})
 	}
-}
-
-func TestGetLocationEscapesURIPath(t *testing.T) {
-	locations := getLocation(Finding{File: "ApplicationCode/Java/sensitive data exposure/keystore.p12"})
-
-	require.Len(t, locations, 1)
-	assert.Equal(t,
-		"ApplicationCode/Java/sensitive%20data%20exposure/keystore.p12",
-		locations[0].PhysicalLocation.ArtifactLocation.URI,
-	)
 }
