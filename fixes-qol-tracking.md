@@ -183,7 +183,7 @@ CP-V3 delivered four commits: `105c0a8` (source errors), `56458e7` (Git process/
 
 ### Current resolved-work / attribution crosswalk — 2026-11-13
 
-The historical upstream 285 issues / 252 PRs / 388 package slots remain immutable in `feat/issues-and-pr`. **31 work packages (21 issue IDs, 33 PR IDs)** have been removed from its active categories and recorded under [RNC resolved/superseded/declined dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). They represent scoped fixes, completed documentation, implementation with pending owner sign-off, a superseded incomplete PR, or an explicitly declined upstream Action. **No upstream issue/PR was closed or cherry-picked by this reconciliation.** The corresponding RNC commit, CI and contributor source are recorded below. Separate issues for remaining bugs stay in the active backlog.
+The historical upstream 285 issues / 252 PRs / 388 package slots remain immutable in `feat/issues-and-pr`. **43 work packages (24 issue IDs, 44 PR IDs)** have been removed from its active categories and recorded under [RNC resolved/superseded/declined dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). They represent scoped fixes, completed documentation, implementation with pending owner sign-off, a superseded incomplete PR, or an explicitly declined upstream Action. **No upstream issue/PR was closed or cherry-picked by this reconciliation.** The original 31 implementation-oriented rows remain below; the 12 additional dependency and RE2 version proposals are accounted for individually in [RNC dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md), with actual selected module versions and CI evidence, rather than pretending to be additional upstream implementations. Separate issues for remaining bugs stay in the active backlog.
 
 | Original upstream issue / PR | RNC scope | Implementation and evidence | Original contributor / adoption status |
 | --- | --- | --- | --- |
@@ -219,7 +219,7 @@ The historical upstream 285 issues / 252 PRs / 388 package slots remain immutabl
 | #1588 | Build/Makefile side-effect defect | CP-V10 03a44f4, CI 43321594496 | RNC-origin implementation; release-binary/module path questions separate. |
 | PR #2209 | Upstream Gitleaks Action scan in RNC | DECLINED_RNC; no implementation | @trinathone historical proposal credited; operator explicitly rejected activation. This is not a scanner patch. |
 
-**Post-reconciliation work-queue accounting:** 200 active upstream issues, 166 active upstream PRs and 251 active package slots; 85 issues / 86 PRs / 137 package slots resolved, declined or otherwise excluded. The 31 moved packages include three supplemental source-audit matches (#2176/#2206, #2261, #2099) whose original issue/PR entries were still active despite implemented, scoped corrections. No upstream issue/PR state was changed.
+**Post-reconciliation work-queue accounting:** **197 active issues / 155 active PRs / 239 active package slots**; **88 dispositioned issues / 97 dispositioned PRs / 149 retired slots**. The **43 moved packages** comprise 31 earlier correction/decline decisions plus 12 independently matched or superseded dependency/RE2 upgrade packages (three CVE issue IDs and eleven upstream PR IDs). Original 285/252/388 snapshot, upstream issue/PR states and independently tested CP-V10 scanner source are unchanged.
 
 **Attribution policy:** *adapted/informed* credits the author without asserting their commit is in RNC history; *reviewed, not adopted* does not imply their PR fixed the fork; RNC code commits are identified separately. CP-V8 F16 and CP-V9/V10 are verified but retain final owner-acceptance and harness gates. Release-time exact code-overlap audit under §5 is still required.
 
@@ -359,6 +359,12 @@ These are checkpoint decisions, **not** automatic permission to adopt any upstre
 | [PR #2166](https://github.com/gitleaks/gitleaks/pull/2166) | @ashvinctrl | Reviewed, **not adopted**; no commit-allowlist logic changes in CP-V7A. |
 
 The full agent report identifies no directly copied or cherry-picked external contribution for CP-V7A. Code authored in RNC's 4 logical commits; retain ordinary release authorship audit.
+
+### 4H. Dependency and RE2 upgrade appreciation — 2026-11-13
+
+Thanks to **[@corani](https://github.com/corani)** for identifying the Lip Gloss v2 migration need, and **[Dependabot](https://github.com/apps/dependabot)** for matching-version recommendations covering the RE2 wrapper, configuration, CLI, test, version-parsing, logging and concurrency dependencies. RNC independently resolved and validated the **combined** module graph, including a newer Lip Gloss v2 patch release and the RE2 generator build correction. **These profile links are recognition only: no upstream dependency PR was adopted, cherry-picked, merged or incorporated as an authored contribution.** Proposals superseded by different approaches or newer version pins are intentionally not tagged.
+
+The [canonical dispositions register](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md) records each source proposal and its current RNC resolution. Full tagged RE2 build compatibility is corrected; **restricted-runtime RE2 release issue #2017 remains open**. The Go 1.26.3 minimum request is also still active because `go.mod` declares 1.26.0, notwithstanding the newer Docker builder; release Docker login-action pinning remains open.
 
 ## 5. Adopt-vs-adapt decision log (required before clean release)
 
