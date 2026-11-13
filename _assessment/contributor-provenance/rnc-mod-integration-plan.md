@@ -10,24 +10,24 @@
 
 Preserve these 18 upstream commits, in this order, from the experimental branch:
 
-1. `3004bda` #2227 â€” BasitS-hash
-2. `c8d7070` #2227 â€” BasitS-hash
-3. `bdc880a` #2334 â€” Shanmukh-l33t
-4. `1f3533b` #2261 â€” Arpit Jain
-5. `7a4c18f` #2082 â€” Smeet Agrawal
-6. `d68ecb2` #2307 â€” Jeff / jdotc1
-7. `2cf0ade` #2329 â€” cardene777
-8. `f146e23` #2284 â€” Sakariyah Abdulhazeem
-9. `5bed958` #2246 â€” INTFRAME
-10. `16ba49e` #2338 â€” KVR Vishnu
-11. `b603fa0` #2339 â€” DelaySystem
-12. `2bd5ad3` #2080 â€” Smeet Agrawal
-13. `62a89d4` #2099 â€” Nikhil
-14. `7ce04bb` #2317 â€” Varshith Puli
-15. `8ee08ef` #2248 â€” hamodywe
-16. `5e35358` #2249 â€” Vaibhav Srivastava
-17. `260d7e1` #2253 â€” Arpit Jain
-18. `6445d1e` #2312 â€” Varshith Puli
+1. `3004bda` #2227 — BasitS-hash
+2. `c8d7070` #2227 — BasitS-hash
+3. `bdc880a` #2334 — Shanmukh-l33t
+4. `1f3533b` #2261 — Arpit Jain
+5. `7a4c18f` #2082 — Smeet Agrawal
+6. `d68ecb2` #2307 — Jeff / jdotc1
+7. `2cf0ade` #2329 — cardene777
+8. `f146e23` #2284 — Sakariyah Abdulhazeem
+9. `5bed958` #2246 — INTFRAME
+10. `16ba49e` #2338 — KVR Vishnu
+11. `b603fa0` #2339 — DelaySystem
+12. `2bd5ad3` #2080 — Smeet Agrawal
+13. `62a89d4` #2099 — Nikhil
+14. `7ce04bb` #2317 — Varshith Puli
+15. `8ee08ef` #2248 — hamodywe
+16. `5e35358` #2249 — Vaibhav Srivastava
+17. `260d7e1` #2253 — Arpit Jain
+18. `6445d1e` #2312 — Varshith Puli
 
 The two integration-adjustment commits (`22f63b4`, `100ae90`) are RNC-authored
 and should remain only if the final reconciliation still needs them. They are
@@ -80,7 +80,7 @@ not be created by rewriting protected history.
 
 ## 4. V10 reconciliation strategy
 
-Do **not** cherry-pick the individual CP-V1â€“V10 commits into the contributor
+Do **not** cherry-pick the individual CP-V1–V10 commits into the contributor
 history. The approved release unit is the validated CP-V10 tree. Apply it as a
 single RNC-authored reconciliation commit (or an operator-approved squash of
 the RNC work) on top of the contributor commits.
@@ -195,7 +195,7 @@ The reconciled tree is acceptable only when:
 ## 10. Explicit answers to the required recommendation questions
 
 1. **Which upstream commits should be preserved?** The 18 commits from 17 PRs
-   listed in Â§1.
+   listed in §1.
 2. **Which PRs fail the substantive threshold?** None of the 11 primary PRs.
    The secondary alternatives #2300, #2292, #2252, #2313 and #2203 are not
    separate implementations once the selected commits are applied; they remain
@@ -203,11 +203,11 @@ The reconciled tree is acceptable only when:
 3. **Which contributions were underestimated?** #2246, #2248, #2334, #2227,
    #2317, #2338, #2099, #2261 and #2082 have direct/adapted V10 overlap. The
    existing ledger already flagged several; this audit raises #2317, #2338 and
-   #2099 from â€œreviewâ€ to explicit adapted implementation.
+   #2099 from “review” to explicit adapted implementation.
 4. **Which upstream commits conflict with one another?** #2246/#2338/#2339/
    #2080 in Git; #2099/#2317/#2329/#2248 in `sources/file.go`; #2249/#2313 in
    files; #2307/#2312 in report; #2252/#2253 in detection errors.
-5. **Which conflict with V10?** All areas in Â§5, especially Git lifecycle,
+5. **Which conflict with V10?** All areas in §5, especially Git lifecycle,
    report publication, redaction breadth, RE2/build, and F16.
 6. **Can conflicts be resolved preserving V10 behavior?** Yes; the selected
    upstream commits represent narrow precursors and V10 contains corrections.
