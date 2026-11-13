@@ -1,12 +1,12 @@
 # Attribution Summary
 
-**Branch:** `audit/rnc-mod-upstream-integration`  
-**Base:** `5f6ec56`  
-**CP-V10 reference:** `bd42a95`  
-**Audited PRs:** 22 (11 primary, 11 secondary)  
-**Distinct PR contributors:** 18  
+**Branch:** `audit/rnc-mod-upstream-integration`
+**Base:** `5f6ec56`
+**CP-V10 reference:** `bd42a95`
+**Audited PRs:** 22 (11 primary, 11 secondary)
+**Distinct PR contributors:** 18
 
-## Category 1 — Direct/substantive implementation reuse
+## Category 1 â€” Direct/substantive implementation reuse
 
 Recommend preserving the original commit-level authorship and ancestry for these
 contributions.
@@ -25,7 +25,7 @@ contributions.
 These are not claims that the final V10 file is byte-identical. They are
 substantive code/design contributions with identifiable surviving expression.
 
-## Category 2 — Adapted implementation
+## Category 2 â€” Adapted implementation
 
 Substantial influence or reused expression requiring reconciliation and
 contributor recognition. The original commit is still preserved in the
@@ -44,7 +44,7 @@ represented there.
 | #2249 | @vaibhav8a | `509fce1` | Unreadable-file accumulation; V10 uses `scanerr` and scanFile lifecycle |
 | #2312 | @Varshith-Kali | `2009273` | 0600 `openReportFile` retained; destructive preflight hunk dropped in integration; V10 uses temp 0600 |
 
-## Category 3 — Research/design influence
+## Category 3 â€” Research/design influence
 
 Documentary acknowledgment recommended; no fabricated code authorship.
 
@@ -57,7 +57,7 @@ Documentary acknowledgment recommended; no fabricated code authorship.
 | #2203 | @RajeshRajendiran | Alternative errCh/drain fix; #2246 selected; V10 drain/section logic supersedes |
 | #2206 | @trinathone | Non-root Docker proposal reviewed; V10 optional target is RNC implementation; root default retained |
 
-## Category 4 — Documentation/dependencies
+## Category 4 â€” Documentation/dependencies
 
 Appropriate acknowledgment in documentation and the ledger; no scanner-history
 commit.
@@ -75,7 +75,7 @@ commit.
 | #2319 | @abhinavrastogi2627 | One-line system-hook manifest correction; RNC source commit |
 | Dependency graph | @corani, Dependabot | Profile-only recognition for independently matched versions; no cherry-pick |
 
-## Category 5 — Superseded or unrelated
+## Category 5 â€” Superseded or unrelated
 
 No additional recognition beyond the historical records and the documentary
 credits above:
@@ -90,33 +90,33 @@ credits above:
 
 | Contributor | Primary | Secondary | Documentation/deps | Recognition |
 | --- | --- | --- | --- | --- |
-| @arpitjain099 | #2261 | #2253 | — | Commit-level for #2261; commit-level adapted for #2253 |
-| @Smeet23 | #2082 | #2080 | — | Commit-level for both; #2080 adapted |
-| @Varshith-Kali | #2317 | #2312, #2313 | — | Commit-level for #2317 and #2312; #2313 documentary |
-| @VISHNU0906 | #2338 | — | — | Commit-level adapted |
-| @alephnull-sh | #2099 | — | — | Commit-level adapted |
-| @aron-intframe | #2246 | — | — | Commit-level |
-| @hamodywe | #2248 | — | — | Commit-level adapted |
-| @Shanmukh-l33t | #2334 | — | — | Commit-level |
-| @BasitS-hash | #2227 | — | — | Commit-level, two commits |
-| @lekanjava | #2284 | — | — | Commit-level adapted |
-| @cardene777 | #2329 | — | — | Commit-level |
-| @jdotc1 | — | #2307 | — | Commit-level adapted |
-| @ToniAdreal | — | #2300 | — | Documentary |
-| @delaysystem | — | #2339 | — | Commit-level adapted |
-| @Saadanjum0 | — | #2292 | — | Documentary |
-| @CAOShurong | — | #2252 | #2247 | Documentary/adapted acknowledgment |
-| @vaibhav8a | — | #2249 | — | Commit-level adapted |
-| @RajeshRajendiran | — | #2203 | #2236, #2212 | Documentary/code influence; existing CP-V9 credit |
-| @bharathvemula | — | — | #2298 | Documentary |
-| @haimingZZ | — | — | #2282 | Documentary |
-| @jankesec | — | — | #2258 | Documentary |
-| @ump45nose | — | — | #2287 | Documentary |
-| @jylenhof | — | — | #2008 | Documentary |
-| @noblehelm | — | — | #1263 | Documentary |
-| @abhinavrastogi2627 | — | — | #2319 | Documentary |
-| @trinathone | — | #2206 | — | Documentary |
-| @corani / Dependabot | — | — | Dependency graph | Profile-only |
+| @arpitjain099 | #2261 | #2253 | â€” | Commit-level for #2261; commit-level adapted for #2253 |
+| @Smeet23 | #2082 | #2080 | â€” | Commit-level for both; #2080 adapted |
+| @Varshith-Kali | #2317 | #2312, #2313 | â€” | Commit-level for #2317 and #2312; #2313 documentary |
+| @VISHNU0906 | #2338 | â€” | â€” | Commit-level adapted |
+| @alephnull-sh | #2099 | â€” | â€” | Commit-level adapted |
+| @aron-intframe | #2246 | â€” | â€” | Commit-level |
+| @hamodywe | #2248 | â€” | â€” | Commit-level adapted |
+| @Shanmukh-l33t | #2334 | â€” | â€” | Commit-level |
+| @BasitS-hash | #2227 | â€” | â€” | Commit-level, two commits |
+| @lekanjava | #2284 | â€” | â€” | Commit-level adapted |
+| @cardene777 | #2329 | â€” | â€” | Commit-level |
+| @jdotc1 | â€” | #2307 | â€” | Commit-level adapted |
+| @ToniAdreal | â€” | #2300 | â€” | Documentary |
+| @delaysystem | â€” | #2339 | â€” | Commit-level adapted |
+| @Saadanjum0 | â€” | #2292 | â€” | Documentary |
+| @CAOShurong | â€” | #2252 | #2247 | Documentary/adapted acknowledgment |
+| @vaibhav8a | â€” | #2249 | â€” | Commit-level adapted |
+| @RajeshRajendiran | â€” | #2203 | #2236, #2212 | Documentary/code influence; existing CP-V9 credit |
+| @bharathvemula | â€” | â€” | #2298 | Documentary |
+| @haimingZZ | â€” | â€” | #2282 | Documentary |
+| @jankesec | â€” | â€” | #2258 | Documentary |
+| @ump45nose | â€” | â€” | #2287 | Documentary |
+| @jylenhof | â€” | â€” | #2008 | Documentary |
+| @noblehelm | â€” | â€” | #1263 | Documentary |
+| @abhinavrastogi2627 | â€” | â€” | #2319 | Documentary |
+| @trinathone | â€” | #2206 | â€” | Documentary |
+| @corani / Dependabot | â€” | â€” | Dependency graph | Profile-only |
 
 ## Recommended disposition
 

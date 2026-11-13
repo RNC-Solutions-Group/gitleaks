@@ -1,8 +1,8 @@
 # Contributor Integration Manifest
 
-**Branch:** `audit/rnc-mod-upstream-integration`  
-**Base:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` (upstream `master`)  
-**Final integration HEAD before this documentation:** `100ae90`  
+**Branch:** `audit/rnc-mod-upstream-integration`
+**Base:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` (upstream `master`)
+**Final integration HEAD before this documentation:** `100ae90`
 **CP-V10 comparison source:** `bd42a958f7476e9a6d8e17bd2dbb2abe3ff060ea`
 
 This branch is an experimental provenance and integration foundation. It is not
@@ -45,13 +45,13 @@ the original upstream SHA. Sequence is the actual first-parent order.
 | 15 | #2248 | `5c9ca86f8f4d1db1e17004b6a1b598137203face` | `8ee08ef` | hamodywe `<iosapk.org@gmail.com>` | Conflict in `sources/file.go`; resolved |
 | 16 | #2249 | `509fce15ad2eb2536bc8d840a3ed3e374d73bb2d` | `5e35358` | Vaibhav Srivastava `<vaibhavsri1712@gmail.com>` | Clean |
 | 17 | #2253 | `4f58f98a1424203af39cc00a26f9672e9b45b794` | `260d7e1` | Arpit Jain `<arpitjain099@gmail.com>` | Clean |
-| — | integration fix | — | `22f63b4` | Dave Woods `<209306207+davidwoods15@users.noreply.github.com>` | RNC adjustment after #2246/#2338 |
+| â€” | integration fix | â€” | `22f63b4` | Dave Woods `<209306207+davidwoods15@users.noreply.github.com>` | RNC adjustment after #2246/#2338 |
 | 18 | #2312 | `2009273e0029f91aeda4732552ae5489634d0749` | `6445d1e` | Varshith Puli `<pulivarshit@gmail.com>` | Conflict in `cmd/root.go`; resolved |
-| — | integration fix | — | `100ae90` | Dave Woods `<209306207+davidwoods15@users.noreply.github.com>` | RNC Windows test adjustment after #2312 |
+| â€” | integration fix | â€” | `100ae90` | Dave Woods `<209306207+davidwoods15@users.noreply.github.com>` | RNC Windows test adjustment after #2312 |
 
 ## Conflict resolutions
 
-### #2246 — `sources/git_test.go`
+### #2246 â€” `sources/git_test.go`
 
 PR #2246 replaced `GitCmd` construction with `newGitCmd` and added parser-drain
 tests. #2284 had already added a color-forced staged-diff regression test in the
@@ -60,7 +60,7 @@ same file. The conflict was in the import block and the adjacent test blocks.
 Resolution: kept both test suites, unioned the imports, and ran `gofmt`. No
 production conflict.
 
-### #2338 — `sources/git.go`
+### #2338 â€” `sources/git.go`
 
 #2246 moved `GitCmd` construction into `newGitCmd`; #2338 added a `staged` field
 at the older construction site.
@@ -71,9 +71,9 @@ new constructor, and set `gitCmd.staged = staged` in
 `22f63b4` adjustment because the first conflict resolution left the field
 assignment in a helper without a `staged` parameter.
 
-### #2339 — `sources/git.go` and test file
+### #2339 â€” `sources/git.go` and test file
 
-#2246 returned an “unparsed bytes” error; #2339 added a `waitCmd` wrapper that
+#2246 returned an â€œunparsed bytesâ€ error; #2339 added a `waitCmd` wrapper that
 turns a non-zero Git exit into an error. Both belong on the normal completion
 path.
 
@@ -81,7 +81,7 @@ Resolution: after `wg.Wait()`, return the parser-integrity error first when
 `unparsed > 0`, otherwise return the `waitCmd()` error. The test file keeps the
 #2246 parser tests and the #2339 exit-code test. Imports were unioned.
 
-### #2080 — `sources/git_test.go`
+### #2080 â€” `sources/git_test.go`
 
 The production change auto-merged: the stderr channel error is returned
 directly instead of being routed through `yield`. The test file conflicted on
@@ -90,14 +90,14 @@ imports and the placement of the new stderr-propagation test.
 Resolution: unioned imports, preserved both the #2284 color test and the #2080
 stderr test, and retained the later parser tests.
 
-### #2099 — `sources/file_test.go`
+### #2099 â€” `sources/file_test.go`
 
 #2329 added `sources/file_test.go` with first-chunk MIME tests; #2099 added the
 same path with archive-size tests. Git reported an add/add conflict.
 
 Resolution: combined both test sets in one file and retained all helpers.
 
-### #2248 — `sources/file.go`
+### #2248 â€” `sources/file.go`
 
 #2099 moved archive-member size checks before opening the member; #2248 added
 `Root` propagation to the member `File`.
@@ -105,7 +105,7 @@ Resolution: combined both test sets in one file and retained all helpers.
 Resolution: kept the size precheck before `d.Open()`, added `Root: s.Root` to
 the member struct, and preserved `MaxFileSize` propagation.
 
-### #2312 — `cmd/root.go`
+### #2312 â€” `cmd/root.go`
 
 #2307 removed the destructive preflight `os.Create` from report validation.
 #2312 added `openReportFile` at both the preflight and final publication sites.

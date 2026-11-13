@@ -1,9 +1,9 @@
 # Contributor Attribution Audit
 
-**Repository:** `RNC-Solutions-Group/gitleaks`  
-**Audit branch:** `audit/rnc-mod-upstream-integration`  
-**Upstream base:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c`  
-**CP-V10 comparison:** `bd42a958f7476e9a6d8e17bd2dbb2abe3ff060ea`  
+**Repository:** `RNC-Solutions-Group/gitleaks`
+**Audit branch:** `audit/rnc-mod-upstream-integration`
+**Upstream base:** `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c`
+**CP-V10 comparison:** `bd42a958f7476e9a6d8e17bd2dbb2abe3ff060ea`
 **Current validation branch:** local `fix/validation` at `bd42a95`; remote
 `origin/fix/validation` at `48c76717ccbbe2159185edb4510fb1924d7dbcc6`
 
@@ -31,7 +31,7 @@ confidence labels describe implementation correspondence, not legal advice.
 `fix/validation` is locally at `bd42a95`, while `origin/fix/validation` is at
 `48c7671`. The three intervening commits are documentation-only:
 
-- `5ef695e` reconcile CP-V8–V10 implementations and completed backlog
+- `5ef695e` reconcile CP-V8â€“V10 implementations and completed backlog
 - `43785c1` complete 31-package closure crosswalk and queue accounting
 - `48c7671` acknowledge independently matched dependency upgrades
 
@@ -41,7 +41,7 @@ protected branch was not moved or rewritten.
 
 ## Primary contributors
 
-### #2261 — @arpitjain099 — rune-safe masking
+### #2261 â€” @arpitjain099 â€” rune-safe masking
 
 - **Head:** `b1ce07f27d8251ef22e5b47c80387e9b1590fc2f`
 - **Commit author:** Arpit Jain `<arpitjain099@gmail.com>`
@@ -49,7 +49,7 @@ protected branch was not moved or rewritten.
 - **State:** open, unmerged
 
 **Production overlap.** The PR converts `maskSecret` from byte length/slicing to
-`[]rune` length/slicing. CP-V10 `report/finding.go:231–254` contains the same
+`[]rune` length/slicing. CP-V10 `report/finding.go:231â€“254` contains the same
 `runes := []rune(secret)`, `length := float64(len(runes))`,
 `RoundToEven(length * prc / 100)`, and `string(runes[:lth]) + "..."` algorithm.
 The source comment explicitly cites `gitleaks/gitleaks#2261
@@ -65,7 +65,7 @@ additional escaping cases the original PR did not cover.
 
 **Recommendation:** Category 1; preserve original commit. Confidence: high.
 
-### #2082 — @Smeet23 — invalid regex error handling
+### #2082 â€” @Smeet23 â€” invalid regex error handling
 
 - **Head:** `df8223e0008b6d5bf82d0433592b8f1557c97311`
 - **Commit author:** Smeet Agrawal `<smeetagrawal23@gmail.com>`
@@ -78,7 +78,7 @@ additional escaping cases the original PR did not cover.
 and replaces `MustCompile` at rule path/regex and allowlist regex/path sites.
 CP-V10 has the same wrappers in `regexp/stdlib_regex.go` and
 `regexp/wasilibs_regex.go`, and the same call-site structure in
-`config/config.go:150–159` and `:383–393`, with expanded contextual messages.
+`config/config.go:150â€“159` and `:383â€“393`, with expanded contextual messages.
 
 **Test overlap.** The PR adds an invalid allowlist-path fixture and a
 table-driven error assertion. V10 retains the invalid-pattern test family and
@@ -90,7 +90,7 @@ implementation reuse, not merely an idea.
 
 **Recommendation:** Category 1; preserve original commit. Confidence: high.
 
-### #2317 — @Varshith-Kali — archive content verification
+### #2317 â€” @Varshith-Kali â€” archive content verification
 
 - **Head:** `71e91200afb2415b283bb1721709b19c2fddd8aa`
 - **Commit author:** Varshith Puli `<pulivarshit@gmail.com>`
@@ -100,7 +100,7 @@ implementation reuse, not merely an idea.
 **Production overlap.** The PR introduces `archivePeekSize = 64 * 1_000`,
 `contentMatchesArchive`, `verifyArchiveStream`, compressed-format dispatch,
 seek/rewind, and non-seekable prefix replay. CP-V10
-`sources/file.go:26–29`, `:112–180`, and `:199–205` retains the same constant,
+`sources/file.go:26â€“29`, `:112â€“180`, and `:199â€“205` retains the same constant,
 function names, bounded peek, format dispatch, and replay concept. V10 returns
 an error and uses a shared `restorePrefix` helper.
 
@@ -112,7 +112,7 @@ error suppression was corrected in V10.
 
 **Recommendation:** Category 1/2; preserve original commit. Confidence: high.
 
-### #2338 — @VISHNU0906 — staged binary fallback
+### #2338 â€” @VISHNU0906 â€” staged binary fallback
 
 - **Head:** `7fed4140d87f62090c87b9f09c5c9b6073a84a27`
 - **Commit author:** KVR Vishnu `<46535652+VISHNU0906@users.noreply.github.com>`
@@ -121,7 +121,7 @@ error suppression was corrected in V10.
 
 **Production overlap.** The PR adds `GitCmd.staged`, changes the binary-file
 branch to `yieldFromBlob`, and reads a staged index blob. V10
-`sources/git.go:629–640` and `:702–703` contains the same staged/binary guard
+`sources/git.go:629â€“640` and `:702â€“703` contains the same staged/binary guard
 and index fallback, with `NewIndexBlobReaderContext(":0:"+path)` and MIME
 handling. The integration branch has the PR's `NewBlobReaderContext` path; V10
 corrects it to the explicit stage-zero index path.
@@ -136,7 +136,7 @@ research.
 **Recommendation:** Category 2; preserve original commit, then reconcile V10's
 index correction. Confidence: high.
 
-### #2099 — @alephnull-sh — archive/member size limits
+### #2099 â€” @alephnull-sh â€” archive/member size limits
 
 - **Head:** `1b3896fd7df9a667a09568b751dce6143613319e`
 - **Commit author:** Nikhil `<tad.areas_0y@icloud.com>`
@@ -145,7 +145,7 @@ index correction. Confidence: high.
 
 **Production overlap.** The PR adds `MaxFileSize` propagation through `cmd`,
 `detect`, `Files`, `Git`, archive members, decompressors, and stdin/reader.
-CP-V10 `sources/file.go:52–60`, `:209–238`, `:317–329`, and `:361–368` carries
+CP-V10 `sources/file.go:52â€“60`, `:209â€“238`, `:317â€“329`, and `:361â€“368` carries
 the same field and member/decompressor prechecks. V10 replaces the PR's
 `bytes.Buffer` whole-content copy with bounded temporary spooling and adds
 `Size`/informative records.
@@ -158,7 +158,7 @@ memory strategy was deliberately replaced. This is partial/adapted reuse.
 
 **Recommendation:** Category 2; preserve original commit. Confidence: high.
 
-### #2246 — @aron-intframe — Git parser drain and truncation detection
+### #2246 â€” @aron-intframe â€” Git parser drain and truncation detection
 
 - **Head:** `9b7b2243fcdeb4279cccd9df9348f9e537d4fb95`
 - **Commit author:** INTFRAME `<hello@intframe.com>`
@@ -167,7 +167,7 @@ memory strategy was deliberately replaced. This is partial/adapted reuse.
 
 **Production overlap.** The PR introduces `newGitCmd`, buffered stdout,
 `drainOnce`, `unparsed`, `UnparsedBytes`, a `Wait` drain, and an unparsed-output
-error. CP-V10 `sources/git.go:344–424` retains `newGitCmd`, drain/unparsed
+error. CP-V10 `sources/git.go:344â€“424` retains `newGitCmd`, drain/unparsed
 mechanics and the same incomplete-results concept; V10 adds a raw
 `gitOutputTracker` section count and error/collector integration.
 
@@ -179,7 +179,7 @@ check is an additional correction.
 
 **Recommendation:** Category 1/2; preserve original commit. Confidence: high.
 
-### #2248 — @hamodywe — root-relative paths
+### #2248 â€” @hamodywe â€” root-relative paths
 
 - **Head:** `5c9ca86f8f4d1db1e17004b6a1b598137203face`
 - **Commit author:** hamodywe `<iosapk.org@gmail.com>`
@@ -192,9 +192,9 @@ check is an additional correction.
 `RootRelativePath`, `Files.root`, root-relative allowlist scanning,
 `isConfigOrBaseline`, `knownRelativeToRoot`, and
 `pathAllowedRelativeToRoot`. CP-V10 has the same `Root` field and
-`RootRelativePath` in `sources/fragment.go:33–56`, and retains the root-relative
-matching design across `detect/detect.go:402–459`, `detect/baseline.go:109–157`
-and `sources/files.go:151–160`. V10 refactors toward `fragmentPaths`,
+`RootRelativePath` in `sources/fragment.go:33â€“56`, and retains the root-relative
+matching design across `detect/detect.go:402â€“459`, `detect/baseline.go:109â€“157`
+and `sources/files.go:151â€“160`. V10 refactors toward `fragmentPaths`,
 `configOrBaselinePath`, and `samePathAtRoot`.
 
 **Test overlap.** The PR's `detect/dir_root_test.go` and
@@ -206,7 +206,7 @@ absolute-baseline/normalization cases and changed the helper structure.
 
 **Recommendation:** Category 1/2; preserve original commit. Confidence: high.
 
-### #2334 — @Shanmukh-l33t — explicit directory target
+### #2334 â€” @Shanmukh-l33t â€” explicit directory target
 
 - **Head:** `ad321b7d7aa9b1a1642bb56813fa7443d5412971`
 - **Commit author:** Shanmukh-l33t `<Shanmukh-l33t@users.noreply.github.com>`
@@ -215,7 +215,7 @@ absolute-baseline/normalization cases and changed the helper structure.
 
 **Production overlap.** The PR adds `cobra.MaximumNArgs(1)`,
 `resolveDirSource`, extra-argument rejection and existence validation. CP-V10
-`cmd/directory.go:23–45` contains the same `MaximumNArgs(1)` and
+`cmd/directory.go:23â€“45` contains the same `MaximumNArgs(1)` and
 `resolveDirSource` contract; V10 additionally rejects an explicitly empty
 argument instead of defaulting it to `.`.
 
@@ -227,7 +227,7 @@ correction.
 
 **Recommendation:** Category 1; preserve original commit. Confidence: high.
 
-### #2227 — @BasitS-hash — AND-allowlist path sufficiency
+### #2227 â€” @BasitS-hash â€” AND-allowlist path sufficiency
 
 - **Head:** `49b26eece1ea83ea58da0c6e0bf92326fb82a25c`
 - **Commits:** `894b4a3b04dfd7c10e9fb887cdaaad35e4b79c31`,
@@ -238,7 +238,7 @@ correction.
 
 **Production overlap.** The PR introduces `pathIsSufficientToSkip` and the
 check in `shouldSkipPath`; the review commit adds nil safety, commit handling,
-and RE2 backend tests. CP-V10 `sources/common.go:85–110` contains the same
+and RE2 backend tests. CP-V10 `sources/common.go:85â€“110` contains the same
 function and nearly identical OR/AND logic. V10 adds the root-aware
 `shouldSkipPathAtRoot` used by F16.
 
@@ -251,7 +251,7 @@ original commits are preserved separately.
 **Recommendation:** Category 1; preserve both original commits. Confidence:
 high.
 
-### #2284 — @lekanjava — forced Git color
+### #2284 â€” @lekanjava â€” forced Git color
 
 - **Head:** `1894e6f2cdaef94fe66388e577e0f59f14bfcff2`
 - **Commit author:** Sakariyah Abdulhazeem `<sakariyahabdulhazeem@gmail.com>`
@@ -259,8 +259,8 @@ high.
 - **State:** open, unmerged
 
 **Production overlap.** The PR adds `--no-color` to log and diff command
-construction and a forced-color fixture. CP-V10 `sources/git.go:30–51`,
-`:303`, and `:324–330` implements `forceNoColor` with argument-order handling
+construction and a forced-color fixture. CP-V10 `sources/git.go:30â€“51`,
+`:303`, and `:324â€“330` implements `forceNoColor` with argument-order handling
 and warns about user-supplied color options. The behavior is the same; the V10
 implementation is broader than the PR's straight insertion.
 
@@ -272,7 +272,7 @@ survive.
 
 **Recommendation:** Category 2; preserve original commit. Confidence: high.
 
-### #2329 — @cardene777 — first-chunk MIME guard
+### #2329 â€” @cardene777 â€” first-chunk MIME guard
 
 - **Head:** `21028d8858e31fd088029f2fdb6634c99a1d3563`
 - **Commit author:** cardene777 `<cardene777@gmail.com>`
@@ -281,7 +281,7 @@ survive.
 
 **Production overlap.** The PR replaces `totalLines == 0` with an explicit
 `isFirstChunk` flag and resets it after the first classification. CP-V10
-`sources/file.go:457` and `:484–485` contains the same flag and assignment.
+`sources/file.go:457` and `:484â€“485` contains the same flag and assignment.
 
 **Test overlap.** The PR's long-first-line and binary-signature tests are
 substantially retained in V10's chunk-boundary tests.
