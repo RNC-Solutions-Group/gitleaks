@@ -4,18 +4,20 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**10 issues · 7 PRs · 13 accounting work packages (12 table rows; #2305/#2291 retain separate CVE acceptance tracks).** This category covers dependency CVEs, secrets exposure, report-file permissions, execution hardening, and supply-chain controls.
+**4 active issues · 3 active PRs · 7 accounting work packages.** This category covers dependency CVEs, secrets exposure, report-file permissions, execution hardening, and supply-chain controls.
 
-**Review states:** CVE proposals #2308 and #2336 have operator-reported test evidence but remain unadopted. Other PR diffs have been inspected against pinned fork source; behavior remains untested unless explicitly stated. Do not reproduce potential credential values in this ledger. Out-of-scope and superseded entries reside only in [RNC exclusions](exclusions.md).
+**Review states:** CVE dependency-version proposals #2308/#2336 and their three linked issues were superseded by newer pins in `fix/validation` and moved to [dispositions](exclusions.md). Final released-artifact vulnerability and SBOM verification remains an independent gate. Other PR diffs were reviewed against the pinned upstream baseline; do not claim untested patches were adopted. Do not reproduce potential credential values in this ledger. Out-of-scope and superseded entries reside only in [RNC exclusions](exclusions.md).
 
 ## Tracked work
 
 | PR and contributor | Linked issue(s) | Proposed security change | RNC state | Evidence and remaining gate |
 | --- | --- | --- | --- | --- |
-| [#2308](https://github.com/gitleaks/gitleaks/pull/2308) — @sanjitpawar2007-hue; head `71c6e141c640d5241b77745164fab8279c6e78f1` | [#2305](https://github.com/gitleaks/gitleaks/issues/2305), [#2291](https://github.com/gitleaks/gitleaks/issues/2291) | Upgrade Go dependency modules (notably `x/sys`, `x/text`, `x/crypto`, `rardecode`) for reported CVEs; raises minimum Go toolchain. | **REVIEWED — TESTING** | PR diff changes `go.mod`/`go.sum`: Go `1.24.11` → `1.26.0`, plus `rardecode`, `x/crypto`, `x/sync`, `x/sys` and `x/text`. User-reported Go tests passed on 1.27.3. **Unmodified PR Docker build fails** against the 1.24 builder; RNC's `gitleaks:pr2308mod` includes a Dockerfile-only adjustment. Preserve tested image/source provenance, CVE inventory and both issue-specific acceptance tracks; **not adopted**. |
-| [#2336](https://github.com/gitleaks/gitleaks/pull/2336) — @VISHNU0906; head `817e1ef908e02a72460c2cf087c9cfcdd5b0b2e0` | [#2330](https://github.com/gitleaks/gitleaks/issues/2330) | Upgrade `github.com/klauspost/compress` from v1.18.0 to v1.18.7 for reported CVE-2026-63209; consider interplay with archive handling. | **REVIEWED — TESTING** | Diff changes `go.mod`/`go.sum` to `klauspost/compress v1.18.7` (from `v1.18.0`); it complements #2308 rather than duplicating it. User-reported Go suite passed. Pinned `xz v0.5.15` and `rardecode v2.2.0` already match the issue's other claimed fixed-version targets. No digest-pinned combined image, current vulnerability scan or full archive acceptance is recorded; **not adopted**. |
 
-## Current technical baselines
+## CVE proposals reconciled against current source — 2026-11-13
+
+The original #2305/#2291/#2330 issues and #2308/#2336 proposals no longer need *those particular dependency bumps*: current RNC `go.mod` exceeds all cited fixed-version minima; Go module minimum `1.26.0`, Docker builder `1.27.4`. RNC CP-V10 [CI 12/12](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43321594496) includes `govulncheck` and container vulnerability jobs. This does **not** certify any unbuilt/published release artifact or that every future vulnerability database finds zero issues. See [RNC dispositions](exclusions.md) for exact version crosswalk; current module/version release-gate work remains open.
+
+## Historical technical baselines (master, not current validation)
 
 - Fork `master/go.mod`: `go 1.24.11`; `klauspost/compress v1.18.0`; `nwaples/rardecode/v2 v2.2.0`; `ulikunitz/xz v0.5.15`; `x/crypto v0.35.0`; `x/sys v0.30.0`; `x/text v0.29.0`.
 - RNC `fix/docker-security-bases` Dockerfile: `golang:1.27.3` builder and `alpine:3.24` runtime. **This branch does not itself modify the Go module pins.**
@@ -36,7 +38,7 @@ All source comparisons below target fork `master` at `5f6ec56cfa6f`. **SOURCE-CH
 | [#1243](https://github.com/gitleaks/gitleaks/issues/1243) | — | Reported redaction escape in `Finding:` context without a trailing source newline. | **SOURCE-CHECKED — HIGH PRIORITY OUTPUT REPRO** | Current `report/finding.go:Redact` replaces only the finding's selected `Secret` inside `Line`/`Match`; a different secret on the same line may remain visible. Original no-terminal-newline claim is **not yet reproduced** on pinned master. Use synthetic multi-secret fixtures, `--redact`, newline/no-newline, Git/dir/pre-commit and verbose output; retain no raw-secret logs. Separate from #2299 permission control. |
 | — | [#2036](https://github.com/gitleaks/gitleaks/pull/2036) (@Tanmaykaturi) | Replace realistic-looking Facebook token fixture in generator source. | **PATCH-REVIEWED — FIXTURE/SAST GATE** | One-line replacement in `cmd/generate/config/rules/facebook.go` preserves a token-shaped positive case. Confirm new fixture is safely synthetic, detector-positive, and accepted by configured SAST rules; avoid embedding either token-shaped value in review artifacts. |
 
-**Priority checks (current 2026-11-13):** #2299/#2312 F02 permissions and #1572 F05 bounded ignore loader were corrected and moved to [dispositions](exclusions.md); retain separately scoped publication, namespace replacement and Windows-permission residuals, 3) #1243 redaction leakage, 4) #2237 CSV injection, 5) #2176/#2206 container least privilege. The Slack reports are confidential incident-response tracks, not scanner PRs. CVE patch tests and image baselines remain independently gated. No scanner changes have been adopted by this documentation pass.
+**Priority checks (current 2026-11-13):** The original F02 permissions, F05 ignore loader and three CVE dependency-version reports have moved to [dispositions](exclusions.md). Retain separately scoped report publication, Windows ACL, #1243 redaction and #2237 CSV injection; optional non-root Docker was delivered in CP-V10. Slack reports are confidential incident-response tracks, not scanner PRs. Release CVE/SBOM and image provenance remain independently gated. No scanner changes were made by this reconciliation.
 
 ## Promotion and completion gate
 

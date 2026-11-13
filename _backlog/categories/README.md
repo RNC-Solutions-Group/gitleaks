@@ -6,7 +6,7 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 
 | Canonical category | Issues | PRs | Work packages |
 | --- | ---: | ---: | ---: |
-| [Security and hardening](security-hardening.md) | 7 | 5 | 10 |
+| [Security and hardening](security-hardening.md) | 4 | 3 | 7 |
 | [Scan integrity and file readers](scan-integrity.md) | 15 | 8 | 17 |
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
@@ -14,14 +14,14 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 | [Git and hooks](git-hooks-sources.md) | 12 | 5 | 13 |
 | [Reporting and output](reporting-output.md) | 10 | 5 | 11 |
 | [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
-| [Dependency and build pins](dependencies.md) | 6 | 11 | 17 |
+| [Dependency and build pins](dependencies.md) | 6 | 2 | 8 |
 | [Integrations and releases](integrations-release.md) | 4 | 3 | 6 |
 | [Optional features](features.md) | 20 | 13 | 22 |
 | [Documentation](documentation.md) | 3 | 5 | 4 |
-| [RNC dispositions — corrected, superseded, excluded](exclusions.md) | 85 | 86 | 137 |
+| [RNC dispositions — corrected, superseded, excluded](exclusions.md) | 88 | 97 | 149 |
 | **Total assigned from open snapshot** | **285** | **252** | **388** |
 
-**Current RNC queue (2026-11-13):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **200 active issues / 166 active PRs** in the technical categories and **85 removed issues / 86 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **251 active and 137 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
+**Current RNC queue (2026-11-13):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **197 active issues / 155 active PRs** in the technical categories and **88 removed issues / 97 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **239 active and 149 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
 The inventories and `_backlog/data/` remain the original dated snapshot. The 2026-11-13 reconciliation moved 31 actioned packages (21 issue IDs, 33 PR IDs), including three additional CP-V5/V7/V10 packages discovered in the final source audit to [dispositions](exclusions.md), with RNC build/CI proof and original contributor attribution cross-referenced in the [validation implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 
@@ -42,6 +42,10 @@ Optional Features is now **6 issues / 3 open PRs / 6 packages**. Those historica
 **16 elective work packages (14 issues and 10 open PRs)** were parked in [Optional Features](features.md): Configuration (7), Scan Integrity (4), Reporting (2), Integrations (2), Git/Hooks (1). Optional Features now has **20 issues / 13 PRs / 22 work packages**. All original 285 issues, 252 PRs and 388 work-package accounting slots retain a single owner: **221 active issues + 199 active PRs** in 282 active package slots, and 106 excluded slots. Historical inventories are unchanged.
 
 Three near-term informative QOL candidate packages: [#2130 / PR #2244](features.md#informative-reporting-extensions--high-value-qol-shortlist), [#983 / PR #1654](features.md#informative-reporting-extensions--high-value-qol-shortlist), [#1054](features.md#informative-reporting-extensions--high-value-qol-shortlist). Routing does not authorize code changes. See the [Wave 2 joint reconciliation plan](../04-rnc-reconciliation-plan.md) for post-V8 harness and release priorities.
+
+### Dependency and RE2 source-vs-release reconciliation — 2026-11-13
+
+The current `fix/validation` graph independently matches or supersedes nine dependency PRs and two security upgrade PRs (three linked CVE issues): **12 more accounting packages retired**, without integrating upstream code. Exact-version matches and the independently completed Lip Gloss v2 migration qualify for profile-only contributor thanks; superseded recommendations do not. **The RE2 release address-space defect #2017 is still active**; so are the Go 1.26.3 minimum and Docker login-action proposals. The prior branch's 2026-11-08 baseline columns are historical, not current validation pins.
 
 ## Queue housekeeping — 2026-11-13
 
