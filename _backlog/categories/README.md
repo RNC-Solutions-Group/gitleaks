@@ -6,24 +6,24 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Current f
 
 | Canonical category | Issues | PRs | Work packages |
 | --- | ---: | ---: | ---: |
-| [Security and hardening](security-hardening.md) | 10 | 7 | 13 |
-| [Scan integrity and file readers](scan-integrity.md) | 20 | 19 | 26 |
+| [Security and hardening](security-hardening.md) | 8 | 6 | 11 |
+| [Scan integrity and file readers](scan-integrity.md) | 15 | 10 | 19 |
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
-| [Configuration and allowlists](configuration-allowlists.md) | 36 | 22 | 35 |
-| [Git and hooks](git-hooks-sources.md) | 17 | 14 | 18 |
-| [Reporting and output](reporting-output.md) | 11 | 6 | 12 |
+| [Configuration and allowlists](configuration-allowlists.md) | 35 | 21 | 33 |
+| [Git and hooks](git-hooks-sources.md) | 12 | 5 | 13 |
+| [Reporting and output](reporting-output.md) | 10 | 5 | 11 |
 | [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
-| [Dependency and build pins](dependencies.md) | 7 | 11 | 18 |
-| [Integrations and releases](integrations-release.md) | 4 | 4 | 7 |
+| [Dependency and build pins](dependencies.md) | 6 | 11 | 17 |
+| [Integrations and releases](integrations-release.md) | 4 | 3 | 6 |
 | [Optional features](features.md) | 20 | 13 | 22 |
-| [Documentation](documentation.md) | 8 | 13 | 13 |
-| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 64 | 53 | 106 |
+| [Documentation](documentation.md) | 3 | 5 | 4 |
+| [RNC exclusions — obsolete, superseded, exceptions](exclusions.md) | 84 | 83 | 134 |
 | **Total assigned from open snapshot** | **285** | **252** | **388** |
 
-**Coverage:** All 285 issues and 252 PRs from the snapshot have exactly one RNC disposition: **221 active issues / 199 active PRs** in the technical categories, and **64 excluded issues / 53 excluded PRs** documented in [exclusions](exclusions.md). Unassigned: **0 issues / 0 PRs**. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
+**Current RNC queue (2026-11-13):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **201 active issues / 169 active PRs** in the technical categories and **84 removed issues / 83 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **254 active and 134 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
-The inventories and `_backlog/data/` remain the original dated snapshot. Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
+The inventories and `_backlog/data/` remain the original dated snapshot. A separate 2026-11-13 correction moved 28 actioned packages (20 issue IDs, 30 PR IDs) to [dispositions](exclusions.md), with RNC build/CI proof and original contributor attribution cross-referenced in the [validation implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 
 ### Scan-integrity second-pass reconciliation (2026-11-09)
 
@@ -35,17 +35,21 @@ One issue (#1464) and two PRs (#2253/#2252) moved from Scan Integrity to the exi
 - **Issue #2017** now belongs to [Integrations and releases](integrations-release.md): the `gore2regex` virtual-address-space failure is tied to **published binary build flags**, not a generic optional feature. Its **closed unmerged PR #2018** is context only and adds no open PR.
 - **Issue #1511** now belongs to [RNC exclusions](exclusions.md): source-file rewriting is outside current Gitleaks scan/report semantics; a separate report-only masking request can reopen review.
 
-Optional Features is now **6 issues / 3 open PRs / 6 packages**. The 285 issues, 252 open PRs, and 388 accounting packages remain complete and unchanged in total. Source/PR inspection was performed, but **no new runtime or regression tests** were run; no implementation or upstream disposition was changed.
+Optional Features is now **6 issues / 3 open PRs / 6 packages**. Those historical 285 issues, 252 open PRs, and 388 accounting package slots remain complete and unchanged in total. Source/PR inspection was performed, but **no new runtime or regression tests** were run; no implementation or upstream disposition was changed.
 
 ### Wave 2 routing update (2026-11-12)
 
-**16 complete elective work packages (14 issues and 10 open PRs)** moved to [Optional Features](features.md): Configuration (7), Scan Integrity (4), Reporting (2), Integrations (2), Git/Hooks (1). Optional Features now has **20 issues / 13 PRs / 22 work packages**. All original 285 issues, 252 PRs and 388 work-package accounting slots retain a single owner: **221 active issues + 199 active PRs** in 282 active package slots, and 106 excluded slots. Historical inventories are unchanged.
+**16 elective work packages (14 issues and 10 open PRs)** were parked in [Optional Features](features.md): Configuration (7), Scan Integrity (4), Reporting (2), Integrations (2), Git/Hooks (1). Optional Features now has **20 issues / 13 PRs / 22 work packages**. All original 285 issues, 252 PRs and 388 work-package accounting slots retain a single owner: **221 active issues + 199 active PRs** in 282 active package slots, and 106 excluded slots. Historical inventories are unchanged.
 
 Three near-term informative QOL candidate packages: [#2130 / PR #2244](features.md#informative-reporting-extensions--high-value-qol-shortlist), [#983 / PR #1654](features.md#informative-reporting-extensions--high-value-qol-shortlist), [#1054](features.md#informative-reporting-extensions--high-value-qol-shortlist). Routing does not authorize code changes. See the [Wave 2 joint reconciliation plan](../04-rnc-reconciliation-plan.md) for post-V8 harness and release priorities.
 
+## Queue housekeeping — 2026-11-13
+
+Only **open or partially corrected work** stays in the active category tables. A corrected original issue and its competing historical PRs move as one package to [dispositions](exclusions.md). An implemented scope still awaiting final owner acceptance is labeled as such instead of being falsely declared released. Distinct residuals retain their own active item/release gate; the original dated snapshots and issue/PR crosswalk are unchanged.
+
 ## Triage confidence
 
-- **RNC CLOSED / SUPERSEDED:** only when a known replacement or a verified nonissue has supporting evidence, with [exclusions.md](exclusions.md) as the exclusion ledger. No upstream issue or PR is closed by these documents.
+- **RNC CORRECTED / IMPLEMENTED / DECLINED / SUPERSEDED:** only with explicit scoped code/test evidence, accepted operator exception, verified replacement or nonissue; [dispositions](exclusions.md) is the removal register, not an upstream GitHub closure. No upstream issue or PR is closed by these documents.
 - **REVIEWED — TESTING:** existing CVE PRs #2308/#2336 and their linked issues; not yet adopted.
 - **SOURCE-CHECKED — TEST PENDING:** select open PR patches compared directly to fork `master`. **PATCH-REVIEWED** marks upstream diffs inspected without a complete baseline comparison. Neither state implies a build/run result.
 - **RNC EXCLUDED:** the [exclusion ledger](exclusions.md) records patch/version evidence, replacement PR or issue when known, and reopen conditions. A PR superseded by another **open** PR is a duplicate review slot, not a proven fix. Nonidentical provider and scanner proposals remain pending.

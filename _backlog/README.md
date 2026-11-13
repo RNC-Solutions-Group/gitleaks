@@ -12,19 +12,23 @@ This branch contains a dated, reproducible review snapshot of **upstream `gitlea
 - [data/](data/): structured public-safe JSON snapshots, filterable CSV, and collection manifest.
 - [categories/](categories/README.md): current technical work queues, ownership and decision gates.
 
-## Current RNC review status
+## Current RNC review status — reconciled 2026-11-13
 
 | Disposition | Issues | PRs |
 | --- | ---: | ---: |
-| Active technical-category review | **221** | **199** |
-| [RNC exclusions](categories/exclusions.md) | **64** | **53** |
+| Active technical-category review | **201** | **169** |
+| [Resolved, superseded and excluded](categories/exclusions.md) | **84** | **83** |
 | **Original snapshot assigned** | **285** | **252** |
 
-All upstream snapshot items have one disposition in the [active category index](categories/README.md), with **0 unassigned**. The register records 388 work-package accounting slots, which are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
+All original upstream snapshot items have one disposition in the [category index](categories/README.md), with **0 unassigned**. Of the 388 original work-package accounting slots, **254 remain active and 134 have been dispositioned/retired**. On 2026-11-13, 28 corrected/implemented/declined packages (20 issue IDs and 30 PR IDs) were removed from the work queue and moved to [dispositions](categories/exclusions.md), cross-referenced to the [fixes/QOL implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md). These work-package slots are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
 
 **Scan Integrity second pass (2026-11-09):** all 25 originally routed issues and 22 PRs rechecked against pinned fork source/diffs. Git error-handling issue #1464 and two competing fixes now share an existing Git/Hooks work package; URL/JSON PR #1992 is owned by Optional Features; #1651 and partial boundary patch #2324 share one package. These category/work-package consolidations leave **all 285 issues and 252 open PRs assigned**, with exclusions unchanged. No scanner source or test files were altered.
 
 **Optional Features final-pass reconciliation (2026-11-09):** #1397/PR #2216 moved to Configuration & Allowlists, #2017 (closed, unmerged PR #2018 for context) moved to Integrations & Release, and #1511 moved to the RNC exclusions ledger with a report-only reopen condition. Optional Features owned six issues, three open PRs and six packages **at the historical 2026-11-09 review**. The global **285 issue / 252 open PR / 388 package** accounting is unchanged; no code, snapshot export, upstream item or test was modified.
+
+## 2026-11-13 — Completed-work migration
+
+The active category tables now exclude 28 completed or declined review packages. The [resolved disposition register](categories/exclusions.md) identifies every moved historical issue/PR, scoped RNC fix or deliberate non-goal, contributor credit and reopen trigger. The original snapshot exports, inventories and crosswalk are unchanged. CP-V8 F16, CP-V9 and CP-V10 are technically verified; their final operator sign-off is tracked separately from implementation. Current open work is in the [category index](categories/README.md).
 
 ## 2026-11-12 — Optional feature parking and Wave 2 kickoff
 
