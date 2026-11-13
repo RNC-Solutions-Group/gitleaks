@@ -1,19 +1,15 @@
 name: Test
 
-# Push CI runs on integration branches. Feature/experiment branches with
-# open PRs are covered by the pull_request trigger instead, avoiding duplicate
-# push + PR runs. Pull request branch filters apply to the target/base branch.
+# CI is reserved for the protected rnc-mod integration baseline. Routine
+# development branches are validated locally, and a final PR runs this
+# workflow once it targets rnc-mod.
 on:
   push:
     branches:
-      - master
-      - "dev/**"
-      - "fix/**"
+      - rnc-mod
   pull_request:
     branches:
-      - master
-      - "dev/**"
-  workflow_dispatch:
+      - rnc-mod
 
 permissions:
   contents: read

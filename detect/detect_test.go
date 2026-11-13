@@ -908,8 +908,8 @@ func TestFromGit(t *testing.T) {
 			},
 		},
 		{
-			// Regression test: global [[allowlists]] commit entries must skip the entire
-			// diff file, not just advance the inner allowlist loop.
+			// Regression test: global [[allowlists]] commit entries must skip the
+			// entire diff file, not just advance the inner allowlist loop.
 			source:  filepath.Join(repoBasePath, "small"),
 			cfgName: "valid/allowlist_global_commit",
 			expectedFindings: []report.Finding{
@@ -922,7 +922,7 @@ func TestFromGit(t *testing.T) {
 					EndColumn:   36,
 					Secret:      "AKIALALEMEL33243OLIA",
 					Match:       "AKIALALEMEL33243OLIA",
-					Line:        "\n\taws_token := \"AKIALALEMEL33243OLIA\"",
+					Line:        "\taws_token := \"AKIALALEMEL33243OLIA\"",
 					File:        "foo/foo.go",
 					Date:        "2021-11-02T23:48:06Z",
 					Commit:      "491504d5a31946ce75e22554cc34203d8e5ff3ca",
@@ -1313,8 +1313,9 @@ func TestFromGit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(strings.Join([]string{tt.cfgName, tt.source, tt.logOpts}, "/"), func(t *testing.T) {
+			viper.Reset()
 			viper.AddConfigPath(configPath)
-			viper.SetConfigName("simple")
+			viper.SetConfigName(tt.cfgName)
 			viper.SetConfigType("toml")
 			err := viper.ReadInConfig()
 			require.NoError(t, err)
