@@ -124,7 +124,12 @@ func NewGitDiffCmdContext(ctx context.Context, source string, staged bool) (*Git
 			"--no-color", "--staged", ".")
 	}
 
-	return newGitCmd(cmd, sourceClean)
+	gitCmd, err := newGitCmd(cmd, sourceClean)
+	if err != nil {
+		return nil, err
+	}
+	gitCmd.staged = staged
+	return gitCmd, nil
 }
 
 // newGitCmd starts cmd and hands its stdout to the diff parser. It backs both
@@ -162,7 +167,6 @@ func newGitCmd(cmd *exec.Cmd, repoPath string) (*GitCmd, error) {
 		diffFilesCh: gitdiffFiles,
 		errCh:       errCh,
 		repoPath:    repoPath,
-		staged:      staged,
 	}, nil
 }
 
