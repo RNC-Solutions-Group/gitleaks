@@ -1,5 +1,7 @@
 # Dependencies — Gitleaks candidate register
 
+**Current active queue (2026-11-13):** Actioned issues/PRs have moved to the [RNC disposition register](exclusions.md); implementation, test evidence and contributor attribution are maintained in [fixes/QOL](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md). Do not reassign finished work from historical review notes.
+
 Snapshot: 2026-11-08 upstream open inventory · RNC fork `master` at `5f6ec56cfa6f` · Review branch `feat/issues-and-pr`.
 
 **7 active issues · 11 active PRs · 18 work-package accounting slots.** All retained PR diffs have been inspected against the pinned fork; **source/patch review is not a successful build, dependency resolution, runtime acceptance, or adoption**. PRs remain upstream-open. [Security CVE changes](security-hardening.md) have a separate owner queue; [RNC exclusions](exclusions.md) carry only superseded/out-of-scope records.
@@ -29,6 +31,8 @@ Snapshot: 2026-11-08 upstream open inventory · RNC fork `master` at `5f6ec56cfa
 
 ## Open build / dependency issues — by-item source review
 
+**The historical #1588 build/Makefile side-effect defect is corrected by CP-V10** and migrated to [dispositions](exclusions.md). Other module path, legacy install and release issues listed below remain separate active work.
+
 | Upstream issue | Pinned-source finding | RNC disposition and gate |
 | --- | --- | --- |
 | [#1839](https://github.com/gitleaks/gitleaks/issues/1839) — module path mismatch | `master/go.mod` still declares `github.com/zricethezav/gitleaks/v8`, while repository and some README badges use `github.com/gitleaks/gitleaks/v8`. Dockerfile/Makefile ldflags and imports still reference the old namespace. | **ACTIVE — MIGRATION DESIGN REQUIRED.** Reproduce modern `go get` on versioned `/v8`, assess existing importers and internal build paths before any rename. |
@@ -37,7 +41,6 @@ Snapshot: 2026-11-08 upstream open inventory · RNC fork `master` at `5f6ec56cfa
 | [#1209](https://github.com/gitleaks/gitleaks/issues/1209) — unversioned `go install` | Reported `go install github.com/gitleaks/gitleaks@latest` hits the same legacy module-path mismatch. | **SOURCE-CHECKED — INSTALL COMMAND MATRIX.** Test this distinct CLI path alongside #1226 with documented versioned install commands; no claim that a module rename fixes historical unversioned paths. |
 | [#833](https://github.com/gitleaks/gitleaks/issues/833) — build prerequisites | `go.mod` demands Go `1.24.11`; README lacks a clear Git floor or Go-version prerequisite. A 2022 RHEL 7/Go 1.16 reproducer is historical, not a current support commitment. | **ACTIVE — DOC / SUPPORT POLICY.** State tested minimum Go/Git and platform limits; validate installation paths and link to #1305. |
 | [#1944](https://github.com/gitleaks/gitleaks/issues/1944) — release binaries | Reporter describes `SIGILL` on old x86 from a published standalone binary, while a binary extracted from the image works. `.github/workflows/release.yml` currently publishes containers only. | **ACTIVE — BINARY PROVENANCE GAP.** Require reproducible release-binary workflow, explicit `GOAMD64` target/CGO behavior, checksums, builder metadata, old-x86 verification and platform matrix. Stack-trace paths are **not** conclusive proof of where a binary was built. |
-| [#1588](https://github.com/gitleaks/gitleaks/issues/1588) — normalize builds | `Makefile` derives a version with `git fetch --tags` and performs `go mod tidy` in `build`; Dockerfile also injects a custom linker version. These are real reproducibility/side-effect concerns beyond #1839's module path. | **ACTIVE — BUILD CONTRACT DESIGN.** Define offline/clean-tree build, stable version metadata, no dependency mutations during normal build, and tested `go install`; coordinate but do not conflate with #1839. |
 
 ## Acceptance and promotion gate
 
