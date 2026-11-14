@@ -417,6 +417,18 @@ func TestBareRepositoryDetection(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestValidateGitLogArgsRejectsOutputRedirection(t *testing.T) {
+	for _, raw := range []string{
+		"--all --output=/tmp/gitleaks.out",
+		"--all --output out.txt",
+		"-o out.txt",
+	} {
+		require.Error(t, validateGitLogOpts(raw), "raw=%q", raw)
+	}
+	require.NoError(t, validateGitLogOpts("--all -- --output=pathspec"))
+	require.NoError(t, validateGitLogOpts("--all --output-format=oneline"))
+}
+
 func TestIsCommitAllowed(t *testing.T) {
 	tests := map[string]struct {
 		allowlists  []*config.Allowlist

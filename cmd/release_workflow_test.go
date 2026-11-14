@@ -23,4 +23,7 @@ func TestReleaseWorkflowIsRNCScoped(t *testing.T) {
 	assert.NotContains(t, content, "DOCKER_PASSWORD")
 	assert.NotContains(t, content, "docker.io")
 	assert.NotContains(t, content, "pull_request")
+	assert.NotContains(t, content, "{{major}}")
+	assert.NotContains(t, content, "{{minor}}")
+	assert.NotContains(t, content, "latest=true")
 }

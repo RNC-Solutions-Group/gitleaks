@@ -156,7 +156,7 @@ gitleaks git --aggregate --report-path findings.json .
 | Exit behavior | Unsupported formats fail before Git starts; Git/parse failures are operational errors. |
 | Platform considerations | Git version must support the options supplied; `--diff-merges` requires Git 2.31 or later. |
 | Upstream compatibility | Default remains compatible; the rejection of silent-clean formats is intentional. |
-| Limitations | Merge-only default coverage is not complete; opt-in may duplicate findings. The parser is not a shell and does not expand variables or globs. |
+| Limitations | Merge-only default coverage is not complete; opt-in may duplicate findings. The parser is not a shell and does not expand variables or globs. Git output-redirection forms (`--output`, `--output=…`, `-o`) are rejected before Git runs so a false-clean cannot hide findings in a file. |
 
 ```bash
 gitleaks git --log-opts="--all --diff-merges=first-parent" .
@@ -259,7 +259,7 @@ gitleaks git -r - -f json . | jq .
 | Exit behavior | Invalid/malformed/unreadable configuration exits nonzero; no partial scan is started. |
 | Platform considerations | Loaded paths retain host spelling; no absolute path is synthesized beyond the configuration actually loaded. |
 | Upstream compatibility | New command; no scan/report schema change. |
-| Limitations | It is a summary, not a lossless configuration export. Unknown TOML fields may still be ignored by the loader. |
+| Limitations | It is a summary, not a lossless configuration export. Unknown TOML fields may still be ignored by the loader. Title, target and loaded-path metadata are bounded and escaped so newlines, ANSI/control characters and bidi overrides cannot inject terminal content. |
 
 ### 1.2.12 `--report-unused-ignore`
 
@@ -548,7 +548,7 @@ Intentional exclusions are successful scan decisions with accounting. Read/open/
 | V13-14 | Profiling script measurement validity. | `set -e`, decode-depth mismatch, unquoted paths, early findings. | Same command for benchmark/profile, explicit decode depth, safe quoting, exit-code 0, metadata, artifact checks. | `scripts/profile.sh` | Linux smoke run with dir/git + all profiles | Corrected. |
 | V13-15 | Decode/hang stability. | V12 evidence did not establish a correctness defect. | Finite 6.67 MB line-bounded probe at depths 0/1/3/5; no depth-correlated peak-RSS growth in that control; hangs not reproduced. | measurement evidence | Linux `/usr/bin/time` probe | Not reproduced — evidence insufficient; defaults retained. |
 | V13-16 | Explicit-file scalability. | Sequential file loop. | Bounded semaphore concurrency, deterministic findings sort, per-file errors and dedupe retained. | `sources/explicit_files.go`, `cmd/files.go` | Concurrency/dedupe/error tests; 200-file probe | Corrected; measured ~2.2x on synthetic Windows workload. |
-| V13-17 | Upstream release identity. | Docker Hub/upstream image publication and no protected ancestry/tag validation. | GHCR-only RNC workflow, tag/base/ancestry checks, least privilege, no Docker Hub credentials. | `.github/workflows/release.yml`, hooks, `RELEASING.md` | Static workflow/tag probes | Corrected in source; no publication. |
+| V13-17 | Upstream release identity. | Docker Hub/upstream image publication and no protected ancestry/tag validation. | GHCR-only RNC workflow, tag/base/ancestry checks, least privilege, no Docker Hub credentials, immutable full-version-only image tags. | `.github/workflows/release.yml`, hooks, `RELEASING.md` | Static workflow/tag probes; metadata-action prerelease behavior inspected | Corrected in source; no publication. |
 | V13-18 | Version/install contract. | Module path vs RNC distribution ambiguity; prerelease SemVer trap. | `vX.Y.Z-rnc.N`, base strictly > minVersion, container tags, installation matrix; module path retained. | `RELEASING.md`, README | Tag-policy probe | Policy decision documented; module rename not performed. |
 | V13-19 | Release binary portability. | GoReleaser still targets gore2regex and legacy architectures; no artifact test. | Assessed portability/RE2/architecture policy; no release config rewrite without artifact-level proof. | `RELEASING.md` | Documentation review; goreleaser unavailable locally | Partially corrected — packaging plan only. |
 | V13-20 | Attestations/release proof. | No SBOM/provenance/signature/verification design. | Exact digest/SBOM/provenance/checksum/signature verification targets and release checklist; not enabled. | `RELEASING.md` | Design review | Policy/deferred — no attestation claimed. |

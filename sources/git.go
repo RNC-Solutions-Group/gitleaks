@@ -485,6 +485,10 @@ func validateGitLogArgs(args []string) error {
 			}
 		}
 		switch {
+		case option == "--output",
+			strings.HasPrefix(option, "--output="),
+			option == "-o":
+			return fmt.Errorf("unsupported --log-opts value %q: Git output redirection would bypass the scanner's stdout and could produce a false-clean result", option)
 		case option == "--name-only",
 			option == "--name-status",
 			option == "--raw",

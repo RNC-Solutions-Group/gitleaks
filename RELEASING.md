@@ -31,14 +31,12 @@ precedence than `v8.25.0` because the prerelease suffix is compared after the
 base version; it must not be used. The release workflow validates this rule and
 requires the release commit to be reachable from protected `rnc-mod`.
 
-Container tags are derived from the same version without the leading `v`:
-
-- immutable: `8.26.0-rnc.1`
-- moving aliases: `8.26`, `8`
-- no `latest` alias is created
-
-Docker tag grammar permits these values; Git tag and container tag validation
-are deliberately separate.
+Container tags are derived from the same version without the leading `v`.
+The initial RNC distribution publishes **only the immutable full version tag**,
+for example `8.26.0-rnc.1`. Moving major/minor aliases such as `8.26` or `8`, and
+`latest`, are deliberately not created. This avoids a mutable image tag silently
+changing the code identified by an RNC release. Docker tag grammar permits the
+full prerelease version; Git tag and container tag validation are separate.
 
 ## Supported installation matrix
 

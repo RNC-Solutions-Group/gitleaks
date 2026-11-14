@@ -31,6 +31,17 @@
 | V13-19 | Release-binary portability | **PARTIALLY CORRECTED — RESIDUAL CONFIRMED** | Artifact/RE2/architecture plan documented; goreleaser unavailable and no artifact-level test. |
 | V13-20 | Supply-chain attestations | **DEFERRED — OUTSIDE AUTHORIZED SCOPE** | Digest/SBOM/provenance/checksum/signature verification design and checklist; nothing claimed or published. |
 
+## V13A final PR corrective pass (2026-11-14)
+
+| ID | Correction | Evidence |
+| --- | --- | --- |
+| V13A-01 | Git output-redirection fail-closed | `--output`, `--output=…` and `-o` are rejected on the parsed argument vector before Git starts. Repro before: synthetic repository + `--log-opts="--all --output=<temp>"` exited 0 and created a 275-byte file with no findings. After: nonzero validation failure and no file. Unit + CLI tests. |
+| V13A-02 | Immutable RNC container tags | metadata-action prerelease semantics resolve `v8.26.0-rnc.1` to `{{version}}`; workflow now emits only `8.26.0-rnc.1` (no major/minor/latest aliases). RELEASING and workflow agree. Static workflow test; no publish. |
+| V13A-03 | Backlog accounting balance | Category table now sums active 186/144/226 + dispositioned 99/108/162 = original 285/252/388; category headlines aligned. Assessment commit on `feat/issues-and-pr`; immutable data untouched. |
+| V13A-04 | Safe config-summary metadata | Title/target/path/minVersion bounded and escaped for newline, ANSI/C0/C1, bidi/format and length; rule/allowlist patterns remain omitted. Unit + hostile-title CLI tests. |
+
+The V13A product tree supersedes the earlier V13 tree; final provenance records the post-correction commit.
+
 ## Important implementation notes
 
 ### V13-01

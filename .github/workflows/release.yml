@@ -69,10 +69,12 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
             latest=false
+          # metadata-action resolves a semver prerelease ref to {{version}}
+          # (8.26.0-rnc.1) and flavor latest=false prevents a latest alias.
+          # Initial RNC distribution publishes only that immutable full tag;
+          # no moving major/minor/latest aliases.
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
 
       - name: Build and push RNC image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

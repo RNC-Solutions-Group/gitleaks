@@ -3,7 +3,9 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,6 +25,41 @@ regexes = ['''BETA_[A-Z0-9]{8}''']
 [[rules.allowlists]]
 regexes = ['''ALPHA_[A-Z0-9]{8}''']
 `
+
+func TestSanitizeConfigSummary(t *testing.T) {
+	input := "ok\x1b[31mred\nline\tTab\u2028sep\u202ebidi"
+	got := sanitizeConfigSummary(input, 80)
+	assert.NotContains(t, got, "\x1b")
+	assert.NotContains(t, got, "\n")
+	assert.NotContains(t, got, "\t")
+	assert.NotContains(t, got, "\u2028")
+	assert.NotContains(t, got, "\u202e")
+	assert.Contains(t, got, `\x1b`)
+	assert.Contains(t, got, `\n`)
+	assert.Contains(t, got, `\u2028`)
+	assert.Contains(t, got, `\u202e`)
+
+	long := strings.Repeat("\u00e9", 300)
+	truncated := sanitizeConfigSummary(long, 10)
+	assert.Equal(t, 10, utf8.RuneCountInString(strings.TrimSuffix(truncated, "...")))
+	assert.True(t, strings.HasSuffix(truncated, "..."))
+}
+
+func TestConfigSummaryEscapesHostileTitle(t *testing.T) {
+	source := t.TempDir()
+	title := "evil\\u001b[31mred\\ninjected\\u2028separator"
+	config := "title = \"" + title + "\"\n[[rules]]\nid = \"alpha\"\ndescription = \"alpha\"\nregex = '''ALPHA_[A-Z0-9]{8}'''\n"
+	configPath := filepath.Join(t.TempDir(), "hostile.toml")
+	require.NoError(t, os.WriteFile(configPath, []byte(config), 0o600))
+
+	result := runReportCLI(t, "config", source, "--config", configPath, "--no-banner", "--log-level", "error")
+	require.Equal(t, 0, result.exitCode, result.stderr)
+	assert.NotContains(t, result.stdout, "\x1b")
+	assert.NotContains(t, result.stdout, "red\ninjected")
+	assert.Contains(t, result.stdout, `\x1b`)
+	assert.Contains(t, result.stdout, `\n`)
+	assert.NotContains(t, result.stdout, "ALPHA_[A-Z0-9]{8}")
+}
 
 func TestConfigSummaryIsSafeAndEffective(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "summary.toml")

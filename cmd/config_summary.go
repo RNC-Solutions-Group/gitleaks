@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -37,7 +38,7 @@ func runConfigSummary(cmd *cobra.Command, args []string) {
 	cfg := Config(cmd)
 
 	fmt.Fprintln(cmd.OutOrStdout(), "RNC-Mod effective configuration")
-	fmt.Fprintf(cmd.OutOrStdout(), "Target: %s\n", source)
+	fmt.Fprintf(cmd.OutOrStdout(), "Target: %s\n", sanitizeConfigSummary(source, 512))
 	fmt.Fprintf(cmd.OutOrStdout(), "Configuration source: %s\n", configurationSource(cmd, cfg))
 	fmt.Fprintln(cmd.OutOrStdout(), "Loaded files:")
 	if len(cfg.ConfigFiles) == 0 {
@@ -46,7 +47,7 @@ func runConfigSummary(cmd *cobra.Command, args []string) {
 		files := append([]string(nil), cfg.ConfigFiles...)
 		sort.Strings(files)
 		for _, path := range files {
-			fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", path)
+			fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", sanitizeConfigSummary(path, 512))
 		}
 	}
 
@@ -60,8 +61,8 @@ func runConfigSummary(cmd *cobra.Command, args []string) {
 		ruleAllowlists += len(rule.Allowlists)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Rule allowlists: %d\n", ruleAllowlists)
-	fmt.Fprintf(cmd.OutOrStdout(), "Minimum version: %s\n", displayValue(cfg.MinVersion))
-	fmt.Fprintf(cmd.OutOrStdout(), "Title: %s\n", displayValue(cfg.Title))
+	fmt.Fprintf(cmd.OutOrStdout(), "Minimum version: %s\n", sanitizeConfigSummary(displayValue(cfg.MinVersion), 128))
+	fmt.Fprintf(cmd.OutOrStdout(), "Title: %s\n", sanitizeConfigSummary(displayValue(cfg.Title), 256))
 	fmt.Fprintf(cmd.OutOrStdout(), "Report policy: auto-overwrite=%t aggregation=%t informative-report=%t console-only=%t\n",
 		cfg.AutoOverwrite, cfg.Aggregation, cfg.InformativeReport, cfg.ConsoleOnly)
 
@@ -89,6 +90,40 @@ func configurationSource(cmd *cobra.Command, cfg config.Config) string {
 		return "target-local .gitleaks.toml"
 	}
 	return "embedded default"
+}
+
+// sanitizeConfigSummary keeps metadata readable while preventing newline,
+// terminal-control, bidirectional-override and excessive-length injection.
+func sanitizeConfigSummary(value string, maxRunes int) string {
+	if value == "" {
+		return value
+	}
+	var b strings.Builder
+	count := 0
+	for _, r := range value {
+		if count >= maxRunes {
+			b.WriteString("...")
+			break
+		}
+		switch {
+		case r == '\n':
+			b.WriteString(`\n`)
+		case r == '\r':
+			b.WriteString(`\r`)
+		case r == '\t':
+			b.WriteString(`\t`)
+		case r == 0x1b:
+			b.WriteString(`\x1b`)
+		case r == '\u2028' || r == '\u2029':
+			b.WriteString(fmt.Sprintf(`\u%04x`, r))
+		case unicode.IsControl(r) || unicode.Is(unicode.Cf, r):
+			b.WriteString(fmt.Sprintf(`\u%04x`, r))
+		default:
+			b.WriteRune(r)
+		}
+		count++
+	}
+	return b.String()
 }
 
 func displayValue(value string) string {
