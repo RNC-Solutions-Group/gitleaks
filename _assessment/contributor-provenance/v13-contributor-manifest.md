@@ -2,9 +2,9 @@
 
 **Integration branch:** `audit/v13-integration`
 **Integration base:** `rnc-mod` at `3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc`
-**V13 development HEAD:** `4b77ac90d1d4b37fcdd04e02c9fb21bd233580f1`
-**RNC product commits:** `74a042e522c3d8646d39fd41e8a0ed88d00e5e83` and `d13e14ef7f7eb1e2684472d3c61d74b1c75b8427`
-**Final product tree:** `7fcaaef841c08d578bab26c8b875429d7b8c6ea3`
+**V13 development HEAD (post-V13A):** `77376f101a4e36a7c47897b09584d175a8825f39`
+**RNC product commits:** `74a042e522c3d8646d39fd41e8a0ed88d00e5e83`, `d13e14ef7f7eb1e2684472d3c61d74b1c75b8427`, `b8131048add7a20f49ee615cc90e0e6d75641c24`
+**Final product tree:** `89844b1b6cd63d76f77cedb2b9584844ee092b66`
 
 ## Upstream commit adoption
 
@@ -26,8 +26,8 @@ No co-author trailer was fabricated. No contributor commit was amended, squashed
 The integration product commit was created by restoring the frozen V13 development tree and verifying object equality:
 
 ```text
-development tree: 7fcaaef841c08d578bab26c8b875429d7b8c6ea3
-integration tree: 7fcaaef841c08d578bab26c8b875429d7b8c6ea3 (before documentation-only provenance additions)
+development tree: 89844b1b6cd63d76f77cedb2b9584844ee092b66
+integration tree: 89844b1b6cd63d76f77cedb2b9584844ee092b66 (before documentation-only provenance additions)
 ```
 
 The provenance reports are documentation-only additions after the product equality point. The final PR target is `rnc-mod`; no merge or release publication is performed.

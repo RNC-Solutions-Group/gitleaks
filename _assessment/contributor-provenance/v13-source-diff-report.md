@@ -1,17 +1,17 @@
 # CP-V13 Source-Diff and Verification Report
 
-**V13 development HEAD:** `4b77ac90d1d4b37fcdd04e02c9fb21bd233580f1` (tree `7fcaaef841c08d578bab26c8b875429d7b8c6ea3`)
-**Integration product commits:** `74a042e522c3d8646d39fd41e8a0ed88d00e5e83` and `d13e14ef7f7eb1e2684472d3c61d74b1c75b8427` (final tree `7fcaaef841c08d578bab26c8b875429d7b8c6ea3`)
+**V13 development HEAD (post-V13A):** `77376f101a4e36a7c47897b09584d175a8825f39` (tree `89844b1b6cd63d76f77cedb2b9584844ee092b66`)
+**Integration product commits:** `74a042e522c3d8646d39fd41e8a0ed88d00e5e83`, `d13e14ef7f7eb1e2684472d3c61d74b1c75b8427`, `b8131048add7a20f49ee615cc90e0e6d75641c24` (final tree `89844b1b6cd63d76f77cedb2b9584844ee092b66`)
 **Integration base:** `rnc-mod` at `3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc`
 **Final PR:** `audit/v13-integration` → `rnc-mod`
 
 ## Product equality
 
-`git diff --exit-code fix/v13-operational-hardening d13e14e` returned zero before the documentation-only provenance addendum. The product tree is object-identical:
+`git diff --exit-code fix/v13-operational-hardening b813104` returned zero before the documentation-only provenance addendum. The product tree is object-identical:
 
 ```text
-development tree: 7fcaaef841c08d578bab26c8b875429d7b8c6ea3
-integration tree: 7fcaaef841c08d578bab26c8b875429d7b8c6ea3
+development tree: 89844b1b6cd63d76f77cedb2b9584844ee092b66
+integration tree: 89844b1b6cd63d76f77cedb2b9584844ee092b66
 ```
 
 Only `_assessment/contributor-provenance/v13-*.md` is added after the equality point.
@@ -19,7 +19,7 @@ Only `_assessment/contributor-provenance/v13-*.md` is added after the equality p
 ## Difference from V12
 
 ```text
-30 files changed, 1615 insertions(+), 221 deletions(-)
+31 files changed, 1776 insertions(+), 221 deletions(-)
 ```
 
 No provider detection rule, generic-secret pattern, entropy policy or benchmark-harness file was changed.
@@ -50,6 +50,13 @@ No provider detection rule, generic-secret pattern, entropy policy or benchmark-
 | V13-20 | DEFERRED | SBOM/provenance/signature verification design; nothing published. |
 
 The full 20-row evidence matrix is `_assessment/v13-remediation-matrix.md`.
+
+## V13A final PR corrective pass
+
+- **Git output redirection:** before correction, a synthetic repo scan with `--log-opts="--all --output=<temp>"` exited 0 and wrote a 275-byte file while producing no findings. Validation now rejects `--output`, `--output=…` and `-o` on the parsed vector before Git starts; `TestCLIGitOutputRedirectionFailsBeforeGit` proves nonzero exit and no file, including the separated form.
+- **Container tags:** metadata-action's semver prerelease path emits `{{version}}`; the workflow and RELEASING.md now use only the immutable `8.26.0-rnc.1` tag, with no major/minor/latest aliases. Static workflow tests validate the contract; no image was published.
+- **Backlog balance:** assessment branch table now balances active 186/144/226 + dispositioned 99/108/162 = original 285/252/388, with category headlines aligned.
+- **Config-summary safety:** hostile title/target/path/minVersion metadata is bounded and escaped for newlines, ANSI/C0/C1, bidi/format controls and length; rule/allowlist patterns remain omitted. Unit and CLI tests pass.
 
 ## Verification
 
