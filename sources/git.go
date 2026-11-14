@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -434,7 +435,12 @@ func sameFilesystemPath(a, b string) bool {
 	if errA != nil || errB != nil {
 		return false
 	}
-	return filepath.Clean(absA) == filepath.Clean(absB)
+	if filepath.Clean(absA) == filepath.Clean(absB) {
+		return true
+	}
+	infoA, errA := os.Stat(absA)
+	infoB, errB := os.Stat(absB)
+	return errA == nil && errB == nil && os.SameFile(infoA, infoB)
 }
 
 // isShallowRepository reports whether Git identifies the source as shallow.
