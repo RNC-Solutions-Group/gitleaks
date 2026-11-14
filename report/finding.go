@@ -70,6 +70,10 @@ type Finding struct {
 	// and eventually ML validation
 	Fragment *sources.Fragment `json:",omitempty"`
 
+	// groupingSecret is the pre-redaction secret used only by the opt-in
+	// grouped report. It is deliberately unexported and never serialized.
+	groupingSecret string
+
 	// TODO keeping private for now to during experimental phase
 	requiredFindings []*RequiredFinding
 }
@@ -103,6 +107,12 @@ func (f *Finding) Redact(percent uint) {
 // share its line. Callers that have several findings for one line should pass
 // all of their secrets so that a verbose finding does not expose a neighboring
 // credential.
+// SetGroupingSecret preserves the pre-redaction value for grouped reporting.
+// The value is not exposed by JSON, CSV, SARIF, templates or console output.
+func (f *Finding) SetGroupingSecret(secret string) {
+	f.groupingSecret = secret
+}
+
 func (f *Finding) RedactWith(percent uint, secrets []string) {
 	if percent == 0 {
 		return

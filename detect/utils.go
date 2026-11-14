@@ -209,6 +209,7 @@ func filter(findings []report.Finding, redact uint) []report.Finding {
 		}
 	}
 	for i := range retFindings {
+		retFindings[i].SetGroupingSecret(retFindings[i].Secret)
 		retFindings[i].RedactWith(redact, secretsBySource[findingSourceKey(retFindings[i])])
 	}
 	return retFindings

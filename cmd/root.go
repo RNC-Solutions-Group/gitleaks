@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -80,6 +81,9 @@ func init() {
 	rootCmd.PersistentFlags().StringP("report-template", "", "", "template file used to generate the report (implies --report-format=template)")
 	rootCmd.PersistentFlags().String("sarif-level", "", "optional SARIF result level (none, note, warning, error); empty preserves historical SARIF")
 	rootCmd.PersistentFlags().Bool("report-unused-ignore", false, "after a completed scan, report loaded .gitleaksignore entries that did not suppress a finding")
+	rootCmd.PersistentFlags().Bool("strict-config", false, "reject unknown configuration fields and incorrect nesting; default loading is unchanged")
+	rootCmd.PersistentFlags().String("grouped-report", "", "write a separate opt-in keyed grouped report; requires --grouping-key-file")
+	rootCmd.PersistentFlags().String("grouping-key-file", "", "file containing the HMAC key for --grouped-report (never printed)")
 	rootCmd.PersistentFlags().Bool("overwrite", false, "replace an existing report file (overrides configured report policy)")
 	rootCmd.PersistentFlags().Bool("aggregate", false, "write a numbered report instead of replacing an existing one (overrides configured report policy)")
 	rootCmd.PersistentFlags().StringP("baseline-path", "b", "", "path to baseline with issues that can be ignored")
@@ -263,6 +267,7 @@ func Config(cmd *cobra.Command) config.Config {
 }
 
 func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Detector {
+	validateStrictConfiguration(cmd, cfg)
 	var err error
 
 	// Setup common detector
@@ -469,7 +474,100 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		}
 	}
 
+	groupedPath, _ := cmd.Flags().GetString("grouped-report")
+	groupingKeyPath, _ := cmd.Flags().GetString("grouping-key-file")
+	if groupedPath != "" || groupingKeyPath != "" {
+		if groupedPath == "" || groupingKeyPath == "" {
+			logging.Fatal().Msg("--grouped-report and --grouping-key-file must be used together")
+		}
+		if groupedPath == report.StdoutReportPath {
+			logging.Fatal().Msg("--grouped-report requires a file path, not stdout")
+		}
+		if reportPath != "" && sameReportCommandPath(groupedPath, reportPath) {
+			logging.Fatal().Msg("--grouped-report must not use the primary report path")
+		}
+		if detector.InformativeReportPath != "" && sameReportCommandPath(groupedPath, detector.InformativeReportPath) {
+			logging.Fatal().Msg("--grouped-report must not use the informative companion path")
+		}
+		key, err := loadGroupingKey(groupingKeyPath)
+		if err != nil {
+			logging.Fatal().Err(err).Msg("invalid grouping key")
+		}
+		configFiles := append([]string(nil), cfg.ConfigFiles...)
+		if len(configFiles) == 0 && cfg.Path != "" {
+			configFiles = append(configFiles, cfg.Path)
+		}
+		output, err := newReportOutput(groupedPath, reportOverwrite, source, configFiles, baselinePath, gitleaksIgnorePath, mustGetStringFlag(cmd, "report-template"))
+		if err != nil {
+			logging.Fatal().Err(err).Msg("invalid grouped report destination")
+		}
+		detector.GroupedReportPath = groupedPath
+		detector.GroupedReportWriter = func(findings []report.Finding) (string, error) {
+			return output.write(&report.GroupedReporter{Key: key}, findings)
+		}
+	}
+
 	return detector
+}
+
+func sameReportCommandPath(a, b string) bool {
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return filepath.Clean(a) == filepath.Clean(b)
+	}
+	return filepath.Clean(absA) == filepath.Clean(absB)
+}
+
+func loadGroupingKey(path string) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not inspect grouping key file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("grouping key file must be a regular file")
+	}
+	if info.Size() < 32 {
+		return nil, fmt.Errorf("grouping key must contain at least 32 bytes")
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
+		return nil, fmt.Errorf("grouping key file must not be group/world accessible")
+	}
+	key, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not read grouping key file: %w", err)
+	}
+	if len(key) < 32 {
+		return nil, fmt.Errorf("grouping key must contain at least 32 bytes")
+	}
+	return key, nil
+}
+
+func validateStrictConfiguration(cmd *cobra.Command, cfg config.Config) {
+	strict, err := cmd.Flags().GetBool("strict-config")
+	if err != nil {
+		logging.Fatal().Err(err).Msg("could not read --strict-config")
+	}
+	if !strict {
+		return
+	}
+	files := append([]string(nil), cfg.ConfigFiles...)
+	if len(files) == 0 && cfg.Path != "" {
+		files = append(files, cfg.Path)
+	}
+	if len(files) == 0 {
+		if inline := os.Getenv("GITLEAKS_CONFIG_TOML"); inline != "" {
+			if err := config.ValidateStrictTOML([]byte(inline)); err != nil {
+				logging.Fatal().Err(err).Msg("strict configuration validation failed")
+			}
+		}
+		return
+	}
+	for _, path := range files {
+		if err := config.ValidateStrictFile(path); err != nil {
+			logging.Fatal().Err(err).Msg("strict configuration validation failed")
+		}
+	}
 }
 
 func setInformativeSourceType(detector *detect.Detector, sourceType string) {
@@ -564,6 +662,14 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 				logging.Info().Str("path", outputPath).Msg("report written")
 			}
 		}
+	}
+
+	if err == nil && detector.GroupedReportWriter != nil {
+		groupedPath, groupedErr := detector.GroupedReportWriter(findings)
+		if groupedErr != nil {
+			logging.Fatal().Err(groupedErr).Msg("failed to write grouped report")
+		}
+		logging.Info().Str("path", groupedPath).Msg("grouped report written")
 	}
 
 	// Print the informative console summary after the primary report has been

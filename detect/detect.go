@@ -117,7 +117,11 @@ type Detector struct {
 
 	// report-related settings.
 	ReportPath string
-	Reporter   report.Reporter
+	// GroupedReportWriter, when set, writes the opt-in keyed grouping sidecar
+	// after a completed scan. It never alters primary findings.
+	GroupedReportWriter func([]report.Finding) (string, error)
+	GroupedReportPath   string
+	Reporter            report.Reporter
 	// ReportWriter, when set, validates and writes the report for a completed
 	// scan, returning the actual output filename. The CLI sets it so
 	// destination policy and atomic publication stay in the command layer.
