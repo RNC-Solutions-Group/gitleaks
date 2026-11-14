@@ -1,17 +1,17 @@
 # CP-V13 Source-Diff and Verification Report
 
-**V13 development HEAD:** `cb84dafc0a73c08a5130a762901921b1786e71e7` (tree `b6f4dd1e120297a41b92fab70ff410e7ec78bc4a`)
-**Integration product commit:** `74a042e522c3d8646d39fd41e8a0ed88d00e5e83` (same tree)
+**V13 development HEAD:** `4b77ac90d1d4b37fcdd04e02c9fb21bd233580f1` (tree `7fcaaef841c08d578bab26c8b875429d7b8c6ea3`)
+**Integration product commits:** `74a042e522c3d8646d39fd41e8a0ed88d00e5e83` and `d13e14ef7f7eb1e2684472d3c61d74b1c75b8427` (final tree `7fcaaef841c08d578bab26c8b875429d7b8c6ea3`)
 **Integration base:** `rnc-mod` at `3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc`
 **Final PR:** `audit/v13-integration` → `rnc-mod`
 
 ## Product equality
 
-`git diff --exit-code fix/v13-operational-hardening 74a042e` returned zero before the documentation-only provenance addendum. The product tree is object-identical:
+`git diff --exit-code fix/v13-operational-hardening d13e14e` returned zero before the documentation-only provenance addendum. The product tree is object-identical:
 
 ```text
-development tree: b6f4dd1e120297a41b92fab70ff410e7ec78bc4a
-integration tree: b6f4dd1e120297a41b92fab70ff410e7ec78bc4a
+development tree: 7fcaaef841c08d578bab26c8b875429d7b8c6ea3
+integration tree: 7fcaaef841c08d578bab26c8b875429d7b8c6ea3
 ```
 
 Only `_assessment/contributor-provenance/v13-*.md` is added after the equality point.
@@ -68,7 +68,7 @@ git diff --check
 All passed. Additional evidence:
 
 - Real pre-commit `--files`/`--all-files` integration: PASS.
-- Non-root Linux `go test -race -count=1 ./...` at `18a01ca` (code-identical to the frozen tree): PASS.
+- Non-root Linux `go test -race -count=1 ./...` at the pre-fix tree: PASS. The cross-platform alias fix was validated by the Windows/macOS CI jobs that originally exposed `TestGitRepositoryScopeDetection`.
 - Profile workflow Linux smoke: `dir` and `git`, CPU/memory/trace artifacts produced: PASS.
 - Release workflow YAML parse/static scope: PASS; no workflow executed with registry credentials.
 - Release tag/base probe: `v8.26.0-rnc.1` valid; `v8.25.0-rnc.1` rejected; malformed/`-rnc.0` rejected.
