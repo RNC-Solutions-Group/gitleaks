@@ -1,3 +1,7 @@
+# V13 release assessment: this file is a candidate packaging matrix, not proof of
+# artifact portability. It is not invoked by .github/workflows/release.yml.
+# Before a real release, validate gore2regex binaries under constrained runtime,
+# legacy 386/arm builds, checksums and artifact smoke tests. See RELEASING.md.
 project_name: gitleaks
 
 builds:
