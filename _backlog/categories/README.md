@@ -4,30 +4,31 @@ Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Historica
 
 ## Routed coverage
 
-| Canonical category | Issues | PRs | Work packages |
+| Canonical category | Active issues | Active PRs | Active work packages |
 | --- | ---: | ---: | ---: |
-| [Security and hardening](security-hardening.md) | 4 | 2 | 6 |
-| [Scan integrity and file readers](scan-integrity.md) | 15 | 8 | 17 |
+| [Security and hardening](security-hardening.md) | 4 | 1 | 5 |
+| [Scan integrity and file readers](scan-integrity.md) | 14 | 8 | 16 |
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
 | [Configuration and allowlists](configuration-allowlists.md) | 32 | 18 | 30 |
-| [Git and hooks](git-hooks-sources.md) | 12 | 5 | 13 |
-| [Reporting and output](reporting-output.md) | 10 | 5 | 11 |
-| [Performance and stability](performance-stability.md) | 4 | 4 | 6 |
+| [Git and hooks](git-hooks-sources.md) | 9 | 3 | 10 |
+| [Reporting and output](reporting-output.md) | 8 | 3 | 9 |
+| [Performance and stability](performance-stability.md) | 2 | 2 | 4 |
 | [Dependency and build pins](dependencies.md) | 6 | 2 | 8 |
 | [Integrations and releases](integrations-release.md) | 4 | 3 | 6 |
 | [Optional features](features.md) | 20 | 13 | 22 |
 | [Documentation](documentation.md) | 3 | 5 | 4 |
-| [RNC dispositions — corrected, superseded, excluded](exclusions.md) | 91 | 101 | 153 |
-| **Total assigned from open snapshot** | **285** | **252** | **388** |
+| **Active technical categories** | **186** | **144** | **226** |
+| [RNC dispositions — corrected, superseded, excluded](exclusions.md) | 99 | 108 | 162 |
+| **Original snapshot assigned** | **285** | **252** | **388** |
 
 **Current RNC queue (post-CP-V12, 2026-11-13):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **186 active issues / 144 active PRs** in the technical categories and **99 removed issues / 108 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **226 active and 162 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
-The inventories and `_backlog/data/` remain the original dated snapshot. The 2026-11-13 reconciliation moved 31 actioned packages (21 issue IDs, 33 PR IDs), including three additional CP-V5/V7/V10 packages discovered in the final source audit to [dispositions](exclusions.md), with RNC build/CI proof and original contributor attribution cross-referenced in the [validation implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
+The inventories and `_backlog/data/` remain the original dated snapshot. The 2026-11-13 reconciliation moved 56 actioned packages (35 issue IDs, 55 PR IDs) to [dispositions](exclusions.md), with RNC source/test evidence and contributor attribution cross-referenced in [RNC-MOD.md](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
 
 ### CP-V12 merged work retired from active queue (2026-11-13)
 
-[RNC PR #5](https://github.com/RNC-Solutions-Group/gitleaks/pull/5) merged as [`3a4635f`](https://github.com/RNC-Solutions-Group/gitleaks/commit/3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc) corrected the V12 Git/reporting/baseline/hook packages. Nine packages (8 issues, 7 PRs) moved from Git/Hooks, Reporting, Performance, Security and Scan Integrity into [RNC dispositions](exclusions.md). Four targets remain active with their precise residuals: #1651/#2324, #1243, #2019 and #1028/#2301. See the [dated CP-V12 reconciliation report](../reconciliations/2026-11-13-v12-reconciliation.md). No upstream issue or PR was closed. Category headline counts were already non-additive before this pass; the global accounting above and package-level exclusion rows are authoritative.
+[RNC PR #5](https://github.com/RNC-Solutions-Group/gitleaks/pull/5) merged as [`3a4635f`](https://github.com/RNC-Solutions-Group/gitleaks/commit/3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc) corrected the V12 Git/reporting/baseline/hook packages. Nine packages (8 issues, 7 PRs) moved from Git/Hooks, Reporting, Performance, Security and Scan Integrity into [RNC dispositions](exclusions.md). Four targets remain active with their precise residuals: #1651/#2324, #1243, #2019 and #1028/#2301. See the [dated CP-V12 reconciliation report](../reconciliations/2026-11-13-v12-reconciliation.md). No upstream issue or PR was closed. This table now balances exactly: active 186/144/226 plus dispositioned 99/108/162 equals the original 285/252/388.
 
 ### CP-V11 implemented work retired from active queue (2026-11-13)
 

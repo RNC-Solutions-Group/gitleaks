@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**8 issues · 13 PRs · 13 work packages.**
+**3 active issues · 5 active PRs · 4 active work packages.**
 
 Documentation, setup guidance, labels, and examples. Compare proposed text with current code and README behavior before consolidating patches.
 

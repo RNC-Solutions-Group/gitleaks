@@ -4,7 +4,7 @@
 
 Second-pass evidence review: 2026-11-09 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
-**14 issues · 12 PRs · 15 work packages.**
+**9 active issues · 3 active PRs · 10 active work packages.**
 
 **2026-11-12 routing:** Elective work packages moved to [Optional Features](features.md), preserving issues, PRs, contributor credit and original review evidence. No source changes or scanner-defect closures are implied.
 

@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-09 · **RNC fork `master`: `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c`** · Working branch: `feat/issues-and-pr`.
 
-**4 issues · 4 open PRs · 7 work packages. No exclusions or adoptions in the original second pass.** Seven packages remain.
+**4 active issues · 3 active open PRs · 6 active work packages.**
 
 **2026-11-12 routing:** Elective work packages moved to [Optional Features](features.md), preserving issues, PRs, contributor credit and original review evidence. No source changes or scanner-defect closures are implied. Issue #2017 moved here from Optional Features after the 2026-11-09 by-item review; its linked PR #2018 is **closed and unmerged**, so it is not counted among four open PRs. Several proposed patches are unsafe or ineffective *as written*; retaining a requested capability does **not** approve that implementation.
 

@@ -4,7 +4,7 @@
 
 Snapshot: **2026-11-09** · RNC comparison target: [`master@5f6ec56`](https://github.com/RNC-Solutions-Group/gitleaks/tree/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c) · Documentation branch: `feat/issues-and-pr`.
 
-**9 active issues · 4 active open PRs · 10 work packages.**
+**8 active issues · 3 active open PRs · 9 active work packages.**
 
 **2026-11-12 routing:** Elective work packages moved to [Optional Features](features.md), preserving issues, PRs, contributor credit and original review evidence. No source changes or scanner-defect closures are implied. The original category had 15 issues / 8 PRs / 17 packages. This pass plus V12 moves **4 issues and 3 PRs** to [RNC exclusions](exclusions.md) with source evidence and explicit reopen triggers; it does not close them upstream.
 
