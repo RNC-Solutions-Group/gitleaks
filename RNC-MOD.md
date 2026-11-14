@@ -1,6 +1,6 @@
 # RNC-Mod Engineering Reference
 
-> **Scope.** This document is the canonical reader-facing technical record for the RNC-Mod fork of Gitleaks. It describes the operational difference between upstream Gitleaks `master` at `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` and the V12 integration candidate, the engineering corrections beneath that behavior, the evidence supporting them, and the external contributions recognized by the project. Historical assessment reports remain available under `_assessment/`; they are evidence archives, not competing current specifications.
+> **Scope.** This document is the canonical reader-facing technical record for the RNC-Mod fork of Gitleaks. It describes the operational difference between upstream Gitleaks `master` at `5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c` and the V13 integration candidate, the engineering corrections beneath that behavior, the evidence supporting them, and the external contributions recognized by the project. Historical assessment reports remain available under `_assessment/`; they are evidence archives, not competing current specifications.
 
 ## Baseline and document metadata
 
@@ -14,7 +14,9 @@
 | V12 RNC reconciliation | `9092703a25f4c10edc162699955a6993ec66ce37` |
 | V12 report-publication correction | Final commit on PR #5; see the PR head for the exact commit and tree |
 | V12 correction branch | `audit/v12-integration` |
-| Final integration PR | `RNC-Solutions-Group/gitleaks#5`, target `rnc-mod` |
+| V13 starting baseline | `3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc` (merged V12, PR #5) |
+| V13 development branch | `fix/v13-operational-hardening` |
+| V13 integration | `audit/v13-integration`, final PR to `rnc-mod` (pending operator review) |
 | Default branch contract | MIT-licensed upstream-derived scanner; no default detection-rule expansion |
 | Document status | Authoritative for V12 candidate behavior; release acceptance remains an operator decision |
 
@@ -66,6 +68,16 @@
 | CI authority | Broader or inconsistent trigger policy. | GitHub Actions runs only for pull requests to `rnc-mod` and pushes to `rnc-mod`; content read-only; actions/tool versions pinned. | `.github/workflows/test.yml`, `release.yml` | Governance change; routine development uses local CI. | Trigger inspection and 12/12 PR run. |
 | Archive feature scope | General archive-engine expansion could continue indefinitely. | No additional archive-engine expansion in this fork; nonseekable ZIP/7z outer-size exclusions remain intentional, informative skips. Unknown-extension discovery remains out of scope. | `sources/file.go`, operator policy | Deliberate scope limit. | Archive size/identification tests and documented residuals. |
 | Legacy `protect` command | Hidden compatibility command existed. | Remains hidden and compatibility-preserving, with command context propagated through its scan lifecycle. | `cmd/protect.go` | Unchanged CLI surface; not advertised. | Legacy command tests/inspection. |
+| Effective configuration inspection | No safe way to see the resolved configuration. | `gitleaks config [path]` prints precedence, loaded files, rule/allowlist counts, report policy and limits without regex/allowlist patterns. | `cmd/config_summary.go` | New command; no scan behavior change. | CLI summary, local precedence and invalid-config tests. |
+| Unused-ignore diagnostic | No visibility into loaded ignore entries that did not suppress a finding. | `--report-unused-ignore` prints a sorted, opt-in completed-scan diagnostic; suppressed entries are tracked; incomplete scans never certify entries unused. | `detect` ignore tracking, `cmd/root.go` | Off by default; suppression behavior unchanged. | Detector and CLI tests; incomplete-scan guard. |
+| Local file links | Console showed only text paths. | `--file-links` adds an opt-in `file://` URI with line anchor for non-Git findings; `--no-color` suppresses terminal hyperlinks; machine reports are unchanged. | `detect/utils.go`, `cmd/root.go` | Off by default; absolute local paths remain console-only. | URI/Windows/no-color/JSON-isolation tests. |
+| SARIF result level | Results omitted `level`, leaving severity to consumers. | `--sarif-level=none,note,warning,error` is opt-in; empty preserves historical output; no per-rule severity model is invented. | `report/sarif.go`, `cmd/root.go` | Additive flag; SARIF structure otherwise unchanged. | Report and CLI tests. |
+| Quoted Git log arguments | `--log-opts` used `strings.Split` and could not represent quoted pathspecs. | A shell-free parser handles quotes, escapes, Windows backslashes, empty/unmatched input; disallowed formats are validated on the parsed vector. | `sources/git.go` | More options work; unsafe formats remain rejected. | Parser/vector/CLI-adjacent tests. |
+| Shallow/bare/subdirectory Git provenance | Shallow history and source-scope expectations were implicit. | Shallow scans warn that pre-boundary history is unavailable; bare repositories warn that working-tree config/ignore discovery is unavailable; subdirectory history scans warn that Git history is repository-wide. | `sources/git.go` | Warnings only; no fingerprint or scope change. | Git fixture tests. |
+| Azure SSH remote identity | Azure DevOps v3 SSH remotes were not normalized. | `git@ssh.dev.azure.com:v3/org/project/repo` maps to canonical `https://dev.azure.com/org/project/_git/repo`; credentials are stripped; link paths are URL-escaped. | `sources/git.go`, `detect/utils.go` | Existing GitHub/GitLab/explicit-platform behavior retained. | Remote normalization and link tests. |
+| Explicit-file scalability | `gitleaks files` processed all files sequentially. | Bounded concurrency uses the detector semaphore, preserves exact-file scope, deduplicates paths, sorts findings deterministically and propagates per-file errors. | `sources/explicit_files.go`, `cmd/files.go` | Same file set and policy; order is now deterministic. | Bounded concurrency, error, dedupe and CLI tests. |
+| RNC release identity | Release workflow published upstream Docker Hub image and used upstream references. | Release workflow is GHCR-only, RNC image identity, tag/format and base-version validation, protected `rnc-mod` ancestry, least privilege, no Docker Hub credentials. | `.github/workflows/release.yml`, `.pre-commit-hooks.yaml`, `RELEASING.md` | No artifact is published by V13; RNC image only exists after an approved release. | Static workflow scope test; YAML parse; tag-policy probe. |
+| Installation and version policy | Upstream install commands could be mistaken for RNC distribution. | README distinguishes upstream tools from RNC source/release paths; `RELEASING.md` defines `vX.Y.Z-rnc.N`, base > `minVersion`, container tags and module-path consequences. | `README.md`, `RELEASING.md` | No module-path rename; no release created. | Documentation/link review; version validation probe. |
 | Upstream Gitleaks Action workflow | Could be activated as a scanner workflow. | Not part of the RNC test pipeline; no Action implementation was adopted. | CI/workflow policy | Deliberate exclusion. | Workflow inspection. |
 
 ## 1.2 CLI command and option reference
@@ -85,7 +97,7 @@ Only RNC additions and RNC-modified semantics are listed. Upstream flags not dis
 | Exit behavior | Findings use `--exit-code`; argument, missing-file, directory, read or scan-completeness failures return nonzero. |
 | Platform considerations | Windows path cleaning and symlink handling follow the host filesystem; POSIX permissions are not interpreted as content. |
 | Upstream compatibility | New command; no upstream command changes. |
-| Limitations | Sequential processing makes large `--all-files` sets slower than an optimized directory walk. |
+| Limitations | Bounded concurrency is used; very large `--all-files` sets still incur per-file open/read/close overhead. Findings are sorted by file, line, column and rule for deterministic output. |
 
 ```bash
 gitleaks files --redact --verbose src/config.yaml scripts/deploy.sh
@@ -139,12 +151,12 @@ gitleaks git --aggregate --report-path findings.json .
 | Form | `--log-opts="<git log options>"` on `git` and legacy `protect`. |
 | Default | Empty; normal full-history options are supplied by the scanner. |
 | Accepted values | Ordinary patch-producing Git log options, including ranges and `--diff-merges=first-parent`. |
-| Execution semantics | User options are parsed before pathspec separation; RNC safety/presentation flags are inserted before a `--` separator. Patch-suppressing and combined/remerge formats are rejected. |
+| Execution semantics | A shell-free tokenizer parses quotes, escapes, empty/unmatched input and Windows backslashes; the parsed vector is used for execution and format validation. RNC safety/presentation flags are inserted before a `--` separator. Patch-suppressing and combined/remerge formats are rejected. |
 | Output | Findings correspond to added lines in ordinary patch output; merge opt-in may report the same introduced content from multiple commits. |
 | Exit behavior | Unsupported formats fail before Git starts; Git/parse failures are operational errors. |
 | Platform considerations | Git version must support the options supplied; `--diff-merges` requires Git 2.31 or later. |
 | Upstream compatibility | Default remains compatible; the rejection of silent-clean formats is intentional. |
-| Limitations | Merge-only default coverage is not complete; opt-in may duplicate findings. |
+| Limitations | Merge-only default coverage is not complete; opt-in may duplicate findings. The parser is not a shell and does not expand variables or globs. |
 
 ```bash
 gitleaks git --log-opts="--all --diff-merges=first-parent" .
@@ -234,7 +246,64 @@ gitleaks git -r - -f json . | jq .
 
 `protect` remains a hidden compatibility command with `--source`, `--staged` and `--log-opts`. Its scanner context propagation and exit handling follow the current `git` implementation. It is not advertised for new integrations; use `gitleaks git` instead.
 
-### 1.2.11 Configuration-only output controls
+### 1.2.11 `gitleaks config [path]`
+
+| Field | Behavior |
+|---|---|
+| Purpose | Print a safe summary of the effective configuration. |
+| Form | `gitleaks config [flags] [path]`; the optional path is the discovery/precedence target (default `.`). |
+| Default | No scan; summarizes the configuration that a scan of the target would use. |
+| Accepted values | One optional path. |
+| Execution semantics | Resolves `--config`, environment sources, target-local `.gitleaks.toml` and extension files; reports loaded files, rule/disabled/ordered counts, global/rule allowlist counts, minVersion/title, report policy and resource limits. |
+| Output | Human-readable summary to stdout. Rule regexes, allowlist patterns and secret values are intentionally omitted. |
+| Exit behavior | Invalid/malformed/unreadable configuration exits nonzero; no partial scan is started. |
+| Platform considerations | Loaded paths retain host spelling; no absolute path is synthesized beyond the configuration actually loaded. |
+| Upstream compatibility | New command; no scan/report schema change. |
+| Limitations | It is a summary, not a lossless configuration export. Unknown TOML fields may still be ignored by the loader. |
+
+### 1.2.12 `--report-unused-ignore`
+
+| Field | Behavior |
+|---|---|
+| Purpose | Diagnose loaded ignore entries that did not suppress a finding. |
+| Default | `false`. |
+| Accepted values | Boolean. |
+| Execution semantics | Tracks entries that actually suppress a finding. After a completed scan only, prints a sorted list of entries that were not triggered. Incomplete scans print no certification. |
+| Output | stderr diagnostics; findings report schemas are unchanged. |
+| Exit behavior | Diagnostic only; does not change finding/operational exit status. |
+| Platform considerations | Fingerprint text uses the scanner's normalized `/` path spelling. |
+| Upstream compatibility | Additive opt-in. |
+| Limitations | “Not triggered” is not proof of obsolescence: an unexamined path, commit or revision can make an entry appear unused. Treat the list as confidential operational metadata. |
+
+### 1.2.13 `--file-links`
+
+| Field | Behavior |
+|---|---|
+| Purpose | Offer local clickable file URIs in verbose console output. |
+| Default | `false`. |
+| Accepted values | Boolean. |
+| Execution semantics | For non-Git findings with a file path, prints a separate `File-Link:` `file://` URI with `#Lline`. No finding/report field is changed. |
+| Output | Console only. Machine-readable reports remain unchanged. |
+| Exit behavior | Diagnostic only. |
+| Platform considerations | Windows drive paths use `file:///C:/...`; POSIX paths use ordinary file URIs; UNC-like paths follow URL rules. |
+| Upstream compatibility | Additive opt-in; `--no-color` suppresses OSC 8 terminal escapes. |
+| Limitations | Local absolute paths may be sensitive; do not enable in shared CI logs. Decoded-value highlighting remains a separate residual. |
+
+### 1.2.14 `--sarif-level`
+
+| Field | Behavior |
+|---|---|
+| Purpose | Emit an explicit SARIF `level` for findings. |
+| Default | Empty; historical SARIF omits `level`. |
+| Accepted values | `none`, `note`, `warning`, `error` (empty allowed). |
+| Execution semantics | Only valid with `--report-format=sarif`; sets the same level on each result. No per-rule severity classification is inferred. |
+| Output | SARIF result `level` field. |
+| Exit behavior | Invalid level or use with a non-SARIF report fails before scanning. |
+| Platform considerations | None. |
+| Upstream compatibility | Additive opt-in; locations, rule IDs and fingerprints unchanged. |
+| Limitations | A constant level does not model differing credential risk. |
+
+### 1.2.15 Configuration-only output controls
 
 The following are configuration keys, not CLI flags:
 
@@ -261,7 +330,11 @@ gitleaks git --log-opts="--all --diff-merges=first-parent" .
 
 First-parent output can report the same introduced content from the merge and from a contributing commit. The scanner does not deduplicate those cross-commit findings. `--no-diff-merges` remains available. `--diff-merges=cc`, `combined`, `dense-combined`, `remerge`, `--remerge-diff`, `--cc`, `-c`, `--name-only`, `--name-status`, `--raw`, `--numstat`, `--shortstat`, `--no-patch` and `-s` are rejected because they suppress or alter the patch stream beyond what the parser can scan completely.
 
-### 1.3.2 Deterministic metadata and repository-controlled helpers
+### 1.3.2 Argument parsing and safe boundaries
+
+`--log-opts` is tokenized without a shell. Quoted multiword pathspecs, escaped whitespace, literal quotes, empty arguments, unmatched quoting and Windows backslashes have defined behavior; invalid input fails before Git starts. Disallowed output modes are checked against the parsed vector, so quoting cannot bypass the fail-closed format policy. The parser does not expand variables, globs or command substitutions.
+
+### 1.3.3 Deterministic metadata and repository-controlled helpers
 
 History and diff command construction pins:
 
@@ -275,11 +348,11 @@ History and diff command construction pins:
 
 Safety flags are inserted before a user `--` pathspec separator. This prevents repository `format.pretty`, `log.date`, color settings and textconv drivers from corrupting metadata or executing repository-controlled commands on the scanner host. User `--log-opts` cannot re-enable textconv through the supported option parser; this is a deliberate security boundary.
 
-### 1.3.3 Staged and unstaged scanning
+### 1.3.4 Staged and unstaged scanning
 
 `git --staged`/`--pre-commit` and unstaged history/worktree paths use the same parser-integrity and error model. When a staged text file is marked binary by Git attributes, the scanner reads the stage-zero index blob and verifies MIME classification before deciding whether to scan or exclude it. Genuine binary content remains excluded. `--pre-commit` retains the staged-diff contract; it is not a directory scan.
 
-### 1.3.4 Failure, cancellation and completeness
+### 1.3.5 Failure, cancellation and completeness
 
 The scanner waits for Git and its parser goroutines, drains remaining stdout, records unparsed bytes and raw diff-section counts, classifies fatal stderr, and joins operational errors. Cancellation waits for workers before returning. On a failed/incomplete scan:
 
@@ -289,11 +362,19 @@ The scanner waits for Git and its parser goroutines, drains remaining stdout, re
 
 Blocking OS reads may outlast a context timeout; this is a residual platform limitation rather than a universal cancellation guarantee.
 
-### 1.3.5 Fingerprints and baselines
+### 1.3.6 Fingerprints and baselines
 
 Commit identity, path, rule ID and line number remain the fingerprint basis. Deterministic pretty/date output restores stable commit metadata under hostile host configuration. CRLF normalization affects baseline content comparison only: path, line and fingerprint identity are unchanged. Merge opt-in can produce multiple findings for the same content because the contributing commit and merge are distinct commit identities.
 
-### 1.3.6 Path identity
+### 1.3.7 Shallow, bare and subdirectory provenance
+
+Git history is repository-wide even when the source is a subdirectory. A warning identifies that scope and recommends `--log-opts` pathspec filtering; directory scans remain bounded. A shallow repository warning states that history before the shallow boundary is unavailable and is not a complete full-history claim. A bare repository warning states that automatic working-tree configuration/ignore discovery is unavailable; explicit paths must be supplied. None of these warnings rewrites commit identities or fingerprints.
+
+### 1.3.8 Remote identity and links
+
+SCP-style remotes are normalized to HTTPS, credentials are stripped, and Azure DevOps `ssh.dev.azure.com:v3/org/project/repo` remotes map to the canonical `https://dev.azure.com/org/project/_git/repo` form. Link paths use URL escaping rather than ad-hoc substitutions; GitHub, GitLab, Azure DevOps, Gitea and Bitbucket behavior uses the existing platform templates. Invalid/absent remotes skip links without fabricating a URL.
+
+### 1.3.9 Path identity
 
 Directory scans report the file spelling derived from the supplied root, while allowlist, ignore and baseline matching also evaluates the path relative to that root. This makes `dir .`, `dir checkout` and an absolute-root scan apply the same relative policy without rewriting reported `File` or `Fingerprint` values. Git and single-file paths retain their existing semantics. Rule-level `path` regex evaluation remains based on the reported path; that limitation is tracked separately.
 
@@ -304,7 +385,7 @@ Directory scans report the file spelling derived from the supplied root, while a
 | Hook ID | Language | Filename forwarding | Scan scope | Default use |
 |---|---|---|---|---|
 | `gitleaks` | Go | `pass_filenames: false` | Staged index via `gitleaks git --pre-commit --staged` | Historical default hook. |
-| `gitleaks-docker` | Docker image | `false` | Staged index | Containerized historical hook. |
+| `gitleaks-docker` | RNC GHCR image | `false` | Staged index | Containerized hook; image exists only after an RNC release. |
 | `gitleaks-system` | System | `false` | Staged index | Historical hook using an installed `gitleaks`. |
 | `gitleaks-files` | Go | `true` | Exactly forwarded files via `gitleaks files` | New explicit-file mode. |
 | `gitleaks-files-system` | System | `true` | Exactly forwarded files | New explicit-file mode with installed binary. |
@@ -352,7 +433,11 @@ Configuration extension is bounded to two levels. Every file loaded from disk is
 - `.gitleaksignore` contains fingerprints, not secrets; it is parsed completely and bounded before use.
 - Baseline JSON is a findings report and may contain plaintext. It is sensitive data. Baseline path matching supports equivalent directory roots; CRLF content is canonicalized.
 
-### 1.5.4 Trust boundary
+### 1.5.4 Effective configuration inspection
+
+`gitleaks config` resolves the same precedence and extension graph as a scan and reports counts/metadata without exporting regexes or allowlist patterns. It is a safe summary, not a lossless export. The command performs no scan and does not initialize a Viper reset or process-wide race.
+
+### 1.5.5 Trust boundary
 
 The default remains compatible: a repository-local `.gitleaks.toml` is trusted and can replace rules or suppress findings. This is an intentional compatibility decision, not a security guarantee. Untrusted-scan orchestration should pass `--no-local-config` or an explicit trusted configuration. The flag is additive; it does not change resolution order when an explicit/environment source is present.
 
@@ -447,6 +532,26 @@ Intentional exclusions are successful scan decisions with accounting. Read/open/
 | V12-12 | Recursive decode resource amplification. | Whole-fragment decode passes; no segment cap. | No correctness change; finite measurements documented; default retained. | `detect/codec`, `detect/detect.go` | 6.67 MB control and nested-token probe | Not reproduced as V12 correctness defect; resource residual. |
 | V12-14 | Long lines split at chunk boundary. | Blank-line lookahead ended inside long line. | 1 MiB finish-line pass; over-cap operational error. | `sources/common.go`, `sources/file.go` | 100–300 KB + over-cap tests | Corrected within cap. |
 | V12-15 | Pre-commit `--all-files` false pass. | Filenames not forwarded to a safe scanner command. | New `files` command and explicit-file hooks. | `cmd/files.go`, `sources/explicit_files.go`, hooks | Real pre-commit and scope tests | Corrected; sequential performance limit. |
+| V13-01 | No unused-ignore visibility. | Loaded entries had no usage state; incomplete scans could falsely imply obsolescence. | Track suppressing entries; opt-in completed-scan sorted diagnostic; no JSON schema change. | `detect/detect.go`, `cmd/root.go` | Detector/CLI tests and incomplete guard | Corrected, opt-in. |
+| V13-02 | Effective configuration opaque. | No safe post-precedence summary. | `gitleaks config` safe summary with source/files/counts/policy/limits; no regex export. | `cmd/config_summary.go` | Summary/precedence/invalid tests | Corrected, opt-in command. |
+| V13-03 | Multiple report formats one scan. | Single reportOutput model. | Architecture design for a validated report plan; no unsafe implementation forced. | `_assessment/v13-reporting-options.md` | Design review | Deferred — outside safe V13 scope. |
+| V13-04 | Bounded finding context. | Context would change schemas and redaction scope. | Opt-in context design with byte/line budgets and redaction requirements; not enabled. | `_assessment/v13-reporting-options.md` | Design review | Deferred — outside safe V13 scope. |
+| V13-05 | SARIF result severity omitted. | No per-rule severity model. | Opt-in constant `--sarif-level`; empty preserves output; no invented classification. | `report/sarif.go`, `cmd/root.go` | SARIF/CLI tests | Corrected, opt-in. |
+| V13-06 | Repeated-finding grouping. | Unkeyed secret hashes are enumerable; primary dedup would alter findings. | Keyed-HMAC policy design; unkeyed SHA rejected; no grouping enabled. | `_assessment/v13-reporting-options.md` | Design review | Policy decision required. |
+| V13-07 | Local path UX / decoded highlighting. | Absolute paths leak; decoded match has no source coordinate. | Opt-in local `file://` links with no-color handling; decoded highlighting remains separate. | `detect/utils.go`, `cmd/root.go` | File-link/JSON isolation tests | Partially corrected — decoded highlight residual. |
+| V13-08 | `--log-opts` split on spaces. | No shell-aware tokenization; validation on raw strings. | Shell-free tokenizer; parsed-vector validation; quoting cannot bypass fail-closed formats. | `sources/git.go` | Parser/vector tests | Corrected. |
+| V13-09 | Shallow history provenance. | Missing history is unavoidable; no warning. | Detect shallow repository and warn; never rewrite SHAs/fingerprints. | `sources/git.go` | Shallow fixture test | Partially corrected — warning only. |
+| V13-10 | Subdirectory/bare repository scope. | Git history is repo-wide; bare trees lack worktree ignore discovery. | Explicit warnings; no default scope change; explicit config/ignore paths documented. | `sources/git.go` | Bare/subdir tests | Partially corrected — explicit behavior, no new scope feature. |
+| V13-11 | Azure SSH remote links. | SSH v3 host/path not normalized; ad-hoc escaping. | Canonical Azure URL mapping; URL path escaping; credential stripping. | `sources/git.go`, `detect/utils.go` | Remote/link tests | Corrected. |
+| V13-12 | Configuration diagnostics. | Empty rules/malformed TOML mostly fail, unknown fields remain ignored. | Verified fail-closed empty/malformed cases; safe summary provides context; strict unknown-field mode not forced. | `config`, `cmd/config_summary.go` | Empty/malformed tests | Partially corrected — unknown-field/allowlist-placement residual. |
+| V13-13 | Pre-commit environment reliability. | Docker/macOS/PTY reports lack a common proven cause. | Local real pre-commit passes; no unsafe safe.directory/scope change. | `.pre-commit-hooks.yaml`, tests | Local integration | Not reproduced — evidence insufficient for Docker/macOS. |
+| V13-14 | Profiling script measurement validity. | `set -e`, decode-depth mismatch, unquoted paths, early findings. | Same command for benchmark/profile, explicit decode depth, safe quoting, exit-code 0, metadata, artifact checks. | `scripts/profile.sh` | Linux smoke run with dir/git + all profiles | Corrected. |
+| V13-15 | Decode/hang stability. | V12 evidence did not establish a correctness defect. | Finite 6.67 MB line-bounded probe at depths 0/1/3/5; no depth-correlated peak-RSS growth in that control; hangs not reproduced. | measurement evidence | Linux `/usr/bin/time` probe | Not reproduced — evidence insufficient; defaults retained. |
+| V13-16 | Explicit-file scalability. | Sequential file loop. | Bounded semaphore concurrency, deterministic findings sort, per-file errors and dedupe retained. | `sources/explicit_files.go`, `cmd/files.go` | Concurrency/dedupe/error tests; 200-file probe | Corrected; measured ~2.2x on synthetic Windows workload. |
+| V13-17 | Upstream release identity. | Docker Hub/upstream image publication and no protected ancestry/tag validation. | GHCR-only RNC workflow, tag/base/ancestry checks, least privilege, no Docker Hub credentials. | `.github/workflows/release.yml`, hooks, `RELEASING.md` | Static workflow/tag probes | Corrected in source; no publication. |
+| V13-18 | Version/install contract. | Module path vs RNC distribution ambiguity; prerelease SemVer trap. | `vX.Y.Z-rnc.N`, base strictly > minVersion, container tags, installation matrix; module path retained. | `RELEASING.md`, README | Tag-policy probe | Policy decision documented; module rename not performed. |
+| V13-19 | Release binary portability. | GoReleaser still targets gore2regex and legacy architectures; no artifact test. | Assessed portability/RE2/architecture policy; no release config rewrite without artifact-level proof. | `RELEASING.md` | Documentation review; goreleaser unavailable locally | Partially corrected — packaging plan only. |
+| V13-20 | Attestations/release proof. | No SBOM/provenance/signature/verification design. | Exact digest/SBOM/provenance/checksum/signature verification targets and release checklist; not enabled. | `RELEASING.md` | Design review | Policy/deferred — no attestation claimed. |
 
 ## 2.2 Security hardening
 
@@ -529,7 +634,11 @@ The corrected algorithm:
 
 This closes the reproduced capture/unconditional-restore and failed-cleanup windows. A simultaneous replacement between the final identity check and removal remains a narrow filesystem TOCTOU residual. It also cannot make two independent files crash-atomic; a process death between companion and primary publication can still leave a mismatched pair. Both limitations remain documented.
 
-### 2.3.5 Formats and compatibility
+### 2.3.5 SARIF severity policy
+
+SARIF result-level severity is deliberately opt-in. `--sarif-level` accepts `none`, `note`, `warning` or `error`, applies one constant level to all results, and is rejected for non-SARIF output. Empty remains historical omission. No per-rule risk classification is invented; consumers that require a level can opt in without changing rule IDs, locations or fingerprints.
+
+### 2.3.6 Formats and compatibility
 
 - JSON: historical field names/byte columns; `Finding.Fragment` remains excluded from JSON.
 - CSV: RFC 4180 writer; formula-like string cells apostrophe-neutralized; historical schema retained.
@@ -568,6 +677,7 @@ These are correctness changes, not an expansion of detection signatures. Accurac
 | Explicit-file hook | Staged hook false-passes `--all-files` | Exact-file scan passes/fails correctly | Sequential; large `--all-files` sets slower than a tuned directory walk. |
 | Report publication | Direct write | Temp render + rename + validation | Adds one temp write/rename; required for data safety. |
 | Git acquisition | Single parser pass | Parser pass + raw section tracker/drain | Small CPU/memory overhead for completeness guarantees. |
+| Explicit-file scan, 200 x 50 KB | ~0.577 s median sequential V12 | ~0.267 s median bounded-concurrency V13 | Windows 11, local disk, 4 timed runs after one warm-up; synthetic no-finding workload. Not a general throughput claim. |
 
 Performance evidence is platform- and workload-specific. No universal production speedup, memory bound, or detection-accuracy claim is made from these probes.
 
@@ -590,11 +700,17 @@ The Makefile distinguishes commands that do not mutate tracked source, configura
 - Twelve jobs: Linux race + real pre-commit + generator, Windows race, two macOS architectures, stdlib/RE2 builds, four Docker build/smoke jobs (amd64/arm64 root/non-root), dependency/vulnerability verification, container scan.
 - The existing Gitleaks Action scanner workflow is deliberately not part of RNC CI.
 
-### 2.6.4 Platform support
+### 2.6.4 RNC release and installation controls
+
+The proposed RNC release identity is GHCR-only: `ghcr.io/rnc-solutions-group/gitleaks`. The release workflow validates `vMAJOR.MINOR.PATCH-rnc.N` tags, requires the numeric base to be strictly newer than the embedded `minVersion`, verifies the release commit is reachable from protected `rnc-mod`, and requests only `contents: read`/`packages: write`. It does not use Docker Hub credentials or publish an upstream image. No V13 action publishes a release.
+
+The repository keeps the upstream Go module path for compatibility; `go install` of that path obtains upstream Gitleaks, not RNC-Mod. Source builds and future RNC release artifacts are the supported RNC paths. `RELEASING.md` records the full installation matrix, container-tag aliases, artifact portability constraints and proposed checksum/SBOM/provenance/signature verification. An attestation is not claimed merely because the workflow contains a build option.
+
+### 2.6.5 Platform support
 
 Code and tests cover Windows, Linux and macOS. Windows-specific paths include rename retry, cross-volume fixtures, regular-file checks and permission-test limitations. POSIX-specific paths include nonblocking ignore-file open and mode-bit assertions. Cross-architecture Docker builds cover amd64/arm64. Native race execution is performed in CI; local Windows race requires a C toolchain and was not available on this host.
 
-### 2.6.5 Validation versus release
+### 2.6.6 Validation versus release
 
 Source validation, local builds/tests, GitHub Actions, image smoke tests and a published release artifact are distinct. The final V12 candidate has local validation and PR CI; no published-release attestation, signature verification, SBOM attestation or independent scanner-harness certification is claimed by this document.
 
@@ -618,6 +734,11 @@ Source validation, local builds/tests, GitHub Actions, image smoke tests and a p
 | V10 equivalence | Object-level tree equality with accepted V10 authority; binary/report comparison | Product tree, fixtures | PASS | Applies to V10; V11/V12 intentionally differ. |
 | Detection harness | Independent oracle/accuracy evaluation | Separate harness | NOT RUN in this cycle | Required release/accuracy gate remains external. |
 | Published release attestation | Signed artifact/SBOM verification | Release process | NOT RUN | Source/CI validation is not release certification. |
+| V13 config/ignore/file-link/SARIF diagnostics | CLI and unit tests | New opt-in controls and JSON isolation | PASS | Docker/macOS consumer GUI not exercised. |
+| V13 Git argument parser | Unit vector tests plus existing Git suites | Quotes, escapes, Windows paths, pathspec boundary and disallowed-format bypass | PASS | No exhaustive Git-version matrix. |
+| V13 explicit-file concurrency | Source/CLI tests and 200-file timing | Dedupe, scope, errors, deterministic order | PASS | Synthetic Windows workload; no huge descriptor-limit test. |
+| V13 profile script | Linux dirty/Git smoke run | dir/git CPU, memory, trace artifacts | PASS | hyperfine/yq optional tools absent. |
+| V13 release workflow | YAML parse, static scope test, tag-policy probe | GHCR-only, ancestry/tag/base validation | PASS in source | Workflow not executed with registry credentials; no image/chart/SBOM published. |
 
 ## 2.8 Remaining engineering limitations
 
@@ -645,6 +766,16 @@ Source validation, local builds/tests, GitHub Actions, image smoke tests and a p
 | Explicit-file performance | Accepted limitation | Large `--all-files` sets slower | Use directory scans where scope permits | Bounded parallel explicit-file reader is implemented. |
 | Release RE2 address space | External release issue | Constrained runtimes may fail RE2 initialization | Use standard backend or adequate memory | Upstream/runtime fix is available. |
 | Go minimum/toolchain policy | Open release policy | `go.mod` 1.26.0 vs CI 1.27.4 | CI pins current patched toolchain | Operator sets support floor. |
+| Multi-format report plan | Deferred | One scan still produces one primary report (plus informative companion) | Use separate scans/report paths; no unsafe partial plan | Versioned report-plan contract with pre-scan validation is authorized. |
+| Bounded finding context | Deferred | No surrounding context in machine/console reports | Use existing `Match`/Line console view; no raw context export | Opt-in context schema and redaction window are designed and tested. |
+| Repeated-finding grouping | Policy decision | No secret-derived grouping identifier | Primary findings remain intact; use external grouping only with a scoped key | Keyed-HMAC threat model and key lifecycle are approved. |
+| Decoded-finding highlighting | Residual | Decoded matches may render without styled source coordinates | Plain match/secret output remains | Provenance-aware decoded presentation is designed. |
+| Config unknown fields / allowlist placement | Residual | Loader may ignore unknown TOML fields; strict rejection not forced | `gitleaks config` shows effective result; fix configuration on validation error | Strict validation mode with migration documentation is approved. |
+| Shallow Git history | Warning only | Pre-boundary history is absent and cannot be reconstructed | Treat warning as incomplete provenance; unshallow for full history | A formal coverage manifest for shallow scans is authorized. |
+| Subdirectory/bare Git scope | Warning/explicit configuration | History remains repository-wide; bare trees require explicit config/ignore | Use `--log-opts` pathspec or explicit paths | A bounded subdirectory-history feature is designed without changing defaults. |
+| Pre-commit Docker/macOS/PTY environments | Not reproduced | Local pre-commit passes; host-specific failures remain unproven | Use documented mount/ownership/safe-directory guidance; no broad trust bypass | A reproducible Docker/macOS trace and root cause are supplied. |
+| Recursive decoding/hang resources | Not reproduced in V13 probe | Encoded input can still amplify resources; historical futex report unproven | Bound inputs/depth; retain default depth 5 | Controlled harness finds a reproducible defect with stack/RSS evidence. |
+| Release artifact/attestation | Not published | No RNC binary/image/tag/SBOM/signature exists yet | `RELEASING.md` verification checklist; no release claim | Operator authorizes a release and a separate consumer verifies all artifacts. |
 | Published-release attestation | Not performed | No claim of signed release/SBOM certification | Build/test evidence only | Release pipeline attestation is executed. |
 | Independent scanner harness | Not run | No independent accuracy/oracle certification | Existing tests + separate harness required | Harness baseline is published and executed. |
 
@@ -732,6 +863,10 @@ These identities are not claimed as commit authors unless they also appear in 3.
 | corani | Dependency/RE2 migration research | Lip Gloss v2 migration identification | Dependency/documentation | Profile-only appreciation; no PR adopted. |
 | Dependabot | Dependency update proposals | Matched-version recommendations | Dependency/documentation | Profile-only; RNC independently resolved module graph. |
 | dgn | [#1711](https://github.com/gitleaks/gitleaks/pull/1711) | Pre-existing upstream Git warning behavior | Pre-existing baseline | Already merged upstream; not an RNC adoption. |
+| puneetdixit200 | [#2128](https://github.com/gitleaks/gitleaks/pull/2128) | Quoted `--log-opts` handling and regression research | Design influence; no commit adopted | V13 implemented an independent parser; no upstream patch copied. |
+| JoostVoskuil | [#1809](https://github.com/gitleaks/gitleaks/pull/1809) | Azure DevOps SSH remote/link research | Design influence; no commit adopted | V13 implemented current-architecture normalization; old patch targets removed files. |
+| mn3m0nic | [#1162](https://github.com/gitleaks/gitleaks/pull/1162) | Repeated-finding/secret-hash proposal | Reviewed/design influence; rejected unsafe default | V13 rejects unkeyed secret hashes; keyed grouping remains policy-gated. |
+| Coruscant11 | [#1232](https://github.com/gitleaks/gitleaks/pull/1232) | Multiple report writers proposal | Reviewed/design influence; not adopted | V13 documented a safe plan but did not force the legacy architecture. |
 
 ## 3.3 Attribution completeness and reconciliation
 
@@ -770,6 +905,8 @@ These totals are different measurements: commits are not PRs, and authors are no
 ### 3.3.3 Historic attribution reconciliation
 
 The pre-V10 ledger recorded that no external PR was yet a verified separately adopted commit. That statement was accurate before the V10 contributor audit but is obsolete. The V10 reconciliation established 18 ancestry-preserved commits from 17 PRs; V11 added six from three PRs; V12 added five from five PRs. The final register supersedes the earlier “no adopted commits” statement.
+
+V13 adopted no upstream commit: its parser, configuration summary, ignore-usage diagnostic, shallow/bare scope warnings, Azure normalization, SARIF level and explicit-file concurrency are RNC-authored. Design reviews of #2128, #1809, #1162 and #1232 are credited above without asserting code adoption.
 
 Similarly, early checkpoint labels such as “implemented” or “validated” described a working branch at that time. They are reconciled here to final behavior: some early designs were replaced, some contributor implementations were adapted, and some defects described in historical reports were subsequently corrected. The historical labels are not republished as current status.
 

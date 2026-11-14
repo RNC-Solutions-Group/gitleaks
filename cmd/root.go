@@ -78,12 +78,15 @@ func init() {
 	rootCmd.PersistentFlags().StringP("report-path", "r", "", "report file (use \"-\" for stdout)")
 	rootCmd.PersistentFlags().StringP("report-format", "f", "", "output format (json, csv, junit, sarif, template)")
 	rootCmd.PersistentFlags().StringP("report-template", "", "", "template file used to generate the report (implies --report-format=template)")
+	rootCmd.PersistentFlags().String("sarif-level", "", "optional SARIF result level (none, note, warning, error); empty preserves historical SARIF")
+	rootCmd.PersistentFlags().Bool("report-unused-ignore", false, "after a completed scan, report loaded .gitleaksignore entries that did not suppress a finding")
 	rootCmd.PersistentFlags().Bool("overwrite", false, "replace an existing report file (overrides configured report policy)")
 	rootCmd.PersistentFlags().Bool("aggregate", false, "write a numbered report instead of replacing an existing one (overrides configured report policy)")
 	rootCmd.PersistentFlags().StringP("baseline-path", "b", "", "path to baseline with issues that can be ignored")
 	rootCmd.PersistentFlags().StringP("log-level", "l", "info", "log level (trace, debug, info, warn, error, fatal)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "show verbose output from scan")
 	rootCmd.PersistentFlags().BoolP("no-color", "", false, "turn off color for verbose output")
+	rootCmd.PersistentFlags().Bool("file-links", false, "print opt-in local file URI links in console findings; machine reports are unchanged")
 	rootCmd.PersistentFlags().Int("max-target-megabytes", 0, "files larger than this will be skipped")
 	rootCmd.PersistentFlags().BoolP("ignore-gitleaks-allow", "", false, "ignore gitleaks:allow comments")
 	rootCmd.PersistentFlags().Uint("redact", 0, "redact secrets from logs and stdout. To redact only parts of the secret just apply a percent value from 0..100. For example --redact=20 (default 100%)")
@@ -287,6 +290,9 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 			NoColor: detector.NoColor,
 		}).Level(logLevel)
 	}
+	if detector.FileLinks, err = cmd.Flags().GetBool("file-links"); err != nil {
+		logging.Fatal().Err(err).Send()
+	}
 	detector.Config.Path, err = cmd.Flags().GetString("config")
 	if err != nil {
 		logging.Fatal().Err(err).Send()
@@ -306,6 +312,9 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		logging.Fatal().Err(err).Send()
 	}
 	if detector.MaxTargetMegaBytes, err = cmd.Flags().GetInt("max-target-megabytes"); err != nil {
+		logging.Fatal().Err(err).Send()
+	}
+	if detector.ReportUnusedIgnore, err = cmd.Flags().GetBool("report-unused-ignore"); err != nil {
 		logging.Fatal().Err(err).Send()
 	}
 	// set ignore gitleaks:allow flag
@@ -389,8 +398,18 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		case "junit":
 			reporter = &report.JunitReporter{}
 		case "sarif":
+			sarifLevel, err := cmd.Flags().GetString("sarif-level")
+			if err != nil {
+				logging.Fatal().Err(err).Msg("could not read SARIF level")
+			}
+			switch sarifLevel {
+			case "", "none", "note", "warning", "error":
+			default:
+				logging.Fatal().Msgf("invalid --sarif-level %q (expected none, note, warning, error)", sarifLevel)
+			}
 			reporter = &report.SarifReporter{
 				OrderedRules: cfg.GetOrderedRules(),
+				Level:        sarifLevel,
 			}
 		case "template":
 			if reporter, err = report.NewTemplateReporter(reportTemplate); err != nil {
@@ -403,6 +422,11 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		// Sanity check.
 		if reportTemplate != "" && reportFormat != "template" {
 			logging.Fatal().Msgf("Report format must be 'template' if --report-template is specified")
+		}
+		if reportFormat != "sarif" {
+			if sarifLevel, _ := cmd.Flags().GetString("sarif-level"); sarifLevel != "" {
+				logging.Fatal().Msg("--sarif-level requires --report-format=sarif")
+			}
 		}
 
 		detector.ReportPath = reportPath
@@ -504,6 +528,17 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 			logging.Warn().Msgf("%d leaks found in partial scan", len(findings))
 		} else {
 			logging.Warn().Msg("no leaks found in partial scan")
+		}
+	}
+
+	if err == nil && detector.ReportUnusedIgnore {
+		unused := detector.UnusedGitleaksIgnore()
+		logging.Warn().Msgf("%d loaded .gitleaksignore entries did not suppress a finding in this completed scan", len(unused))
+		for _, entry := range unused {
+			logging.Warn().Str("fingerprint", entry).Msg("ignore entry not triggered")
+		}
+		if len(unused) > 0 {
+			logging.Warn().Msg("not-triggered is not proof of obsolescence: the relevant path, commit or revision may not have been examined")
 		}
 	}
 

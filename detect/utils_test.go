@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"path/filepath"
 	"testing"
 
 	"charm.land/lipgloss/v2"
@@ -240,14 +241,24 @@ func Test_printFinding_colorOutput(t *testing.T) {
 	}
 
 	// captureStdout replaces os.Stdout with a pipe, i.e. a redirected target.
-	redirected := captureStdout(func() { printFinding(finding, false) })
+	redirected := captureStdout(func() { printFinding(finding, false, false) })
 	assert.Contains(t, redirected, "generic-api-key")
 	assert.Contains(t, redirected, "abcdef123456")
 	assert.NotContains(t, redirected, "\x1b[", "redirected output must not contain ANSI escape sequences")
 
-	noColor := captureStdout(func() { printFinding(finding, true) })
+	noColor := captureStdout(func() { printFinding(finding, true, false) })
 	assert.Contains(t, noColor, "abcdef123456")
 	assert.NotContains(t, noColor, "\x1b[", "--no-color output must not contain ANSI escape sequences")
+}
+
+func TestLocalFileLink(t *testing.T) {
+	link := localFileLink(filepath.Join("dir with space", "secret.txt"), 7, true)
+	assert.Contains(t, link, "file:")
+	assert.Contains(t, link, "dir%20with%20space")
+	assert.Contains(t, link, "#L7")
+	assert.NotContains(t, link, "\x1b", "--no-color must suppress terminal escapes")
+	plain := localFileLink("plain.txt", 0, false)
+	assert.NotContains(t, plain, "\x1b", "test stdout is not a terminal")
 }
 
 func TestFilterRedactsAdjacentSecrets(t *testing.T) {

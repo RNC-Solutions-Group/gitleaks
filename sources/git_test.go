@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -304,6 +305,116 @@ func TestValidateGitLogOptsRejectsSilentCleanFormats(t *testing.T) {
 	for _, option := range []string{"", "--all", "--full-history", "--diff-merges=first-parent", "--no-diff-merges"} {
 		assert.NoError(t, validateGitLogOpts(option), "option %s should remain supported", option)
 	}
+}
+
+func TestParseGitLogOpts(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want []string
+	}{
+		{name: "plain", raw: "--all --full-history", want: []string{"--all", "--full-history"}},
+		{name: "double quoted pathspec", raw: `--all -- "path with spaces"`, want: []string{"--all", "--", "path with spaces"}},
+		{name: "single quoted", raw: `--all -- 'path with spaces'`, want: []string{"--all", "--", "path with spaces"}},
+		{name: "escaped space", raw: `--all -- path\ with\ spaces`, want: []string{"--all", "--", "path with spaces"}},
+		{name: "windows path", raw: `--all -- C:\repo\file`, want: []string{"--all", "--", `C:\repo\file`}},
+		{name: "literal quote", raw: `--all -- "a\"b"`, want: []string{"--all", "--", `a"b`}},
+		{name: "concatenated", raw: `--all -- foo" bar"baz`, want: []string{"--all", "--", "foo barbaz"}},
+		{name: "empty", raw: "", want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseGitLogOpts(tt.raw)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
+	for _, raw := range []string{`--all "unterminated`, `--all ""`} {
+		_, err := parseGitLogOpts(raw)
+		require.Error(t, err, "raw=%q", raw)
+	}
+	require.Error(t, validateGitLogOpts(`--all --diff-merges=cc`))
+}
+
+func TestValidateGitLogArgsUsesParsedVector(t *testing.T) {
+	require.Error(t, validateGitLogArgs([]string{"--diff-merges", "cc"}))
+	require.Error(t, validateGitLogArgs([]string{"--diff-merges", "combined"}))
+	require.Error(t, validateGitLogArgs([]string{"-c", "format.pretty=oneline"}))
+	require.NoError(t, validateGitLogArgs([]string{"--all", "--", "--diff-merges=cc"}))
+	require.NoError(t, validateGitLogArgs([]string{"--all", "--diff-merges=first-parent"}))
+}
+
+func TestIsShallowRepository(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, string(out))
+		return strings.TrimSpace(string(out))
+	}
+	run("init", "-q")
+	run("config", "user.name", "Test")
+	run("config", "user.email", "test@example.com")
+	run("commit", "-q", "--allow-empty", "-m", "initial")
+	require.False(t, isShallowRepository(context.Background(), dir))
+
+	head := run("rev-parse", "HEAD")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".git", "shallow"), []byte(head+"\n"), 0o600))
+	require.True(t, isShallowRepository(context.Background(), dir))
+}
+
+func TestGitRepositoryScopeDetection(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, string(out))
+		return strings.TrimSpace(string(out))
+	}
+	run("init", "-q")
+	require.False(t, isBareRepository(context.Background(), dir))
+	if top, ok := gitTopLevel(context.Background(), dir); ok {
+		assert.True(t, sameFilesystemPath(top, dir))
+	}
+	sub := filepath.Join(dir, "nested")
+	require.NoError(t, os.Mkdir(sub, 0o700))
+	if top, ok := gitTopLevel(context.Background(), sub); ok {
+		assert.False(t, sameFilesystemPath(top, sub))
+	}
+}
+
+func TestNormalizeGitRemoteURL(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "azure ssh v3", raw: "git@ssh.dev.azure.com:v3/org/project/repo", want: "https://dev.azure.com/org/project/_git/repo"},
+		{name: "github ssh", raw: "git@github.com:org/repo.git", want: "https://github.com/org/repo"},
+		{name: "https credential stripped", raw: "https://token@dev.azure.com/org/project/_git/repo", want: "https://dev.azure.com/org/project/_git/repo"},
+		{name: "https encoded path", raw: "https://gitlab.com/org/repo%20name.git", want: "https://gitlab.com/org/repo%20name"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := normalizeGitRemoteURL(tt.raw)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.String())
+			assert.Empty(t, got.User)
+		})
+	}
+}
+
+func TestBareRepositoryDetection(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare", "-q", dir)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	require.True(t, isBareRepository(context.Background(), dir))
+	_, ok := gitTopLevel(context.Background(), dir)
+	assert.False(t, ok)
 }
 
 func TestIsCommitAllowed(t *testing.T) {
