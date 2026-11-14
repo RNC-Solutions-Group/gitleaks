@@ -57,13 +57,20 @@ v2 design uses keyed content identity with a versioned grammar, key ID, rotation
 
 ## Validation
 
-- Standard `go build`, `go test`, `go vet`, `go mod verify`, `go generate` and diff checks: see final run.
-- RE2 tagged suite.
-- Race suite on the final candidate.
-- Grouped report unit/CLI tests: repetition, low entropy/redaction, key strength, missing key, destination collision.
-- Strict config unit/CLI/extension tests; default non-strict compatibility.
-- Trusted CI hostile-fixture test.
-- No detection-rule, benchmark-harness, release or production-module change.
+| Check | Result |
+|---|---|
+| `go build ./...` | PASS |
+| `go test -count=1 ./...` | PASS |
+| `go test -count=1 -tags gore2regex ./...` | PASS |
+| `go vet ./...` | PASS |
+| `go mod verify` | PASS |
+| `go generate ./...` and clean tracked tree | PASS |
+| Non-root Linux `go test -race -count=1 ./...` at `b41ebe9` | PASS |
+| Grouped report unit/CLI tests | PASS: repetition, pre-redaction grouping, key strength, missing flags, primary collision, no secret output |
+| Strict config tests | PASS: valid, unknown root, unknown rule, extension chain, default non-strict compatibility |
+| Trusted CI hostile-fixture precedence | PASS |
+
+No detection-rule, benchmark-harness, release, tag, image or production-module change was made.
 
 ## Residuals/operator decisions
 
