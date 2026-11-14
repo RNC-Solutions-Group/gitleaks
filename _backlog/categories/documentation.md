@@ -1,6 +1,6 @@
 # Documentation — RNC review queue
 
-**Current active queue (2026-11-13):** Actioned issues/PRs have moved to the [RNC disposition register](exclusions.md); implementation, test evidence and contributor attribution are maintained in [fixes/QOL](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md). Do not reassign finished work from historical review notes.
+**Current active queue (2026-11-13):** Actioned issues/PRs have moved to the [RNC disposition register](exclusions.md); implementation, test evidence and contributor attribution are maintained in [fixes/QOL](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). Do not reassign finished work from historical review notes.
 
 Snapshot: 2026-11-08 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 
@@ -21,7 +21,7 @@ Documentation, setup guidance, labels, and examples. Compare proposed text with 
 
 ### Completed CP-V9 documentation package
 
-The eight upstream documentation PRs and baseline-security issue #1263 are implemented, with original sources, authors and scope recorded in [dispositions](exclusions.md) and the [engineering implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md). They are not active implementation candidates. Do not mistake historic patch discussions for pending fixes.
+The eight upstream documentation PRs and baseline-security issue #1263 are implemented, with original sources, authors and scope recorded in [dispositions](exclusions.md) and the [engineering implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). They are not active implementation candidates. Do not mistake historic patch discussions for pending fixes.
 
 ## Decision gate
 

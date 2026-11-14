@@ -4,7 +4,7 @@
 **Historical upstream snapshot:** 285 issues / 252 open PRs / 388 work-package slots, dated 2026-11-08–09.  
 **Historical scanner baseline:** RNC `master@5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c`.  
 **Modern scanner comparator:** CP-V10 final `fix/validation@bd42a958f7476e9a6d8e17bd2dbb2abe3ff060ea` ([CI 12/12](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43321594496)); pinned predecessor CP-V9 `87897e719748be85061778c47d4487da0e3363a5` ([CI 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43309766343)) and CP-V8 F16 comparator `cfb2815e39dfd4dde91909cddd143cd67202901e` ([CI 10/10](https://github.com/RNC-Solutions-Group/gitleaks/actions/runs/43293798999)). CP-V10 operational implementation source/CI reviewed; operator approval pending. F11 policy and F16 rule-level path behavior remain separate.  
-**Existing owner/GPT register:** `fixes-qol-tracking.md` on `fix/validation` (not edited here).
+**Existing owner/GPT register:** `RNC-MOD.md` on `fix/validation` (not edited here).
 
 ## Reconciliation method
 
@@ -160,7 +160,7 @@ The original four core P0s **F01, F02, F06, F07 are accepted**. The operator als
 
 ### Current queue reconciliation — 2026-11-13
 
-**31 completed or explicitly declined original packages moved out of active categories:** 21 upstream issues and 33 PRs (28 in the initial sweep, plus three CP-V5/V7/V10 overlap corrections). [Resolved / superseded / excluded dispositions](categories/exclusions.md) now owns those historical references, each with evidence, upstream contributor credit and reopen conditions. The live RNC queue is **200 issue references / 166 PR references / 251 package slots**; **85 issues / 86 PRs / 137 packages** are dispositioned, with original totals **285 / 252 / 388** unchanged. Implementation and attribution are owned by the [validation engineering ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/fix/validation/fixes-qol-tracking.md).
+**31 completed or explicitly declined original packages moved out of active categories:** 21 upstream issues and 33 PRs (28 in the initial sweep, plus three CP-V5/V7/V10 overlap corrections). [Resolved / superseded / excluded dispositions](categories/exclusions.md) now owns those historical references, each with evidence, upstream contributor credit and reopen conditions. The live RNC queue is **200 issue references / 166 PR references / 251 package slots**; **85 issues / 86 PRs / 137 packages** are dispositioned, with original totals **285 / 252 / 388** unchanged. Implementation and attribution are owned by the [validation engineering ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md).
 
 **Remaining deliberate exception queue:** #1651/#2324 long-line/chunk boundary, #2165/#2166 commit allowlist, #2293/#2294 boolean/null allowlist, #2320/#2346 anchored-line allowlist, F11 merge-only default, F16 rule-level path identity, #2019 decoder resource behavior, #2017 constrained RE2 releases, F02 report pairing and orphan cleanup, F03/F21 sensitive diagnostics and release provenance. The accepted core corrections are not reopened merely because a distinct residual remains.
 
