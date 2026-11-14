@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/fatih/semgroup"
 	"github.com/gitleaks/go-gitdiff/gitdiff"
@@ -24,8 +25,6 @@ import (
 	"github.com/zricethezav/gitleaks/v8/internal/scanerr"
 	"github.com/zricethezav/gitleaks/v8/logging"
 )
-
-var quotedOptPattern = regexp.MustCompile(`^(?:"[^"]+"|'[^']+')$`)
 
 // forceNoColor makes --no-color the effective color setting without treating
 // the option as a pathspec. A later --no-color wins over user-provided
@@ -302,24 +301,24 @@ func NewGitLogCmd(source string, logOpts string) (*GitCmd, error) {
 // NewGitLogCmdContext is the same as NewGitLogCmd but supports passing in a
 // context to use for timeouts
 func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*GitCmd, error) {
-	if err := validateGitLogOpts(logOpts); err != nil {
+	userArgs, err := parseGitLogOpts(logOpts)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateGitLogArgs(userArgs); err != nil {
 		return nil, err
 	}
 	sourceClean := filepath.Clean(source)
+	if isShallowRepository(ctx, sourceClean) {
+		logging.Warn().Msg("source is a shallow Git repository; history before the shallow boundary is unavailable and cannot be treated as a complete full-history scan")
+	}
+	if isBareRepository(ctx, sourceClean) {
+		logging.Warn().Msg("source is a bare Git repository; automatic working-tree .gitleaks.toml/.gitleaksignore discovery is unavailable, so pass explicit --config/--gitleaks-ignore-path when needed")
+	} else if top, ok := gitTopLevel(ctx, sourceClean); ok && !sameFilesystemPath(top, sourceClean) {
+		logging.Warn().Msg("Git history is repository-wide; the selected source is a subdirectory. Use --log-opts with a pathspec to limit history. Directory scans remain bounded to the selected path")
+	}
 	args := []string{"-C", sourceClean, "log", "-p", "-U0"}
-	if logOpts != "" {
-		// Ensure that the user-provided |logOpts| aren't wrapped in quotes.
-		// https://github.com/gitleaks/gitleaks/issues/1153
-		userArgs := strings.Split(logOpts, " ")
-		var quotedOpts []string
-		for _, element := range userArgs {
-			if quotedOptPattern.MatchString(element) {
-				quotedOpts = append(quotedOpts, element)
-			}
-		}
-		if len(quotedOpts) > 0 {
-			logging.Warn().Msgf("the following `--log-opts` values may not work as expected: %v\n\tsee https://github.com/gitleaks/gitleaks/issues/1153 for more information", quotedOpts)
-		}
+	if len(userArgs) > 0 {
 		args = append(args, userArgs...)
 	} else {
 		args = append(args, "--full-history", "--all", "--diff-filter=tuxdb")
@@ -332,11 +331,153 @@ func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*G
 	return newGitCmd(cmd, sourceClean)
 }
 
-// validateGitLogOpts rejects user Git options that suppress patch output or
-// emit combined/remerge diffs the line parser cannot turn into complete
-// fragments. Silently returning a clean scan for those formats is unsafe.
+// parseGitLogOpts tokenizes --log-opts without a shell. It supports single and
+// double quoting, escaped whitespace/quotes, and literal Windows backslashes.
+// The parsed vector is authoritative for both execution and format validation.
+func parseGitLogOpts(raw string) ([]string, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	var (
+		args               []string
+		token              strings.Builder
+		inSingle, inDouble bool
+		escaped            bool
+		hasToken           bool
+		runes              = []rune(raw)
+	)
+	for i, r := range runes {
+		if escaped {
+			token.WriteRune(r)
+			escaped, hasToken = false, true
+			continue
+		}
+		if r == '\\' && !inSingle {
+			nextEscapes := i+1 < len(runes) && (runes[i+1] == '\\' || runes[i+1] == '\'' || runes[i+1] == '"' || unicode.IsSpace(runes[i+1]))
+			if nextEscapes {
+				escaped = true
+				continue
+			}
+			token.WriteRune(r)
+			hasToken = true
+			continue
+		}
+		if inSingle {
+			if r == '\'' {
+				inSingle = false
+			} else {
+				token.WriteRune(r)
+			}
+			hasToken = true
+			continue
+		}
+		if inDouble {
+			if r == '"' {
+				inDouble = false
+			} else {
+				token.WriteRune(r)
+			}
+			hasToken = true
+			continue
+		}
+		switch {
+		case unicode.IsSpace(r):
+			if hasToken {
+				if token.Len() == 0 {
+					return nil, fmt.Errorf("empty --log-opts argument")
+				}
+				args = append(args, token.String())
+				token.Reset()
+				hasToken = false
+			}
+		case r == '\'':
+			inSingle, hasToken = true, true
+		case r == '"':
+			inDouble, hasToken = true, true
+		default:
+			token.WriteRune(r)
+			hasToken = true
+		}
+	}
+	if escaped {
+		return nil, fmt.Errorf("unmatched escape in --log-opts")
+	}
+	if inSingle || inDouble {
+		return nil, fmt.Errorf("unmatched quote in --log-opts")
+	}
+	if hasToken {
+		if token.Len() == 0 {
+			return nil, fmt.Errorf("empty --log-opts argument")
+		}
+		args = append(args, token.String())
+	}
+	return args, nil
+}
+
+func gitTopLevel(ctx context.Context, source string) (string, bool) {
+	out, err := exec.CommandContext(ctx, "git", "-C", source, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return "", false
+	}
+	top := strings.TrimSpace(string(out))
+	return top, top != ""
+}
+
+func isBareRepository(ctx context.Context, source string) bool {
+	out, err := exec.CommandContext(ctx, "git", "-C", source, "rev-parse", "--is-bare-repository").Output()
+	return err == nil && strings.TrimSpace(string(out)) == "true"
+}
+
+func sameFilesystemPath(a, b string) bool {
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	return filepath.Clean(absA) == filepath.Clean(absB)
+}
+
+// isShallowRepository reports whether Git identifies the source as shallow.
+// Errors are treated as unknown rather than scanning-fatal; history selection
+// and finding identity remain unchanged.
+func isShallowRepository(ctx context.Context, source string) bool {
+	cmd := exec.CommandContext(ctx, "git", "-C", source, "rev-parse", "--is-shallow-repository")
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "true"
+}
+
+// validateGitLogOpts is the string boundary used by CLI validation. It parses
+// first, then validates the exact argument vector that will be executed.
 func validateGitLogOpts(logOpts string) error {
-	for _, option := range strings.Fields(logOpts) {
+	args, err := parseGitLogOpts(logOpts)
+	if err != nil {
+		return err
+	}
+	return validateGitLogArgs(args)
+}
+
+// validateGitLogArgs rejects formats that suppress patch output or emit
+// combined/remerge diffs the parser cannot complete. Validation operates on
+// the parsed vector so quoting cannot hide a disallowed option.
+func validateGitLogArgs(args []string) error {
+	afterSeparator := false
+	for i, option := range args {
+		if option == "--" {
+			afterSeparator = true
+			continue
+		}
+		if afterSeparator {
+			continue
+		}
+		if option == "--diff-merges" && i+1 < len(args) {
+			switch args[i+1] {
+			case "cc", "combined", "dense-combined", "remerge":
+				return fmt.Errorf("unsupported --log-opts value %q: the scanner requires ordinary patch output (use --diff-merges=first-parent for merge-only changes)", option)
+			}
+		}
 		switch {
 		case option == "--name-only",
 			option == "--name-status",
@@ -351,7 +492,8 @@ func validateGitLogOpts(logOpts string) error {
 			option == "--diff-merges=dense-combined",
 			option == "--diff-merges=remerge",
 			option == "--cc",
-			option == "-c":
+			option == "-c",
+			strings.HasPrefix(option, "-c") && len(option) > 2:
 			return fmt.Errorf("unsupported --log-opts value %q: the scanner requires ordinary patch output (use --diff-merges=first-parent for merge-only changes)", option)
 		}
 	}
@@ -904,18 +1046,35 @@ func getRemoteUrl(ctx context.Context, source string) (*url.URL, error) {
 		return nil, err
 	}
 
-	remoteUrl := string(bytes.TrimSpace(stdout))
-	if matches := sshUrlpat.FindStringSubmatch(remoteUrl); matches != nil {
-		remoteUrl = fmt.Sprintf("https://%s/%s", matches[1], matches[2])
-	}
-	remoteUrl = strings.TrimSuffix(remoteUrl, ".git")
+	return normalizeGitRemoteURL(string(bytes.TrimSpace(stdout)))
+}
 
-	parsedUrl, err := url.Parse(remoteUrl)
+// normalizeGitRemoteURL converts supported SCP-style remotes to their HTTPS
+// form and removes credentials. Azure DevOps v3 SSH paths are mapped to the
+// canonical dev.azure.com organization/project/repository URL.
+func normalizeGitRemoteURL(raw string) (*url.URL, error) {
+	raw = strings.TrimSpace(raw)
+	if matches := sshUrlpat.FindStringSubmatch(raw); matches != nil {
+		host, path := matches[1], matches[2]
+		if host == "ssh.dev.azure.com" && strings.HasPrefix(path, "v3/") {
+			parts := strings.Split(strings.TrimPrefix(path, "v3/"), "/")
+			if len(parts) >= 3 {
+				org, project := parts[0], parts[1]
+				repository := strings.Join(parts[2:], "/")
+				raw = fmt.Sprintf("https://dev.azure.com/%s/%s/_git/%s", org, project, repository)
+			} else {
+				raw = fmt.Sprintf("https://%s/%s", host, path)
+			}
+		} else {
+			raw = fmt.Sprintf("https://%s/%s", host, path)
+		}
+	}
+	raw = strings.TrimSuffix(raw, ".git")
+	parsedUrl, err := url.Parse(raw)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse remote URL: %s", sanitizeGitDiagnostic(err.Error()))
 	}
-
-	// Remove any user info.
+	// Remove any user info, including tokens embedded in HTTPS remotes.
 	parsedUrl.User = nil
 	return parsedUrl, nil
 }

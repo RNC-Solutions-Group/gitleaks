@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"sort"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -57,10 +58,23 @@ func runFiles(cmd *cobra.Command, args []string) {
 			MaxFileSize:     detector.MaxTargetMegaBytes * 1_000_000,
 			MaxArchiveDepth: detector.MaxArchiveDepth,
 			Informative:     detector.Informative,
+			Sema:            detector.Sema,
 		},
 	)
 	if err != nil {
 		logging.Error().Err(err).Msg("failed scan explicit files")
 	}
+	sort.SliceStable(findings, func(i, j int) bool {
+		if findings[i].File != findings[j].File {
+			return findings[i].File < findings[j].File
+		}
+		if findings[i].StartLine != findings[j].StartLine {
+			return findings[i].StartLine < findings[j].StartLine
+		}
+		if findings[i].StartColumn != findings[j].StartColumn {
+			return findings[i].StartColumn < findings[j].StartColumn
+		}
+		return findings[i].RuleID < findings[j].RuleID
+	})
 	findingSummaryAndExit(detector, findings, exitCode, start, err)
 }
