@@ -1,6 +1,6 @@
 # Reporting & Output — RNC second-pass review
 
-**Current active queue (2026-11-13):** Actioned issues/PRs have moved to the [RNC disposition register](exclusions.md); implementation, test evidence and contributor attribution are maintained in [fixes/QOL](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). Do not reassign finished work from historical review notes.
+**Current active queue (2026-11-13):** Actioned issues/PRs have moved to the [RNC disposition register](exclusions.md); implementation, test evidence and contributor attribution are maintained in [RNC-MOD](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). Do not reassign finished work from historical review notes.
 
 Snapshot: **2026-11-09** · RNC comparison target: [`master@5f6ec56`](https://github.com/RNC-Solutions-Group/gitleaks/tree/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c) · Documentation branch: `feat/issues-and-pr`.
 

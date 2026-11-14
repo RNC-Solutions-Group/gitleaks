@@ -145,7 +145,7 @@ Every item below was open in the upstream snapshot. **SUPERSEDED by another open
 
 ## Actioned work migrated from active categories (2026-11-13)
 
-**28 work packages, comprising 20 original upstream issues and 30 PRs**, have been removed from the RNC active category queues. Each is corrected within the stated scope, implemented and verified (with owner sign-off separately noted), superseded by a tested RNC fix, or explicitly declined. Historical upstream sources and source snapshots are unchanged. RNC correction does **not** mean upstream merge or PR cherry-pick. The cross-branch [fixes/QOL implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md) records current checkpoints, source and attribution.
+**37 work packages, comprising 28 original upstream issues and 37 PRs**, have been removed from the RNC active category queues. Each is corrected within the stated scope, implemented and verified (with owner sign-off separately noted), superseded by a tested RNC fix, or explicitly declined. Historical upstream sources and source snapshots are unchanged. RNC correction does **not** mean upstream merge or PR cherry-pick. The cross-branch [RNC-MOD engineering reference](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md) records current checkpoints, source and attribution.
 
 | Historical item(s) | Prior category | RNC disposition | Evidence and provenance | Reopen / separately active limitation |
 | --- | --- | --- | --- | --- |
@@ -192,7 +192,7 @@ These three packages were implemented under CP-V5/V7/V10 and were discovered aft
 
 **Nine historical dependency PRs and two security upgrade PRs, together with three linked original CVE issues, have exited the active queue: 12 accounting packages, 3 issues and 11 PRs.** All version evidence is from current `fix/validation` rather than old `master`. Source decisions and independently run RNC CI are not claims that the upstream PRs were merged, adopted or cherry-picked.
 
-- **MATCHED_INDEPENDENTLY:** Same requested package/version achieved through our combined graph, with all relevant integration tests owned by RNC; original author is eligible for profile-only thanks in [fixes/QOL](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md).
+- **MATCHED_INDEPENDENTLY:** Same requested package/version achieved through our combined graph, with all relevant integration tests owned by RNC; original author is eligible for profile-only thanks in [RNC-MOD](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md).
 - **MATCHED_ARCHITECTURE_INDEPENDENTLY:** Same requested major-version migration completed with a newer v2 patch release, without adopting the original source.
 - **SUPERSEDED_DIFFERENT_APPROACH / SUPERSEDED_NEWER_DEPENDENCY_GRAPH:** Original proposed version or strategy was replaced by a separate, newer RNC solution. **Do not tag** that proposal's author in the thank-you paragraph.
 - **Retained active:** #2115 (Go `1.26.3` min proposed; current `go.mod` `1.26.0`), PR #2323 (release login action still old), and #2017 (RE2 restricted-runtime address space, distinct from corrected build compatibility).

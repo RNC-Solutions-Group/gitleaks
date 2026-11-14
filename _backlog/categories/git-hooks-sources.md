@@ -1,6 +1,6 @@
 # Git Hooks Sources — RNC review queue
 
-**Current active queue (2026-11-13):** Completed/declined original issue and PR packages were removed from this category. See the [RNC disposition register](exclusions.md) and [fixes/QOL implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). Remaining original candidates below are not closed by overlap with those corrections.
+**Current active queue (2026-11-13):** Completed/declined original issue and PR packages were removed from this category. See the [RNC disposition register](exclusions.md) and [RNC-MOD engineering reference](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). Remaining original candidates below are not closed by overlap with those corrections.
 
 Second-pass evidence review: 2026-11-09 · RNC fork `master` checked at `5f6ec56cfa6f` · Triage branch: `feat/issues-and-pr`.
 

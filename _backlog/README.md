@@ -16,11 +16,11 @@ This branch contains a dated, reproducible review snapshot of **upstream `gitlea
 
 | Disposition | Issues | PRs |
 | --- | ---: | ---: |
-| Active technical-category review | **197** | **155** |
-| [Resolved, superseded and excluded](categories/exclusions.md) | **88** | **97** |
+| Active technical-category review | **186** | **144** |
+| [Resolved, superseded and excluded](categories/exclusions.md) | **99** | **108** |
 | **Original snapshot assigned** | **285** | **252** |
 
-All original upstream snapshot items have one disposition in the [category index](categories/README.md), with **0 unassigned**. Of the 388 original work-package accounting slots, **239 remain active and 149 have been dispositioned/retired**. On 2026-11-13, 31 corrected/implemented/declined packages (21 issue IDs and 33 PR IDs) were removed from the work queue and moved to [dispositions](categories/exclusions.md), cross-referenced to the [fixes/QOL implementation ledger](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). These work-package slots are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
+All original upstream snapshot items have one disposition in the [category index](categories/README.md), with **0 unassigned**. Of the 388 original work-package accounting slots, **226 remain active and 162 have been dispositioned/retired**. On 2026-11-13, 56 corrected/implemented/declined packages (35 issue IDs and 55 PR IDs) were removed from the work queue and moved to [dispositions](categories/exclusions.md), cross-referenced to the [RNC-MOD engineering reference](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). These work-package slots are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
 
 **Scan Integrity second pass (2026-11-09):** all 25 originally routed issues and 22 PRs rechecked against pinned fork source/diffs. Git error-handling issue #1464 and two competing fixes now share an existing Git/Hooks work package; URL/JSON PR #1992 is owned by Optional Features; #1651 and partial boundary patch #2324 share one package. These category/work-package consolidations leave **all 285 issues and 252 open PRs assigned**, with exclusions unchanged. No scanner source or test files were altered.
 
