@@ -11,6 +11,7 @@ This branch contains a dated, reproducible review snapshot of **upstream `gitlea
 - [03 — PR/issue crosswalk](03-pr-issue-crosswalk.md): links, confidence, and exclusions.
 - [data/](data/): structured public-safe JSON snapshots, filterable CSV, and collection manifest.
 - [categories/](categories/README.md): current technical work queues, ownership and decision gates.
+- [Operator policy decisions (2026-11-14)](operator-decisions/2026-11-14-v13-policy.md): six approved/evaluation-only RNC-Mod policy directions, authorization boundaries and Flash implementation gates.
 
 ## Current RNC review status — reconciled 2026-11-13
 
