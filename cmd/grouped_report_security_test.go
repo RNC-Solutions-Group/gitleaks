@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"crypto/rand"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -176,25 +178,29 @@ func TestGroupedReportObeysOutputPolicy(t *testing.T) {
 }
 
 func TestGroupedReportRejectsAggregatePrimaryCollision(t *testing.T) {
-	source := groupedSource(t)
-	keyPath := writeGroupedKeyFixture(t, groupedTestKey)
-	dir := t.TempDir()
-	primary := filepath.Join(dir, "report.json")
-	groupedPath := filepath.Join(dir, "report_001.json")
+	for _, number := range []int{1, maxAggregateReportCandidates} {
+		t.Run(fmt.Sprintf("candidate_%d", number), func(t *testing.T) {
+			source := groupedSource(t)
+			keyPath := writeGroupedKeyFixture(t, groupedTestKey)
+			dir := t.TempDir()
+			primary := filepath.Join(dir, "report.json")
+			groupedPath := numberedReportPath(primary, number)
 
-	result := runReportCLI(t,
-		"dir", source,
-		"--grouped-report", groupedPath,
-		"--grouping-key-file", keyPath,
-		"--report-path", primary,
-		"--report-format", "json",
-		"--aggregate",
-		"--exit-code", "0", "--no-banner", "--log-level", "error",
-	)
-	require.NotEqual(t, 0, result.exitCode)
-	assert.Contains(t, result.stderr, "aggregate")
-	assert.NoFileExists(t, primary)
-	assert.NoFileExists(t, groupedPath)
+			result := runReportCLI(t,
+				"dir", source,
+				"--grouped-report", groupedPath,
+				"--grouping-key-file", keyPath,
+				"--report-path", primary,
+				"--report-format", "json",
+				"--aggregate",
+				"--exit-code", "0", "--no-banner", "--log-level", "error",
+			)
+			require.NotEqual(t, 0, result.exitCode)
+			assert.Contains(t, result.stderr, "aggregate")
+			assert.NoFileExists(t, primary)
+			assert.NoFileExists(t, groupedPath)
+		})
+	}
 }
 
 func TestGroupedReportRejectsKeyAsPrimaryDestination(t *testing.T) {
@@ -291,26 +297,45 @@ func TestGroupedReportRejectsInformativeCollision(t *testing.T) {
 	assert.NoFileExists(t, primary)
 }
 
-func TestGroupedReportExcludesNumberedSidecarFromScan(t *testing.T) {
-	source := t.TempDir()
-	keyPath := writeGroupedKeyFixture(t, groupedTestKey)
-	groupedPath := filepath.Join(source, "grouped.json")
-	require.NoError(t, os.WriteFile(filepath.Join(source, "grouped_001.json"), []byte("PREEXISTING ALPHA_12345678\n"), 0o600))
+func TestGroupedReportScansLookalikeSourceFiles(t *testing.T) {
+	for _, name := range []string{
+		"grouped_001.json",
+		"grouped_123.json",
+		"grouped_999.json",
+		"grouped_1000.json",
+		"grouped_123.txt",
+	} {
+		t.Run(name, func(t *testing.T) {
+			source := t.TempDir()
+			keyPath := writeGroupedKeyFixture(t, groupedTestKey)
+			groupedPath := filepath.Join(source, "grouped.json")
+			require.NoError(t, os.WriteFile(filepath.Join(source, name), []byte("ALPHA_12345678\n"), 0o600))
 
-	result := runReportCLI(t,
-		"dir", source,
-		"--grouped-report", groupedPath,
-		"--grouping-key-file", keyPath,
-		"--config", groupedPolicyConfig(t),
-		"--aggregate",
-		"--exit-code", "0", "--no-banner", "--log-level", "error",
-	)
-	require.Equal(t, 0, result.exitCode, result.stderr)
-	assert.NoFileExists(t, filepath.Join(source, "grouped_002.json"))
-	assert.Contains(t, string(mustReadFile(t, groupedPath)), `"groups": []`)
+			result := runReportCLI(t,
+				"dir", source,
+				"--grouped-report", groupedPath,
+				"--grouping-key-file", keyPath,
+				"--config", groupedPolicyConfig(t),
+				"--overwrite",
+				"--exit-code", "0", "--no-banner", "--log-level", "error",
+			)
+			require.Equal(t, 0, result.exitCode, result.stderr)
+
+			var document struct {
+				Groups []struct {
+					Count int `json:"count"`
+				} `json:"groups"`
+			}
+			raw := mustReadFile(t, groupedPath)
+			require.NoError(t, json.Unmarshal(raw, &document))
+			require.Len(t, document.Groups, 1, "lookalike source file must not be silently excluded")
+			assert.Equal(t, 1, document.Groups[0].Count)
+			assert.NotContains(t, string(raw), "ALPHA_12345678")
+		})
+	}
 }
 
-func TestGroupedReportExcludesExistingSidecarFromScan(t *testing.T) {
+func TestGroupedReportExcludesExactConfiguredDestinationFromScan(t *testing.T) {
 	source := t.TempDir()
 	keyPath := writeGroupedKeyFixture(t, groupedTestKey)
 	groupedPath := filepath.Join(source, "grouped.json")

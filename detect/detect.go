@@ -532,7 +532,7 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 			return findings
 		}
 		if d.GroupedReportPath != "" &&
-			sameGroupedReportDestination(fragment.FilePath, d.GroupedReportPath) {
+			sameFileOrPath(fragment.FilePath, d.GroupedReportPath) {
 			target.Exclude(informative.ReasonExcludedInput, informative.ExclusionOptions{
 				Detail: "grouped report destination",
 			})

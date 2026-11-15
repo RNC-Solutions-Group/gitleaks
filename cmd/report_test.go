@@ -229,6 +229,33 @@ func TestNewReportOutput(t *testing.T) {
 	})
 }
 
+func TestAggregateAllocationUsesValidationBoundary(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	require.NoError(t, os.WriteFile(dest, []byte("BASE"), 0o600))
+	for number := 1; number < maxAggregateReportCandidates; number++ {
+		require.NoError(t, os.WriteFile(numberedReportPath(dest, number), []byte("OCCUPIED"), 0o600))
+	}
+
+	out, err := newReportOutput(dest, reportAggregate, "", nil, "", ".", "")
+	require.NoError(t, err)
+	outputPath, err := out.write(&stringReporter{payload: "last"}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, numberedReportPath(dest, maxAggregateReportCandidates), outputPath)
+	assert.Equal(t, "last", string(mustReadFile(t, outputPath)))
+
+	_, err = out.write(&stringReporter{payload: "never"}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "all 1000 numbered candidates are occupied")
+	assert.NoFileExists(t, numberedReportPath(dest, maxAggregateReportCandidates+1))
+	requireNoTemporaryReports(t, dir)
+
+	protected := numberedReportPath(dest, maxAggregateReportCandidates)
+	_, err = newReportOutput(dest, reportAggregate, "", []string{protected}, "", ".", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "protected input")
+}
+
 func TestNumberedReportPath(t *testing.T) {
 	tests := []struct {
 		path   string

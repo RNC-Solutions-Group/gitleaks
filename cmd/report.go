@@ -228,7 +228,7 @@ func (o *reportOutput) checkAggregateProtectedInputs() error {
 	if o.mode != reportAggregate {
 		return nil
 	}
-	for number := 1; number <= 1000; number++ {
+	for number := 1; number <= maxAggregateReportCandidates; number++ {
 		candidate := numberedReportPath(o.path, number)
 		for _, input := range o.protectedInputs {
 			if input != "" && samePath(candidate, input) {
@@ -350,7 +350,7 @@ func (o *reportOutput) publishAggregate(tempName string) (string, error) {
 		return "", err
 	}
 
-	for number := 1; ; number++ {
+	for number := 1; number <= maxAggregateReportCandidates; number++ {
 		candidate := numberedReportPath(o.path, number)
 		path, info, err := reserveReportPath(candidate)
 		if err == nil {
@@ -360,6 +360,11 @@ func (o *reportOutput) publishAggregate(tempName string) (string, error) {
 			return "", err
 		}
 	}
+	return "", fmt.Errorf(
+		"could not allocate aggregate report path %q: the requested path and all %d numbered candidates are occupied",
+		o.path,
+		maxAggregateReportCandidates,
+	)
 }
 
 // publishReject publishes only when the destination is still absent. The

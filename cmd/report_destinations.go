@@ -2,11 +2,16 @@ package cmd
 
 import "fmt"
 
-const maxAggregateCollisionCandidates = 1000
+// maxAggregateReportCandidates is the number of numbered alternatives after
+// the requested aggregate destination. Preflight collision checks and the
+// allocator use this same bound; if every candidate is occupied, publication
+// fails closed rather than creating a path outside the validated set.
+const maxAggregateReportCandidates = 1000
 
 // validateReportDestinationSet checks all intended output paths as one set.
-// Direct aliases and aggregate-numbered candidates are compared. The checks
-// are preflight-only and do not claim crash-atomic publication across files.
+// Direct aliases and every allocatable aggregate-numbered candidate are
+// compared. The checks are preflight-only and do not claim crash-atomic
+// publication across files.
 func validateReportDestinationSet(primary, companion, grouped string, mode reportMode) error {
 	paths := []struct {
 		label string
@@ -30,7 +35,7 @@ func validateReportDestinationSet(primary, companion, grouped string, mode repor
 		}
 	}
 	if mode == reportAggregate && companion != "" && grouped != "" && usableDestination(primary) != "" {
-		for number := 1; number <= maxAggregateCollisionCandidates; number++ {
+		for number := 1; number <= maxAggregateReportCandidates; number++ {
 			candidate := informativeCompanionPath(numberedReportPath(primary, number))
 			if samePath(candidate, grouped) || aggregateDestinationsOverlap(candidate, grouped) {
 				return fmt.Errorf("grouped report path %q can collide with aggregate informative companion %q", grouped, candidate)
@@ -54,7 +59,7 @@ func aggregateDestinationsOverlap(a, b string) bool {
 	if samePath(a, b) {
 		return true
 	}
-	for number := 1; number <= maxAggregateCollisionCandidates; number++ {
+	for number := 1; number <= maxAggregateReportCandidates; number++ {
 		if samePath(a, numberedReportPath(b, number)) || samePath(numberedReportPath(a, number), b) {
 			return true
 		}

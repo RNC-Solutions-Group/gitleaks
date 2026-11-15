@@ -79,9 +79,10 @@ func TestCLIStrictConfigValidatesInlineRootWithExtension(t *testing.T) {
 func TestCLIStrictConfigNestedAndSyntaxFailures(t *testing.T) {
 	source := t.TempDir()
 	cases := map[string]string{
-		"unknown-allowlist":   "title = \"bad\"\n[allowlist]\nregexes = ['''ALPHA_[A-Z0-9]{8}''']\nunknownAllowlistField = true\n",
-		"misplaced-allowlist": "title = \"bad\"\n[extend]\nallowlists = []\n",
-		"malformed":           "title = \"bad\"\n[[rules]\n",
+		"unknown-allowlist":        "title = \"bad\"\n[allowlist]\nregexes = ['''ALPHA_[A-Z0-9]{8}''']\nunknownAllowlistField = true\n",
+		"misplaced-allowlist":      "title = \"bad\"\n[extend]\nallowlists = []\n",
+		"misplaced-rule-allowlist": "title = \"bad\"\n[rules.allowlist]\npaths = ['''vendor/''']\n",
+		"malformed":                "title = \"bad\"\n[[rules]\n",
 	}
 	for name, content := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -89,7 +90,14 @@ func TestCLIStrictConfigNestedAndSyntaxFailures(t *testing.T) {
 			require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 			result := runReportCLI(t, "config", source, "--config", path, "--strict-config", "--no-banner", "--log-level", "error")
 			require.NotEqual(t, 0, result.exitCode)
-			if name != "malformed" {
+			switch name {
+			case "malformed":
+				// The TOML parser reports this before strict-schema validation.
+			case "misplaced-rule-allowlist":
+				// [rules.allowlist] parses as a rule table with no id; the loader
+				// rejects that before strict-schema validation.
+				assert.Contains(t, result.stderr, "id")
+			default:
 				assert.Contains(t, result.stderr, "strict")
 			}
 			assert.NotContains(t, result.stderr, "unknownAllowlistField = true")
