@@ -160,6 +160,49 @@ func TestInformativePairAggregateSkipsOccupiedNumberedCandidates(t *testing.T) {
 	assert.Equal(t, "TWO", string(mustReadFile(t, filepath.Join(dir, "report_002.json"))))
 }
 
+func TestInformativePairAggregateAllocatesBeyondV14ACeiling(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	companion := filepath.Join(dir, "report-informative.json")
+	primarySeed := filepath.Join(dir, "occupied-primary.seed")
+	companionSeed := filepath.Join(dir, "occupied-companion.seed")
+	require.NoError(t, os.WriteFile(primarySeed, []byte("OCCUPIED"), 0o600))
+	require.NoError(t, os.WriteFile(companionSeed, []byte("OCCUPIED"), 0o600))
+	for _, item := range []struct {
+		path string
+		seed string
+	}{
+		{dest, primarySeed},
+		{companion, companionSeed},
+	} {
+		if err := os.Link(item.seed, item.path); err != nil {
+			require.NoError(t, os.WriteFile(item.path, []byte("OCCUPIED"), 0o600))
+		}
+	}
+	for number := 1; number <= 1_001; number++ {
+		for _, item := range []struct {
+			path string
+			seed string
+		}{
+			{numberedReportPath(dest, number), primarySeed},
+			{informativeCompanionPath(numberedReportPath(dest, number)), companionSeed},
+		} {
+			if err := os.Link(item.seed, item.path); err != nil {
+				require.NoError(t, os.WriteFile(item.path, []byte("OCCUPIED"), 0o600))
+			}
+		}
+	}
+
+	out := newInformativeTestOutput(t, dest, reportAggregate, nil)
+	primaryPath, err := out.write(&stringReporter{payload: "NEW"}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(dir, "report_1002.json"), primaryPath)
+	assertCompanionPrimary(t, filepath.Join(dir, "report_1002-informative.json"), primaryPath)
+	assert.Equal(t, "NEW", string(mustReadFile(t, primaryPath)))
+	assert.Equal(t, "OCCUPIED", string(mustReadFile(t, dest)))
+	assert.Equal(t, "OCCUPIED", string(mustReadFile(t, companion)))
+}
+
 func TestInformativePairAggregateConcurrentAllocation(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "report.json")

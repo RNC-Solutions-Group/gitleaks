@@ -177,8 +177,39 @@ func TestGroupedReportObeysOutputPolicy(t *testing.T) {
 	assert.FileExists(t, filepath.Join(filepath.Dir(groupedPath), "grouped_001.json"))
 }
 
+func TestGroupedReportAllocatesBeyondV14ACeiling(t *testing.T) {
+	source := groupedSource(t)
+	keyPath := writeGroupedKeyFixture(t, groupedTestKey)
+	dir := t.TempDir()
+	groupedPath := filepath.Join(dir, "grouped.json")
+	require.NoError(t, os.WriteFile(groupedPath, []byte("SENTINEL"), 0o600))
+	seed := filepath.Join(dir, "occupied.seed")
+	require.NoError(t, os.WriteFile(seed, []byte("OCCUPIED"), 0o600))
+	for number := 1; number <= 1_001; number++ {
+		candidate := numberedReportPath(groupedPath, number)
+		if err := os.Link(seed, candidate); err != nil {
+			require.NoError(t, os.WriteFile(candidate, []byte("OCCUPIED"), 0o600))
+		}
+	}
+
+	result := runReportCLI(t,
+		"dir", source,
+		"--grouped-report", groupedPath,
+		"--grouping-key-file", keyPath,
+		"--config", groupedPolicyConfig(t),
+		"--aggregate",
+		"--exit-code", "0", "--no-banner", "--log-level", "error",
+	)
+	require.Equal(t, 0, result.exitCode, result.stderr)
+	assert.Equal(t, "SENTINEL", string(mustReadFile(t, groupedPath)))
+	allocated := numberedReportPath(groupedPath, 1_002)
+	require.FileExists(t, allocated)
+	assert.Contains(t, string(mustReadFile(t, allocated)), `"count": 1`)
+	assert.NoFileExists(t, numberedReportPath(groupedPath, 1_003))
+}
+
 func TestGroupedReportRejectsAggregatePrimaryCollision(t *testing.T) {
-	for _, number := range []int{1, maxAggregateReportCandidates} {
+	for _, number := range []int{1, 1_000, 10_001} {
 		t.Run(fmt.Sprintf("candidate_%d", number), func(t *testing.T) {
 			source := groupedSource(t)
 			keyPath := writeGroupedKeyFixture(t, groupedTestKey)
@@ -221,21 +252,51 @@ func TestGroupedReportRejectsKeyAsPrimaryDestination(t *testing.T) {
 }
 
 func TestGroupedReportRejectsKeyAsAggregateCandidate(t *testing.T) {
+	for _, number := range []int{1, 1_000, 10_001} {
+		t.Run(fmt.Sprintf("candidate_%d", number), func(t *testing.T) {
+			source := groupedSource(t)
+			dir := t.TempDir()
+			keyPath := numberedReportPath(filepath.Join(dir, "grouped.json"), number)
+			require.NoError(t, os.WriteFile(keyPath, []byte(groupedTestKey), 0o600))
+			groupedPath := filepath.Join(dir, "grouped.json")
+
+			result := runReportCLI(t,
+				"dir", source,
+				"--grouped-report", groupedPath,
+				"--grouping-key-file", keyPath,
+				"--aggregate",
+				"--exit-code", "0", "--no-banner", "--log-level", "error",
+			)
+			require.NotEqual(t, 0, result.exitCode)
+			assert.Contains(t, result.stderr, "aggregate")
+			assert.Equal(t, groupedTestKey, string(mustReadFile(t, keyPath)))
+		})
+	}
+}
+
+func TestGroupedReportRejectsConfigAsHighAggregateCandidate(t *testing.T) {
 	source := groupedSource(t)
-	keyPath := filepath.Join(t.TempDir(), "grouped_001.json")
-	require.NoError(t, os.WriteFile(keyPath, []byte(groupedTestKey), 0o600))
-	groupedPath := filepath.Join(filepath.Dir(keyPath), "grouped.json")
+	keyPath := writeGroupedKeyFixture(t, groupedTestKey)
+	dir := t.TempDir()
+	primary := filepath.Join(dir, "report.json")
+	configPath := numberedReportPath(primary, 10_001)
+	configBody := "title = \"high\"\n[[rules]]\nid = \"alpha\"\ndescription = \"alpha\"\nregex = '''ALPHA_[A-Z0-9]{8}'''\n"
+	require.NoError(t, os.WriteFile(configPath, []byte(configBody), 0o600))
 
 	result := runReportCLI(t,
 		"dir", source,
-		"--grouped-report", groupedPath,
+		"--grouped-report", filepath.Join(dir, "grouped.json"),
 		"--grouping-key-file", keyPath,
+		"--report-path", primary,
+		"--report-format", "json",
+		"--config", configPath,
 		"--aggregate",
 		"--exit-code", "0", "--no-banner", "--log-level", "error",
 	)
 	require.NotEqual(t, 0, result.exitCode)
-	assert.Contains(t, result.stderr, "aggregate")
-	assert.Equal(t, groupedTestKey, string(mustReadFile(t, keyPath)))
+	assert.Contains(t, result.stderr, "protected input")
+	assert.Equal(t, configBody, string(mustReadFile(t, configPath)))
+	assert.NoFileExists(t, primary)
 }
 
 func TestGroupedReportRejectsParentSymlinkCollision(t *testing.T) {
@@ -277,24 +338,34 @@ regex = '''ALPHA_[A-Z0-9]{8}'''
 }
 
 func TestGroupedReportRejectsInformativeCollision(t *testing.T) {
-	source := groupedSource(t)
-	keyPath := writeGroupedKeyFixture(t, groupedTestKey)
-	dir := t.TempDir()
-	primary := filepath.Join(dir, "report.json")
-	groupedPath := filepath.Join(dir, "report-informative.json")
+	for _, name := range []string{
+		"report-informative.json",
+		"report_001-informative.json",
+		"report_1001-informative.json",
+	} {
+		t.Run(name, func(t *testing.T) {
+			source := groupedSource(t)
+			keyPath := writeGroupedKeyFixture(t, groupedTestKey)
+			dir := t.TempDir()
+			primary := filepath.Join(dir, "report.json")
+			groupedPath := filepath.Join(dir, name)
 
-	result := runReportCLI(t,
-		"dir", source,
-		"--grouped-report", groupedPath,
-		"--grouping-key-file", keyPath,
-		"--report-path", primary,
-		"--report-format", "json",
-		"--config", groupedInformativeConfig(t),
-		"--exit-code", "0", "--no-banner", "--log-level", "error",
-	)
-	require.NotEqual(t, 0, result.exitCode)
-	assert.Contains(t, result.stderr, "informative")
-	assert.NoFileExists(t, primary)
+			result := runReportCLI(t,
+				"dir", source,
+				"--grouped-report", groupedPath,
+				"--grouping-key-file", keyPath,
+				"--report-path", primary,
+				"--report-format", "json",
+				"--config", groupedInformativeConfig(t),
+				"--aggregate",
+				"--exit-code", "0", "--no-banner", "--log-level", "error",
+			)
+			require.NotEqual(t, 0, result.exitCode)
+			assert.Contains(t, result.stderr, "informative")
+			assert.NoFileExists(t, primary)
+			assert.NoFileExists(t, groupedPath)
+		})
+	}
 }
 
 func TestGroupedReportScansLookalikeSourceFiles(t *testing.T) {

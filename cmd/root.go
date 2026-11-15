@@ -395,6 +395,7 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 	}
 
 	reportPath := mustGetStringFlag(cmd, "report-path")
+	var primaryReportOutput *reportOutput
 	if reportPath != "" {
 		var (
 			reporter       report.Reporter
@@ -477,6 +478,7 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 			if err != nil {
 				logging.Fatal().Err(err).Msg("invalid report destination")
 			}
+			primaryReportOutput = output
 			if groupingKeyPath != "" {
 				if err := output.protectInput(groupingKeyPath); err != nil {
 					logging.Fatal().Err(err).Msg("grouping key collides with the primary report destination")
@@ -527,6 +529,14 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 		}
 		if err := validateReportDestinationSet(reportPath, detector.InformativeReportPath, groupedPath, mode); err != nil {
 			logging.Fatal().Err(err).Msg("invalid report destination set")
+		}
+		if primaryReportOutput != nil {
+			// Make the grouped destination a protected peer of the primary
+			// output. The selected primary/companion path is checked against it
+			// after reservation and immediately before publication.
+			if err := primaryReportOutput.protectInput(groupedPath); err != nil {
+				logging.Fatal().Err(err).Msg("grouped report collides with the primary report destination")
+			}
 		}
 		detector.GroupedReportPath = groupedPath
 		detector.GroupedReportWriter = func(findings []report.Finding) (string, error) {

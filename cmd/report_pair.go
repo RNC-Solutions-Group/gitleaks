@@ -42,6 +42,10 @@ func (o *reportOutput) enableInformative(render func(primaryPath string) ([]byte
 		path:   companionPath,
 		render: render,
 	}
+	if err := o.checkAggregateProtectedInputs(); err != nil {
+		o.companion = nil
+		return err
+	}
 	return nil
 }
 
@@ -413,9 +417,9 @@ func (o *reportOutput) allocatePair() (*pairAllocation, error) {
 				primary = numberedReportPath(o.path, number)
 			}
 			companion := informativeCompanionPath(primary)
-			if err := o.validatePairStatic(primary, companion); err != nil {
-				return nil, err
-			}
+			// Naming-family hazards are rejected before scanning. The selected
+			// pair is checked again before publication; existing occupied names
+			// are skipped by the exclusive reservation below.
 			allocation, err := o.reservePair(primary, companion)
 			if err == nil {
 				return allocation, nil
