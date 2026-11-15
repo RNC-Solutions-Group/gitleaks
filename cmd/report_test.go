@@ -229,6 +229,56 @@ func TestNewReportOutput(t *testing.T) {
 	})
 }
 
+func TestAggregateAllocationBeyondV14ACeiling(t *testing.T) {
+	const highCandidate = 10_001
+
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "report.json")
+	require.NoError(t, os.WriteFile(dest, []byte("BASE"), 0o600))
+	occupy := func(from, through int) {
+		t.Helper()
+		seed := filepath.Join(dir, "occupied.seed")
+		if from == 1 {
+			require.NoError(t, os.WriteFile(seed, []byte("OCCUPIED"), 0o600))
+		}
+		for number := from; number <= through; number++ {
+			candidate := numberedReportPath(dest, number)
+			if err := os.Link(seed, candidate); err != nil {
+				require.NoError(t, os.WriteFile(candidate, []byte("OCCUPIED"), 0o600))
+			}
+		}
+	}
+	occupy(1, 1_000)
+
+	out, err := newReportOutput(dest, reportAggregate, "", nil, "", ".", "")
+	require.NoError(t, err)
+	first, err := out.write(&stringReporter{payload: "beyond-v14a"}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, numberedReportPath(dest, 1_001), first)
+	assert.Equal(t, "beyond-v14a", string(mustReadFile(t, first)))
+
+	occupy(1_002, highCandidate-1)
+	second, err := out.write(&stringReporter{payload: "high-water"}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, numberedReportPath(dest, highCandidate), second)
+	assert.Equal(t, "high-water", string(mustReadFile(t, second)))
+
+	assert.Equal(t, "BASE", string(mustReadFile(t, dest)))
+	assert.Equal(t, "beyond-v14a", string(mustReadFile(t, first)))
+	for _, number := range []int{1, 999, 1_000} {
+		path := numberedReportPath(dest, number)
+		require.FileExists(t, path)
+		assert.Equal(t, "OCCUPIED", string(mustReadFile(t, path)))
+	}
+	assert.NoFileExists(t, numberedReportPath(dest, highCandidate+1))
+	requireNoTemporaryReports(t, dir)
+
+	protected := numberedReportPath(dest, highCandidate+1)
+	_, err = newReportOutput(dest, reportAggregate, "", []string{protected}, "", ".", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "protected input")
+}
+
 func TestNumberedReportPath(t *testing.T) {
 	tests := []struct {
 		path   string
@@ -326,6 +376,19 @@ func TestReportOutputWrite(t *testing.T) {
 			assert.Equal(t, want, outputPath)
 			assert.Equal(t, fmt.Sprintf("report-%d", i), string(mustReadFile(t, want)))
 		}
+	})
+
+	t.Run("aggregation skips a destination created after preflight", func(t *testing.T) {
+		dir := t.TempDir()
+		dest := filepath.Join(dir, "report.json")
+		out := newOutput(t, dest, reportAggregate)
+		require.NoError(t, os.WriteFile(dest, []byte("APPEARED"), 0o600))
+
+		outputPath, err := out.write(&stringReporter{payload: "new"}, nil)
+		require.NoError(t, err)
+		assert.Equal(t, numberedReportPath(dest, 1), outputPath)
+		assert.Equal(t, "APPEARED", string(mustReadFile(t, dest)))
+		assert.Equal(t, "new", string(mustReadFile(t, outputPath)))
 	})
 
 	t.Run("aggregation skips existing numbered files", func(t *testing.T) {

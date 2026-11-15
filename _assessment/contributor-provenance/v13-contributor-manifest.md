@@ -16,7 +16,7 @@ This is not a claim that the work was uninformed by upstream discussion. The fol
 |---|---|---|
 | [#2128](https://github.com/gitleaks/gitleaks/pull/2128) | puneetdixit200 | Quoted `--log-opts` problem/regression research; RNC wrote an independent tokenizer and parsed-vector validation. |
 | [#1809](https://github.com/gitleaks/gitleaks/pull/1809) | JoostVoskuil | Azure DevOps SSH remote identity research; original patch targets removed files and was not transplanted. |
-| [#1162](https://github.com/gitleaks/gitleaks/pull/1162) | mn3m0nic | Repeated-finding/secret-hash proposal; unkeyed hash rejected, keyed grouping remains policy-gated. |
+| [#1162](https://github.com/gitleaks/gitleaks/pull/1162) | mn3m0nic | Repeated-finding/secret-hash proposal; unkeyed hash rejected. At V13 time keyed grouping was policy-gated; V14 later implemented it as an opt-in sidecar. |
 | [#1232](https://github.com/gitleaks/gitleaks/pull/1232) | Coruscant11 | Multiple-report-writer proposal; safe report-plan architecture documented, no legacy patch adopted. |
 
 No co-author trailer was fabricated. No contributor commit was amended, squashed or replayed.

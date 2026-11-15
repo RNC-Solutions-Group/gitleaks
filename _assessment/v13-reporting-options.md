@@ -1,7 +1,8 @@
 # V13 Reporting Architecture Options (Assessment)
 
-**Status:** design/assessment only. No multi-format, contextual-excerpt or
-repeated-finding feature is enabled in V13.
+**Status:** design/assessment record. No multi-format or contextual-excerpt
+feature is enabled. The V13-06 grouping design was implemented later, opt-in, in
+V14; see the update at V13-06.
 
 ## V13-03 — multiple report formats from one scan
 
@@ -86,5 +87,12 @@ identifier). The key would never be persisted in the report. Without a key, the
 UI may group by rule ID plus location/commit without exposing a secret-derived
 token, or show counts only.
 
-**Disposition:** `POLICY DECISION REQUIRED`. No grouping or deduplication is
-enabled in V13. Unkeyed secret hashes are explicitly rejected.
+**Disposition at V13:** `POLICY DECISION REQUIRED`. No grouping or deduplication
+was enabled in V13. Unkeyed secret hashes were explicitly rejected.
+
+**V14 update (2026-11-15):** OP-01 implemented this design as an opt-in
+`--grouped-report`/`--grouping-key-file` HMAC sidecar. Primary findings,
+fingerprints, commit attribution and ignore semantics remain unchanged;
+deduplication of the primary report and shared ignore fingerprints were not
+implemented. See `v14/implementation-and-evaluation-report.md` and
+`KEY-MANAGEMENT.md`.

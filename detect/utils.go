@@ -33,7 +33,9 @@ func samePath(a, b string) bool {
 }
 
 // sameFileOrPath compares two paths lexically and, when both exist, by file
-// identity. It is used to avoid scanning the report destination as an input.
+// identity. It is used to avoid scanning an actual report destination as an
+// input. Similar-looking filenames are ordinary scan inputs; only the exact
+// configured destination (or a filesystem alias of it) is excluded.
 func sameFileOrPath(a, b string) bool {
 	if samePath(a, b) {
 		return true
@@ -209,6 +211,7 @@ func filter(findings []report.Finding, redact uint) []report.Finding {
 		}
 	}
 	for i := range retFindings {
+		retFindings[i].SetGroupingSecret(retFindings[i].Secret)
 		retFindings[i].RedactWith(redact, secretsBySource[findingSourceKey(retFindings[i])])
 	}
 	return retFindings
