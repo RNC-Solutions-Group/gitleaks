@@ -11,21 +11,27 @@ This branch contains a dated, reproducible review snapshot of **upstream `gitlea
 - [03 — PR/issue crosswalk](03-pr-issue-crosswalk.md): links, confidence, and exclusions.
 - [data/](data/): structured public-safe JSON snapshots, filterable CSV, and collection manifest.
 - [categories/](categories/README.md): current technical work queues, ownership and decision gates.
+- [Post-V14 reconciliation (2026-11-15)](reconciliations/2026-11-15-v14-postmerge-reconciliation.md): accepted merge evidence, six package retirements and final 180/142/220 accounting.
+- [CP-V15 assessment](../_assessment/v15/README.md): full-spectrum engineering assessment, 220-package disposition matrix, architecture/conflict analysis, COA comparison and recommended roadmap.
 - [Operator policy decisions (2026-11-14)](operator-decisions/2026-11-14-v13-policy.md): six approved/evaluation-only RNC-Mod policy directions, authorization boundaries and Flash implementation gates.
 
-## Current RNC review status — reconciled 2026-11-13
+## Current RNC review status — reconciled 2026-11-15
 
 | Disposition | Issues | PRs |
 | --- | ---: | ---: |
-| Active technical-category review | **186** | **144** |
-| [Resolved, superseded and excluded](categories/exclusions.md) | **99** | **108** |
+| Active technical-category review | **180** | **142** |
+| [Resolved, superseded and excluded](categories/exclusions.md) | **105** | **110** |
 | **Original snapshot assigned** | **285** | **252** |
 
-All original upstream snapshot items have one disposition in the [category index](categories/README.md), with **0 unassigned**. Of the 388 original work-package accounting slots, **226 remain active and 162 have been dispositioned/retired**. On 2026-11-13, 56 corrected/implemented/declined packages (35 issue IDs and 55 PR IDs) were removed from the work queue and moved to [dispositions](categories/exclusions.md), cross-referenced to the [RNC-MOD engineering reference](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). These work-package slots are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
+All original upstream snapshot items have one disposition in the [category index](categories/README.md), with **0 unassigned**. Of the 388 original work-package accounting slots, **220 remain active and 168 have been dispositioned/retired**. On 2026-11-15, the post-V14 reconciliation retired six packages (#1243, #1858, #1714, #1900, #1809, #1919) and the #811/#827 issue records inside the still-active strict-config package. See the [dated V15 reconciliation](reconciliations/2026-11-15-v14-postmerge-reconciliation.md), cross-referenced to the [RNC-MOD engineering reference](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). These work-package slots are not necessarily unique root causes. Source review is not implementation, regression testing, merging, or an upstream closure.
 
 **Scan Integrity second pass (2026-11-09):** all 25 originally routed issues and 22 PRs rechecked against pinned fork source/diffs. Git error-handling issue #1464 and two competing fixes now share an existing Git/Hooks work package; URL/JSON PR #1992 is owned by Optional Features; #1651 and partial boundary patch #2324 share one package. These category/work-package consolidations leave **all 285 issues and 252 open PRs assigned**, with exclusions unchanged. No scanner source or test files were altered.
 
 **Optional Features final-pass reconciliation (2026-11-09):** #1397/PR #2216 moved to Configuration & Allowlists, #2017 (closed, unmerged PR #2018 for context) moved to Integrations & Release, and #1511 moved to the RNC exclusions ledger with a report-only reopen condition. Optional Features owned six issues, three open PRs and six packages **at the historical 2026-11-09 review**. The global **285 issue / 252 open PR / 388 package** accounting is unchanged; no code, snapshot export, upstream item or test was modified.
+
+## 2026-11-15 — Post-V14 merge reconciliation
+
+The accepted RNC product is `rnc-mod@7d74921841114be7677a423cf60620210e832bf7` (tree `8eb327dd5860a4665daf38ce2f2fbc0aa5c07963`); PR #6 and PR #7 trees equal their heads exactly and post-merge CI run `43763741641` has 13 successful checks plus one intentionally skipped `gitleaks` action. The [V15 reconciliation](reconciliations/2026-11-15-v14-postmerge-reconciliation.md) retires #1243, #1858, #1714, #1900, #1809 and #1919 as package slots, plus #811/#827 as issue records within the retained strict-configuration package. It also records the V15 assessment program in [`_assessment/v15/`](../_assessment/v15/README.md). No upstream issue/PR was closed and no `_backlog/data/` export was edited.
 
 ## 2026-11-13 — Dependency/RE2 proposal disposition
 

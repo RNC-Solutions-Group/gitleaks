@@ -2,7 +2,24 @@
 
 This ledger is the **single source of dispositions for upstream items removed from RNC active work-category tables**. A row may be corrected, implemented, superseded, declined, obsolete or out of scope. None changes upstream GitHub state or automatically authorizes release. Refer to the implementation ledger for source commits and attribution.
 
-## CP-V12 merged dispositions (2026-11-13)
+## Post-V14 merged dispositions (2026-11-15)
+
+These packages were verified against the accepted product `rnc-mod@7d74921841114be7677a423cf60620210e832bf7` (tree `8eb327dd5860a4665daf38ce2f2fbc0aa5c07963`). Upstream GitHub state is unchanged. Full rationale and the #1900 manual evidence are in the [V15 reconciliation](../reconciliations/2026-11-15-v14-postmerge-reconciliation.md).
+
+| Upstream item(s) | RNC disposition | Corrected behavior and evidence | Reopen condition |
+| --- | --- | --- | --- |
+| [Issue #1243](https://github.com/gitleaks/gitleaks/issues/1243) — @SyedMonzAli | **CORRECTED_RNC — V11 line-start/redaction** | Source `f6c111c8`; `detect/location.go:59,73` excludes the previous newline; known-exposure grouping `detect/utils.go:166-217`. V15 no-final-newline fixture produced `Finding: asana=REDACTED`, no preceding password. | Adjacent-line exposure with a synthetic multi-secret fixture. Unknown adjacent text remains a separate residual. |
+| [Issue #1858](https://github.com/gitleaks/gitleaks/issues/1858) — @bdovaz | **IMPLEMENTED_RNC — opt-in SARIF level** | V13 `74a042e`; `report/sarif.go`, `cmd/root.go`, `cmd/sarif_level_test.go`; empty preserves historical omission. | Consumer requires a default level or per-rule severity model. |
+| [Issue #1714](https://github.com/gitleaks/gitleaks/issues/1714) — @rgmz | **IMPLEMENTED_RNC — opt-in local file links** | V13 `74a042e`; `detect/utils.go:310-348`, `cmd/file_links_test.go`; console-only, `--no-color` suppresses terminal links, machine reports unchanged. | Link appears in machine output or by default. |
+| [PR #1900](https://github.com/gitleaks/gitleaks/pull/1900) — @vignesh1507 | **CORRECTED_RNC — independent profile rewrite** | `scripts/profile.sh:66,72,86`; V15 Git Bash smoke with a finding, `DECODE_DEPTH=1`, spaced path, `dir`+`git`, all CPU/mem/trace artifacts, exit 0. **No automated shell test.** | Shell regression, profile/benchmark flag drift, or a finding aborts the script. |
+| [PR #1809](https://github.com/gitleaks/gitleaks/pull/1809) — @JoostVoskuil | **CORRECTED_RNC — independent Azure SSH normalization** | V13 `74a042e`; `sources/git.go:1062-1100`, `sources/git_test.go:389`; exact `ssh.dev.azure.com:v3` mapping, no substring host matching. | Azure link regression, credential retention or host spoofing. |
+| [Issue #1919](https://github.com/gitleaks/gitleaks/issues/1919) — @maksym-dilanian | **IMPLEMENTED_RNC — upstream targetRules support present in baseline** | Upstream `4451b455`; `config/config.go:273-282`; V15 two-rule path/regex fixture suppresses only the targeted rule. Not an RNC V14 change. | targetRules ignored/over-applied under extend, path or inline config. |
+| [Issue #811](https://github.com/gitleaks/gitleaks/issues/811) — @svyotov | **CORRECTED_RNC — issue record only; package retained** | Opt-in `--strict-config` rejects unknown root/rule/allowlist/extend/required fields; `config/strict.go`, `cmd/strict_config_test.go`. Shared package remains active for #1279. | Strict mode fails to reject an unknown field; default loading changes without policy. |
+| [Issue #827](https://github.com/gitleaks/gitleaks/issues/827) — @sergiomarotco | **CORRECTED_RNC — issue record only; package retained** | Malformed TOML already fails; strict mode adds contextual validation; `config/strict.go`, malformed/misplaced tests. Shared package remains active for #1279. | Default parser accepts malformed syntax, or strict diagnostics regress. |
+
+**Accounting effect:** six package slots retired; two additional issue records retired inside a retained package. Active queue: **180 issues / 142 PRs / 220 packages**. Dispositioned: **105 / 110 / 168**. Original **285 / 252 / 388** unchanged.
+
+
 
 These nine packages were verified against the merged V12 baseline `3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc` and removed from the active category tables. Upstream GitHub state is unchanged. Evidence is RNC source/tests, not a claim that an upstream PR was merged.
 
@@ -233,6 +250,8 @@ These entries were previously active in the original November 8 snapshot, but ar
 
 **Follow-up evidence improvement:** capture the exact current binary/image digest and a reproducible scan showing the two reported issue-specific CVEs absent. That will upgrade this from owner-confirmed closure to scan-attested closure without changing its current RNC disposition.
 
-### Reconciled work-queue accounting (2026-11-13)
+### Reconciled work-queue accounting (2026-11-15)
 
-Original immutable snapshot: 285 issues, 252 PRs, 388 work-package slots. After the earlier reconciliations and the nine CP-V12 packages leave the active category tables: **186 active issues / 144 active PRs / 226 active package slots**, and **99 resolved/excluded issues / 108 resolved/excluded PRs / 162 excluded package slots**. Reopen only with scope-specific evidence, not because an original upstream issue or PR remains open. The full migration includes **56 dispositioned packages, 35 issue IDs and 55 PR IDs** in the tracked correction/supersession passes (including the 12-package dependency/RE2 pass, four post-V11 packages and nine CP-V12 packages); the broader 162 excluded slots include older out-of-scope/duplicate classifications.
+Original immutable snapshot: 285 issues, 252 PRs, 388 work-package slots. After the V13/V14 merges and the 2026-11-15 post-V14 reconciliation: **180 active issues / 142 active PRs / 220 active package slots**, and **105 resolved/excluded issues / 110 resolved/excluded PRs / 168 excluded package slots**. Checks: 180+105=285; 142+110=252; 220+168=388. Reopen only with scope-specific evidence, not because an original upstream issue or PR remains open.
+
+The earlier 2026-11-13 pass had 186/144/226 active and 99/108/162 dispositioned. The V15 delta retires six package slots (#1243, #1858, #1714, #1900, #1809, #1919) and two issue records inside the retained strict-config package (#811, #827). The original 56-package V12 migration remains a separate historical layer; the broader disposition count includes older out-of-scope/duplicate classifications. No upstream item was closed.

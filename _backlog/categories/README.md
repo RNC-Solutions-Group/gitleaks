@@ -1,34 +1,38 @@
 # RNC Gitleaks issue/PR category register
 
-Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Historical source comparisons reference [`master@5f6ec56`](https://github.com/RNC-Solutions-Group/gitleaks/tree/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c); current RNC integrated baseline is [`rnc-mod@3a4635f`](https://github.com/RNC-Solutions-Group/gitleaks/commit/3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc). Triage branch: `feat/issues-and-pr`. Source comparisons against historical master are not evidence of a defect in current RNC.
+Upstream snapshot: **2026-11-08**, **285 open issues + 252 open PRs**. Historical source comparisons reference [`master@5f6ec56`](https://github.com/RNC-Solutions-Group/gitleaks/tree/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c); current RNC integrated baseline is [`rnc-mod@7d74921`](https://github.com/RNC-Solutions-Group/gitleaks/commit/7d74921841114be7677a423cf60620210e832bf7). Triage branch: `feat/issues-and-pr`. Source comparisons against historical master are not evidence of a defect in current RNC.
 
 ## Routed coverage
 
 | Canonical category | Active issues | Active PRs | Active work packages |
 | --- | ---: | ---: | ---: |
-| [Security and hardening](security-hardening.md) | 4 | 1 | 5 |
+| [Security and hardening](security-hardening.md) | 3 | 1 | 4 |
 | [Scan integrity and file readers](scan-integrity.md) | 14 | 8 | 16 |
 | [Detection accuracy](detection-accuracy.md) | 49 | 26 | 51 |
 | [Provider rules](detection-rules.md) | 35 | 60 | 61 |
-| [Configuration and allowlists](configuration-allowlists.md) | 32 | 18 | 30 |
-| [Git and hooks](git-hooks-sources.md) | 9 | 3 | 10 |
-| [Reporting and output](reporting-output.md) | 8 | 3 | 9 |
-| [Performance and stability](performance-stability.md) | 2 | 2 | 4 |
+| [Configuration and allowlists](configuration-allowlists.md) | 29 | 18 | 29 |
+| [Git and hooks](git-hooks-sources.md) | 9 | 2 | 9 |
+| [Reporting and output](reporting-output.md) | 6 | 3 | 7 |
+| [Performance and stability](performance-stability.md) | 2 | 1 | 3 |
 | [Dependency and build pins](dependencies.md) | 6 | 2 | 8 |
 | [Integrations and releases](integrations-release.md) | 4 | 3 | 6 |
 | [Optional features](features.md) | 20 | 13 | 22 |
 | [Documentation](documentation.md) | 3 | 5 | 4 |
-| **Active technical categories** | **186** | **144** | **226** |
-| [RNC dispositions — corrected, superseded, excluded](exclusions.md) | 99 | 108 | 162 |
+| **Active technical categories** | **180** | **142** | **220** |
+| [RNC dispositions — corrected, superseded, excluded](exclusions.md) | 105 | 110 | 168 |
 | **Original snapshot assigned** | **285** | **252** | **388** |
 
-**Current RNC queue (post-CP-V12, 2026-11-13):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **186 active issues / 144 active PRs** in the technical categories and **99 removed issues / 108 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **226 active and 162 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
+**Current RNC queue (post-V14 merge, 2026-11-15):** The original 285 issues and 252 PRs each retain exactly one assigned disposition: **180 active issues / 142 active PRs** in the technical categories and **105 removed issues / 110 removed PRs** in the [resolved, superseded and excluded register](exclusions.md). The 388 original work-package slots consist of **220 active and 168 dispositioned/retired slots**. Unassigned: **0 issues / 0 PRs**. Upstream issue/PR states remain unchanged. The 388 current work-package slots are accounting groups, not 388 distinct bugs or fixes. Related reports and PRs can share a review package while retaining their own acceptance tests and contributor attribution.
 
-The inventories and `_backlog/data/` remain the original dated snapshot. The 2026-11-13 reconciliation moved 56 actioned packages (35 issue IDs, 55 PR IDs) to [dispositions](exclusions.md), with RNC source/test evidence and contributor attribution cross-referenced in [RNC-MOD.md](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
+The inventories and `_backlog/data/` remain the original dated snapshot. The 2026-11-15 post-V14 reconciliation moved six package slots plus two issue-only records (#811/#827) to [dispositions](exclusions.md), with RNC source/test evidence and contributor attribution cross-referenced in [RNC-MOD.md](https://github.com/RNC-Solutions-Group/gitleaks/blob/rnc-mod/RNC-MOD.md). Strikethrough in an inventory means *routed*, never closed on upstream GitHub. Classification and source-checking do not constitute an implemented fix.
+
+### Post-V14 merged work retired from active queue (2026-11-15)
+
+[RNC PR #7](https://github.com/RNC-Solutions-Group/gitleaks/pull/7) merged as [`7d74921`](https://github.com/RNC-Solutions-Group/gitleaks/commit/7d74921841114be7677a423cf60620210e832bf7) and completed the V13/V14 integration. Independent reconciliation retired six package slots: #1243 (V11 redaction correction), #1858 (opt-in SARIF level), #1714 (opt-in local file links), #1900 (profile rewrite plus manual smoke), #1809 (Azure SSH normalization), and #1919 (upstream targetRules implementation). It also retired the #811/#827 issue records inside the still-active strict-config package. See the [dated V15 reconciliation](../reconciliations/2026-11-15-v14-postmerge-reconciliation.md). No upstream issue or PR was closed. The table now balances exactly: active **180/142/220** plus dispositioned **105/110/168** equals the original **285/252/388**.
 
 ### CP-V12 merged work retired from active queue (2026-11-13)
 
-[RNC PR #5](https://github.com/RNC-Solutions-Group/gitleaks/pull/5) merged as [`3a4635f`](https://github.com/RNC-Solutions-Group/gitleaks/commit/3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc) corrected the V12 Git/reporting/baseline/hook packages. Nine packages (8 issues, 7 PRs) moved from Git/Hooks, Reporting, Performance, Security and Scan Integrity into [RNC dispositions](exclusions.md). Four targets remain active with their precise residuals: #1651/#2324, #1243, #2019 and #1028/#2301. See the [dated CP-V12 reconciliation report](../reconciliations/2026-11-13-v12-reconciliation.md). No upstream issue or PR was closed. This table now balances exactly: active 186/144/226 plus dispositioned 99/108/162 equals the original 285/252/388.
+[RNC PR #5](https://github.com/RNC-Solutions-Group/gitleaks/pull/5) merged as [`3a4635f`](https://github.com/RNC-Solutions-Group/gitleaks/commit/3a4635f82dcd0a216f9d2b88ebbd72341b3b60cc) corrected the V12 Git/reporting/baseline/hook packages. Nine packages (8 issues, 7 PRs) moved from Git/Hooks, Reporting, Performance, Security and Scan Integrity into [RNC dispositions](exclusions.md). Three targets remain active with their precise residuals: #1651/#2324, #2019 and #1028/#2301; the original fourth, #1243, was subsequently retired by the V15 reconciliation. See the [dated CP-V12 reconciliation report](../reconciliations/2026-11-13-v12-reconciliation.md). No upstream issue or PR was closed. At that date the table balanced at active 186/144/226 plus dispositioned 99/108/162; the current totals after V15 are above.
 
 ### CP-V11 implemented work retired from active queue (2026-11-13)
 
@@ -44,11 +48,11 @@ One issue (#1464) and two PRs (#2253/#2252) moved from Scan Integrity to the exi
 - **Issue #2017** now belongs to [Integrations and releases](integrations-release.md): the `gore2regex` virtual-address-space failure is tied to **published binary build flags**, not a generic optional feature. Its **closed unmerged PR #2018** is context only and adds no open PR.
 - **Issue #1511** now belongs to [RNC exclusions](exclusions.md): source-file rewriting is outside current Gitleaks scan/report semantics; a separate report-only masking request can reopen review.
 
-Optional Features is now **6 issues / 3 open PRs / 6 packages**. Those historical 285 issues, 252 open PRs, and 388 accounting package slots remain complete and unchanged in total. Source/PR inspection was performed, but **no new runtime or regression tests** were run; no implementation or upstream disposition was changed.
+At the 2026-11-09 review, Optional Features was **6 issues / 3 open PRs / 6 packages**; the 2026-11-12 transfer below superseded that count. Those historical 285 issues, 252 open PRs, and 388 accounting package slots remain complete and unchanged in total. Source/PR inspection was performed, but **no new runtime or regression tests** were run; no implementation or upstream disposition was changed.
 
 ### Wave 2 routing update (2026-11-12)
 
-**16 elective work packages (14 issues and 10 open PRs)** were parked in [Optional Features](features.md): Configuration (7), Scan Integrity (4), Reporting (2), Integrations (2), Git/Hooks (1). Optional Features now has **20 issues / 13 PRs / 22 work packages**. All original 285 issues, 252 PRs and 388 work-package accounting slots retain a single owner: **221 active issues + 199 active PRs** in 282 active package slots, and 106 excluded slots. Historical inventories are unchanged.
+**16 elective work packages (14 issues and 10 open PRs)** were parked in [Optional Features](features.md): Configuration (7), Scan Integrity (4), Reporting (2), Integrations (2), Git/Hooks (1). At the routing date Optional Features had **20 issues / 13 PRs / 22 work packages**; that remains its current count. The then-current global queue was 221 active issues + 199 active PRs in 282 active package slots / 106 excluded; the post-V14 totals above supersede it. Historical inventories are unchanged.
 
 Three near-term informative QOL candidate packages: [#2130 / PR #2244](features.md#informative-reporting-extensions--high-value-qol-shortlist), [#983 / PR #1654](features.md#informative-reporting-extensions--high-value-qol-shortlist), [#1054](features.md#informative-reporting-extensions--high-value-qol-shortlist). Routing does not authorize code changes. See the [Wave 2 joint reconciliation plan](../04-rnc-reconciliation-plan.md) for post-V8 harness and release priorities.
 
