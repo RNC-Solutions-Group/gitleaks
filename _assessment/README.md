@@ -27,6 +27,7 @@ Read the root [`AGENTS.md`](../AGENTS.md) and the local [`AGENTS.md`](AGENTS.md)
 | [`current-state/CP5-baseline-consolidation/findings-register.md`](current-state/CP5-baseline-consolidation/findings-register.md) | Deduplicated CP5 findings register with CP0–CP4 crosswalk | Complete |
 | [`current-state/CP5-baseline-consolidation/verification-matrix.md`](current-state/CP5-baseline-consolidation/verification-matrix.md) | Capability, evidence, and regression-gap matrix | Complete |
 | [`current-state/CP5-baseline-consolidation/technical-roadmap.md`](current-state/CP5-baseline-consolidation/technical-roadmap.md) | Prioritized future investigation/remediation roadmap | Complete — recommendations only |
+| [`v15/README.md`](v15/README.md) | CP-V15 full-spectrum assessment, reconciled backlog, complete 220-package disposition matrix, architecture/conflict analysis, COA comparison and recommended roadmap | Complete — Operator/GPT review; no implementation started |
 | [`templates/checkpoint-assignment.md`](templates/checkpoint-assignment.md) | Common structure for CP1–CP5 and future assignments | Ready |
 | [`templates/assessment-report.md`](templates/assessment-report.md) | Common investigation/report format | Ready |
 | `comparisons/` | Later external PR-to-baseline comparisons | Planned; not part of CP0 |
