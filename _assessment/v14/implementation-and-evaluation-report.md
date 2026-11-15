@@ -21,7 +21,7 @@
 
 ### V14A correction summary
 
-V14A-01 through V14A-05 are documented in `v14a-corrective-review.md`. Key/destination protection, grouped output policy, cross-report collision checks, inline strict validation, and key lifecycle guidance/tests were corrected on the existing branch. No new PR or retarget was performed.
+V14A-01 through V14A-09 are documented in `v14a-corrective-review.md`. Key/destination protection, grouped output policy, cross-report collision checks, inline strict validation, key lifecycle guidance, lookalike-source handling and the aggregate allocation/validation boundary were corrected on the existing branch. No new PR or retarget was performed.
 
 ### OP-01
 
@@ -31,6 +31,8 @@ V14A-01 through V14A-05 are documented in `v14a-corrective-review.md`. Key/desti
 - `cmd/root.go`: both flags required; sidecar path cannot be stdout, primary path, informative companion, or unsafe destination; key file must be regular, ≥32 bytes, and not group/world readable on POSIX.
 - Writes through the existing validated temporary-file/report publication path after a completed scan. Primary report and exit semantics unchanged.
 - Key file is never logged; key rotation changes group IDs (documented).
+- Only the exact configured grouped destination is excluded from scanning. Numeric lookalikes such as `grouped_001.json` remain ordinary inputs; the former filename-pattern exclusion was removed.
+- Aggregate preflight and allocation share a 1,000-candidate bound. Allocatable paths are fully checked; exhaustion fails closed rather than writing `_1001`.
 
 ### OP-05
 
@@ -66,6 +68,8 @@ v2 design uses keyed content identity with a versioned grammar, key ID, rotation
 | `go generate ./...` and clean tracked tree | PASS (generated config line endings restored) |
 | Non-root Linux `go test -race -count=1 ./...` at corrective head `ef55493` | PASS |
 | Grouped report unit/CLI tests | PASS: repetition, pre-redaction grouping, key strength/location/identity, output policy, primary/informative/aggregate/parent-symlink/hardlink collisions, no secret output |
+| Lookalike grouped filenames | PASS: `grouped_001.json`, `grouped_123.json`, `grouped_999.json`, `grouped_1000.json`, `grouped_123.txt` all produce a finding; exact configured destination remains excluded |
+| Aggregate boundary | PASS: `_1000` allocation, protected-input rejection, `_1000` cross-report collision and `_1001` exhaustion |
 | Strict config tests | PASS: valid, unknown root/rule/allowlist, malformed, extension chain, inline root+extension, deprecated alias, default non-strict compatibility |
 | Trusted CI hostile-fixture precedence | PASS |
 
@@ -75,6 +79,6 @@ No detection-rule, benchmark-harness, release, tag, image or production-module c
 
 - HMAC key lifecycle/key-management service is operator-owned; v1 fingerprints remain location-based.
 - v2 fingerprint design requires a future operator decision and dual-acceptance/migration implementation.
-- Module identity: COA2 conditionally recommended after the `/v2` experiment; COA1 remains fallback pending operator decision and `minVersion` policy.
+- Module identity: COA2 conditionally recommended after the `/v2` experiment; COA1 remains fallback pending operator decision and `minVersion` policy. Current `minVersion` handling warns rather than rejects; the proposed compatibility floor is not implemented.
 - First-parent default remains unchanged pending duplicate/fingerprint/baseline migration approval.
 - No release/tag/image/package/attestation was published.

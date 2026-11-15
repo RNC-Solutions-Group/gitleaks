@@ -2,7 +2,7 @@
 
 This document defines the **candidate** RNC-Mod distribution contract. It is not
 a published release, and no tag, image, package, SBOM or signature is created by
-this document or by the V13 development cycle.
+this document or by the V13/V14 candidate cycle.
 
 ## Release identity
 
@@ -78,22 +78,22 @@ release must either:
 - smoke-test every OS/architecture artifact, record checksums, and verify the
   version stamp.
 
-No GoReleaser run or artifact publication is claimed by V13.
+No GoReleaser run or artifact publication is claimed by V13 or V14.
 
 ## Container publication controls
 
 `.github/workflows/release.yml`:
 
 - is triggered only by a published GitHub Release;
-- validates the RNC tag convention and numeric base against `minVersion`;
+- validates the RNC tag convention and the tag's numeric base against `minVersion`;
 - verifies the release commit is an ancestor of `rnc-mod`;
 - requests only `contents: read` and `packages: write`;
 - logs in only to GHCR with `GITHUB_TOKEN`;
-- publishes multiarch `linux/amd64,linux/arm64` with version/minor/major tags;
+- publishes multiarch `linux/amd64,linux/arm64` with only the immutable full version tag; no moving major/minor/`latest` aliases;
 - does not use Docker Hub credentials or an upstream image name.
 
 No production registry credentials are used during development. No image is
-published by V13.
+published by V13 or V14.
 
 ## Proposed attestations (not yet enabled)
 
@@ -117,7 +117,7 @@ against a successful build log alone.
 
 - [ ] Operator approves the release version and tag base.
 - [ ] `rnc-mod` is the source commit and all required checks pass.
-- [ ] Version base is strictly newer than `minVersion`.
+- [ ] Release tag base is strictly newer than `minVersion`.
 - [ ] Local source, standard/RE2 tests, race tests and Docker smoke tests pass.
 - [ ] Release notes list behavior changes and residual limitations.
 - [ ] Checksums, SBOM, provenance and optional signatures exist.

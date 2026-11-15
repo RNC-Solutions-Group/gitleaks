@@ -55,7 +55,8 @@ The key path and grouped destination are validated as a set with all other repor
 - Group IDs are deterministic for the same key, domain and secret. Rotating the key changes IDs by design.
 - Do not reuse this key for fingerprint v2. Fingerprint v2 will use its own domain and key epoch; the current domain is `rnc-mod/report-grouping/v1`.
 - Grouped reports are not crash-atomic with primary/informative reports. Preflight collision checks prevent destructive alias combinations, but a failure after primary publication can leave a complete primary and missing/partial grouped sidecar. The command exits nonzero and reports the primary path.
-- Existing grouped reports are excluded from source scanning when configured as the grouped destination.
+- Only the exact configured grouped destination (or a filesystem alias of it) is excluded from source scanning. A source file merely named like `grouped_001.json` is scanned normally.
+- Aggregate publication considers at most 1,000 numbered alternatives after the requested path. Preflight collision checks use the same bound; if the requested path and all `_001` through `_1000` candidates are occupied, publication fails closed instead of writing `_1001`.
 
 ## Rotation
 

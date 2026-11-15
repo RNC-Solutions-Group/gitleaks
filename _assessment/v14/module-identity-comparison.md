@@ -7,7 +7,7 @@
 - Repository: `RNC-Solutions-Group/gitleaks`.
 - Current declared module: `github.com/zricethezav/gitleaks/v8` (`go.mod`).
 - Current product baseline: V13/V14 candidate, no stable independent release.
-- Current `minVersion = "v8.25.0"` comparisons use the scanner's stamped product version.
+- Current `minVersion = "v8.25.0"` comparisons use the scanner's stamped product version. `config.validateMinVersion` logs a warning when the scanner is older; it does not fail the load or scan solely on that comparison.
 - Builds stamp `github.com/zricethezav/gitleaks/v8/version.Version`.
 - `go install github.com/zricethezav/gitleaks/v8@...` resolves upstream, not this fork.
 - `go install github.com/RNC-Solutions-Group/gitleaks@...` is not a supported module identity today.
@@ -46,7 +46,7 @@ The experiment proves local source/build/test/install mechanics. It does **not**
 
 1. **RNC product version:** proposed first independent release `v2.0.0`.
 2. **Go module major:** `/v2`, required by semantic import versioning for a v2 product line.
-3. **Upstream configuration compatibility:** existing configs use `minVersion = "v8.25.0"`. An RNC 2.0.0 binary compared directly to 8.25.0 would be considered older and would reject otherwise compatible upstream configs.
+3. **Upstream configuration compatibility:** existing configs use `minVersion = "v8.25.0"`. An RNC 2.0.0 binary compared directly to 8.25.0 would be considered older and would emit a compatibility warning for otherwise compatible upstream configs. Current behavior does **not** reject the configuration solely because of that version comparison; invalid SemVer or an unparsable scanner version produces an error, and those are separate cases.
 
 These must not be conflated. A `/v2` module does not mean upstream configuration compatibility moved to v2.
 

@@ -15,13 +15,13 @@
 | V13-03 | Multiple report formats | **DEFERRED — OUTSIDE AUTHORIZED SCOPE** | Safe report-plan architecture documented; no partial unsafe implementation. |
 | V13-04 | Bounded finding context | **DEFERRED — OUTSIDE AUTHORIZED SCOPE** | Separate opt-in context schema/redaction design documented; no schema extension. |
 | V13-05 | SARIF result severity | **FIXED — LOCALLY VALIDATED** | Opt-in constant `--sarif-level`; default omission preserved; report/CLI tests. |
-| V13-06 | Repeated-finding grouping | **POLICY DECISION REQUIRED** | Unkeyed secret SHA rejected; keyed-HMAC grouping design only. |
+| V13-06 | Repeated-finding grouping | **IMPLEMENTED IN V14 — OPT-IN** | Unkeyed secret SHA rejected; keyed-HMAC sidecar added by V14 OP-01 and hardened by V14A. |
 | V13-07 | Console location / decoded UX | **PARTIALLY CORRECTED — RESIDUAL CONFIRMED** | Opt-in local file links implemented; decoded highlighting remains separate. |
 | V13-08 | Git `--log-opts` parsing | **FIXED — LOCALLY VALIDATED** | Shell-free tokenizer, parsed-vector validation, quote/escape/Windows/pathspec tests. |
 | V13-09 | Shallow-clone provenance | **PARTIALLY CORRECTED — RESIDUAL CONFIRMED** | Shallow warning added; fingerprints/SHAs unchanged; missing history cannot be reconstructed. |
 | V13-10 | Git source scope / bare repos | **PARTIALLY CORRECTED — RESIDUAL CONFIRMED** | Subdirectory and bare-repository warnings; no default scope change; explicit config/ignore path. |
 | V13-11 | Git remote normalization / links | **FIXED — LOCALLY VALIDATED** | Azure v3 SSH mapping, credential stripping, URL path escaping; remote/link tests. |
-| V13-12 | Configuration validation/diagnostics | **PARTIALLY CORRECTED — RESIDUAL CONFIRMED** | Empty/malformed blocks fail closed; unknown fields still ignored; safe summary. |
+| V13-12 | Configuration validation/diagnostics | **PARTIALLY CORRECTED — V14 STRICT MODE ADDED** | Empty/malformed blocks fail closed; default still ignores unknown fields; V14 adds opt-in `--strict-config`; safe summary. |
 | V13-13 | Pre-commit environment reliability | **NOT REPRODUCED — EVIDENCE INSUFFICIENT** | Local real pre-commit passes; Docker/macOS/PTY evidence unavailable or not a shared root cause. |
 | V13-14 | Profiling/benchmark tooling | **FIXED — LOCALLY VALIDATED** | Command parity, quoting, exit-code handling, metadata, artifact checks; Linux dir/git CPU/mem/trace smoke run. |
 | V13-15 | Recursive decoding / hang stability | **NOT REPRODUCED — EVIDENCE INSUFFICIENT** | 6.67 MB line-bounded decode probe at depths 0/1/3/5: peak RSS ~18.0–18.8 MB, no depth-correlated growth; hangs not reproduced. Defaults retained. |
@@ -151,7 +151,8 @@ Additional evidence:
 
 ## Residuals
 
-- Multi-format report plan, bounded context, keyed grouping: not enabled.
+- Multi-format report plan and bounded context: not enabled.
+- Keyed grouping: V13 kept it design-only; V14 implemented it as an opt-in sidecar with a separate key lifecycle.
 - Decoded-finding highlighting: not corrected.
 - Shallow history cannot become complete; bare/subdirectory scope remains explicit/default-safe.
 - Unknown configuration fields and allowlist-placement diagnostics remain partial.
