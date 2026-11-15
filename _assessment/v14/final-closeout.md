@@ -37,7 +37,7 @@ Executed on the closeout worktree at the final code state, Go `1.27.3 windows/am
 | `git diff --check` | **PASS** |
 | Focused V14A tests | **PASS**: lookalike filenames, exact destination exclusion, `_1000` allocation, protected-input boundary, `_1000` collision, exhaustion |
 | Focused strict-config tests | **PASS**, including inline root plus extension and malformed/misplaced TOML |
-| Non-root Linux `go test -race -count=1 ./...` | **PENDING FINAL RE-RUN** — the first container attempt used a Windows checkout where Git symlinks were not materialized; rerun from a clean Linux clone is required |
+| Non-root Linux `go test -race -count=1 ./...` | **PASS** — `golang:1.27.4`, UID/GID 10001, clean Linux clone at closeout head `cb7e2c0` (code commit `ca606da`); symlink fixture materialized; all packages |
 | Windows-specific hardlink/symlink/parent-alias tests | **PASS** where supported; POSIX permission test skipped on Windows with an explicit platform reason |
 
 **Not run / not claimed:**
