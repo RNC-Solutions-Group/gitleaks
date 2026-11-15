@@ -9,42 +9,49 @@
 
 | Finding | Disposition | Root cause | Corrective implementation | Regression evidence | Residual |
 |---|---|---|---|---|---|
-| V14A-01 grouped report can overwrite its key | **Confirmed / corrected** | Key path loaded but never registered in `reportOutput.protectedInputs`; grouped output constructed with unconditional `reportOverwrite`; only raw primary/grouped equality checked. | Key loaded before report setup; registered as protected input on primary and grouped outputs; grouped uses resolved `mode`; key outside scan target; full destination-set collision validation; existing grouped sidecar excluded from scan. | `TestGroupedReportRejectsKeyAsDestination`, `...KeyAsPrimaryDestination`, `...KeyInsideScanTarget`, `...SymlinkKey`, `...HardlinkKeyDestination`, `...ObeysOutputPolicy`, aggregate/informative collision tests; key bytes unchanged after rejection. | Multi-file publication is not crash-atomic. Preflight is shared, but a late grouped failure after primary publication can leave a complete primary and no grouped sidecar; exits nonzero and reports the primary path. |
+| V14A-01 grouped report can overwrite its key | **Confirmed / corrected** | Key path loaded but never registered in `reportOutput.protectedInputs`; grouped output constructed with unconditional `reportOverwrite`; only raw primary/grouped equality checked. | Key loaded before report setup; registered as protected input on primary and grouped outputs; grouped uses resolved `mode`; key outside scan target; full destination-set collision validation; existing/numbered grouped sidecars excluded from scan. | `TestGroupedReportRejectsKeyAsDestination`, `...KeyAsPrimaryDestination`, `...KeyInsideScanTarget`, `...SymlinkKey`, `...HardlinkKeyDestination`, `...ObeysOutputPolicy`, aggregate/informative/parent-symlink collision tests; key bytes unchanged after rejection. | Multi-file publication is not crash-atomic. Preflight is shared, but a late grouped failure after primary publication can leave a complete primary and no grouped sidecar; exits nonzero and reports the primary path. |
 | V14A-02 grouped output ignores policy | **Confirmed / corrected** | Grouped output always used `reportOverwrite`. | Grouped output uses the same resolved reject/overwrite/aggregate mode as the primary; protected destination set includes aggregate-numbered candidates. | Existing grouped file under reject is preserved; `--overwrite` replaces; `--aggregate` writes numbered sidecar; primary/grouped aggregate collision rejected. | Aggregate collision scan is bounded to 1,000 candidate numbers per path; beyond that, operators should use distinct names. |
-| V14A-03 cross-report collision/atomicity | **Confirmed / corrected (preflight), explicitly bounded** | Only direct primary/grouped and informative/grouped raw path equality was checked; key/config/ignore/baseline/template and numbered destinations were incomplete. | `validateReportDestinationSet` pairwise-checks primary, informative and grouped paths; `samePath` resolves parent symlinks and file identity; key/config/baseline/ignore/template/primary/companion are protected inputs; grouped destination excluded from scan. | Collision tests for primary, informative, hardlink key, aggregate numbering; all destination files absent/unchanged on rejection. | No cross-file rollback or crash-atomicity claim. Primary publication precedes grouped publication; partial failure is reported nonzero. Primary/informative V12/V13 paired rollback behavior is preserved. |
+| V14A-03 cross-report collision/atomicity | **Confirmed / corrected (preflight), explicitly bounded** | Only direct primary/grouped and informative/grouped raw path equality was checked; key/config/ignore/baseline/template and numbered destinations were incomplete. | `validateReportDestinationSet` pairwise-checks primary, informative and grouped paths; `samePath` resolves parent symlinks and file identity; key/config/baseline/ignore/template/primary/companion are protected inputs; grouped destination and numbered sidecars excluded from scan. | Collision tests for primary, informative, hardlink key, parent symlink, aggregate numbering; all destination files absent/unchanged on rejection. | No cross-file rollback or crash-atomicity claim. Primary publication precedes grouped publication; partial failure is reported nonzero. Primary/informative V12/V13 paired rollback behavior is preserved. |
 | V14A-04 inline strict extension gap | **Confirmed / corrected** | Inline TOML was validated only when `len(ConfigFiles)==0`; an inline config extending a file made `ConfigFiles` nonempty, skipping the inline root. | Inline effective source is validated whenever selected by precedence, independently of extension files; every `ConfigFiles` entry is still validated. | `TestCLIStrictConfigValidatesInlineRootWithExtension` rejects unknown inline root and accepts valid inline+extension. | If `GITLEAKS_CONFIG`/`--config` selects a file, ignored inline TOML is not validated; it is not the effective source. |
-| V14A-05 key entropy/lifecycle | **Partially corrected by design control** | Length check cannot prove entropy; file identity race not previously checked. | Secure generation guidance; symlink/regular/identity/access checks; key outside scan target; no logging; key rotation/domain separation documented. | Generated-key workflow, symlink, hardlink, permissive-mode (POSIX), short/empty key tests. | No cryptographic randomness test is claimed. Windows ACLs are operator-controlled; key is held in memory for the scan and Go cannot guarantee zeroization. Hardlinked aliases inside a scan target are an operator-guidance residual. |
+| V14A-05 key entropy/lifecycle | **Partially corrected by design control** | Length check cannot prove entropy; file identity race not previously checked. | Secure generation guidance; symlink/regular/identity/access checks; key outside scan target; no logging; key rotation/domain separation documented. | Generated-key workflow, symlink, hardlink, permissive-mode (POSIX), short/empty key tests; repeat/key-change determinism unit tests. | No cryptographic randomness test is claimed. Windows ACLs are operator-controlled; key is held in memory for the scan and Go cannot guarantee zeroization. Hardlinked aliases inside a scan target are an operator-guidance residual. |
+| V14A-06 incomplete architecture evidence | **Corrected evaluation** | Prior module report and first-parent matrix were too narrow. | Isolated `/v2` migration experiment; expanded Git matrix including conflict, octopus, repeated, pathspec, ignore, baseline and 100-commit runtime; `minVersion` policy proposal. | Module experiment standard/RE2/vet/install/linker/cross-build; measured Git table. | No production module/default change. Public proxy install, older Git, and large-scale runtime remain unverified. |
 
 ## Corrective architecture
 
 - `cmd/root.go`: loads/validates the key before report construction; protects key input; uses resolved report mode for grouped output; validates complete destination set; tracks published primary path for partial-publication diagnostics.
 - `cmd/report.go`: `protectInput` revalidates after adding protected inputs; `samePath` resolves parent-directory symlink aliases.
 - `cmd/report_destinations.go`: primary/informative/grouped set validation, including aggregate candidates.
-- `detect/detect.go`: excludes configured grouped output from source scanning; records published report path.
-- `config/strict.go` unchanged schema; CLI flow fixed for inline roots.
+- `detect/detect.go`: excludes configured grouped output and numbered sidecars from source scanning; records published report path.
+- `config/strict.go`: schema unchanged; CLI flow fixed for inline roots.
 - `KEY-MANAGEMENT.md`: generation/rotation/Windows ACL/limitations.
 
 ## Validation
 
+Final corrective head is recorded after the validation commit. Actual commands/results:
+
 | Check | Result |
 |---|---|
 | `go build ./...` | PASS |
-| `go test -count=1 ./...` | PASS (final run after corrections) |
+| `go test -count=1 ./...` | PASS |
 | `go test -count=1 -tags gore2regex ./...` | PASS |
 | `go vet ./...` | PASS |
 | `go mod verify` | PASS |
-| Non-root Linux `go test -race -count=1 ./...` | PASS at final corrective head |
-| Windows grouped/key/hardlink/symlink tests | PASS where supported; POSIX-permission test skipped on Windows with explicit platform reason |
-| V13/V14 primary finding/fingerprint parity with opt-ins disabled | Covered by unchanged primary path and existing regression suites; no default scanner change |
-| Grouped key unchanged after rejection | PASS |
-| Existing grouped sidecar excluded | PASS |
+| `go generate ./...` | PASS; only generated `config/gitleaks.toml` line endings, restored |
+| Non-root Linux `go test -race -count=1 ./...` | PASS at `75e9c0a` |
+| Windows grouped/key/hardlink/symlink/parent-alias tests | PASS where supported; POSIX-permission test skipped on Windows with explicit platform reason |
+| Grouped preflight/render/publication failure tests | PASS |
+| Key unchanged after rejection; existing/numbered sidecar excluded | PASS |
+| Default non-strict configuration behavior | PASS |
+| V13/V14 primary finding/fingerprint parity with opt-ins disabled | Existing regression suites pass; no primary detection/fingerprint change |
 
-GitHub Actions is **not triggered** for PR #7 while it targets stacked base `audit/v13-integration`; this is a documented limitation, not a pass claim. PR #6's CI remains the V13 gate.
+Late grouped publication after primary publication and concurrent destination replacement are not injected in an end-to-end CLI test. The grouped writer uses the established `reportOutput` publication path; its render/temp/rename failure behavior is unit-tested. No crash-atomicity claim is made.
+
+GitHub Actions is **not triggered** for PR #7 while it targets stacked base `audit/v13-integration`; this is a documented limitation, not a pass claim. PR #6 has 12/12 applicable checks on its V13A head.
 
 ## Architectural experiments
 
-- `/v2` module experiment: isolated, not committed; all local build/test/RE2/vet/install/linker/cross-build checks pass. Public module-proxy/`go install` is unverified. Revised recommendation: **COA2 conditional** on operator approval and a `minVersion` compatibility floor; COA1 fallback.
-- First-parent: expanded ordinary/evil/conflict/octopus/repeated/pathspec/ignore/large-history matrix; opt-in retained. Default change still requires duplicate/fingerprint/baseline migration and runtime evidence.
+- `/v2` module experiment: isolated, not committed; local build/test/RE2/vet/install/linker/cross-build checks pass. Public module-proxy/`go install` is unverified. Revised recommendation: **COA2 conditional** on operator approval and a `minVersion` compatibility floor; COA1 fallback.
+- First-parent: expanded ordinary/evil/conflict/octopus/repeated/pathspec/ignore/baseline/large-history matrix; opt-in retained. Default change still requires duplicate/fingerprint/baseline migration and runtime evidence.
 
 ## Remaining gates
 

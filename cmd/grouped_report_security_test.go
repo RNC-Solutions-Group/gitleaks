@@ -214,6 +214,24 @@ func TestGroupedReportRejectsKeyAsPrimaryDestination(t *testing.T) {
 	assert.Equal(t, string(before), string(mustReadFile(t, keyPath)))
 }
 
+func TestGroupedReportRejectsKeyAsAggregateCandidate(t *testing.T) {
+	source := groupedSource(t)
+	keyPath := filepath.Join(t.TempDir(), "grouped_001.json")
+	require.NoError(t, os.WriteFile(keyPath, []byte(groupedTestKey), 0o600))
+	groupedPath := filepath.Join(filepath.Dir(keyPath), "grouped.json")
+
+	result := runReportCLI(t,
+		"dir", source,
+		"--grouped-report", groupedPath,
+		"--grouping-key-file", keyPath,
+		"--aggregate",
+		"--exit-code", "0", "--no-banner", "--log-level", "error",
+	)
+	require.NotEqual(t, 0, result.exitCode)
+	assert.Contains(t, result.stderr, "aggregate")
+	assert.Equal(t, groupedTestKey, string(mustReadFile(t, keyPath)))
+}
+
 func TestGroupedReportRejectsParentSymlinkCollision(t *testing.T) {
 	source := groupedSource(t)
 	keyPath := writeGroupedKeyFixture(t, groupedTestKey)

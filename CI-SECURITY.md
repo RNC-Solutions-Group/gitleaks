@@ -34,7 +34,7 @@ Rules:
 2. `--no-local-config` is required when the checkout may contain `.gitleaks.toml`.
 3. `--gitleaks-ignore-path` must point to an operator-controlled file when suppressions are desired. Its contents are trust-sensitive.
 4. Baseline files are findings reports and may contain plaintext secrets. Store them in a protected backend, not in the untrusted repository or public artifacts.
-5. Never place a trusted config, ignore file, baseline, or key in the checkout and then rely on `--no-local-config` alone to protect the path.
+5. Never place a trusted config, ignore file, baseline, or key in the checkout and then rely on `--no-local-config` alone to protect the path. Grouping keys are additionally rejected inside the scan target; see [KEY-MANAGEMENT.md](KEY-MANAGEMENT.md).
 6. Use `--redact` and a private/access-controlled report destination for shared CI output.
 7. The default compatible behavior remains: explicit config, `GITLEAKS_CONFIG`, `GITLEAKS_CONFIG_TOML`, then target-local `.gitleaks.toml`, then the embedded default. `--no-local-config` skips only the target-local step.
 

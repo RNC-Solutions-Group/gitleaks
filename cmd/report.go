@@ -167,6 +167,9 @@ func (o *reportOutput) validateRequestedPath() (bool, error) {
 	if err := o.checkInputCollision(o.path); err != nil {
 		return false, err
 	}
+	if err := o.checkAggregateProtectedInputs(); err != nil {
+		return false, err
+	}
 	if o.mode == reportReject && exists {
 		return true, fmt.Errorf(
 			"report path %q already exists and both auto-overwrite and aggregation are disabled; "+
@@ -213,6 +216,25 @@ func validateReportParent(reportPath string) error {
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("report directory %q is not a directory", parent)
+	}
+	return nil
+}
+
+// checkAggregateProtectedInputs rejects a numbered aggregate destination that
+// equals a protected input such as a key, config, baseline or ignore file.
+// Aggregate publication skips existing files, but an unsafe intended identity
+// is rejected before scanning rather than silently renumbered.
+func (o *reportOutput) checkAggregateProtectedInputs() error {
+	if o.mode != reportAggregate {
+		return nil
+	}
+	for number := 1; number <= 1000; number++ {
+		candidate := numberedReportPath(o.path, number)
+		for _, input := range o.protectedInputs {
+			if input != "" && samePath(candidate, input) {
+				return fmt.Errorf("aggregate report candidate %q collides with protected input %q", candidate, input)
+			}
+		}
 	}
 	return nil
 }

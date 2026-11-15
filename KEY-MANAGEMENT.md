@@ -23,7 +23,7 @@ chmod 600 "$HOME/.config/gitleaks/grouping.key"
 Windows PowerShell (DPAPI/ACL guidance, not a POSIX-mode claim):
 
 ```powershell
-$key = New-Object byte[] 32
+$key = [byte[]]::new(32)
 $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
 $rng.GetBytes($key)
 [IO.File]::WriteAllBytes("$env:USERPROFILE\grouping.key", $key)

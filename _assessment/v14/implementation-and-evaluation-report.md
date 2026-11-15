@@ -63,10 +63,10 @@ v2 design uses keyed content identity with a versioned grammar, key ID, rotation
 | `go test -count=1 -tags gore2regex ./...` | PASS |
 | `go vet ./...` | PASS |
 | `go mod verify` | PASS |
-| `go generate ./...` and clean tracked tree | PASS |
-| Non-root Linux `go test -race -count=1 ./...` at `b41ebe9` | PASS |
-| Grouped report unit/CLI tests | PASS: repetition, pre-redaction grouping, key strength, missing flags, primary collision, no secret output |
-| Strict config tests | PASS: valid, unknown root, unknown rule, extension chain, default non-strict compatibility |
+| `go generate ./...` and clean tracked tree | PASS (generated config line endings restored) |
+| Non-root Linux `go test -race -count=1 ./...` at corrective head `75e9c0a` | PASS |
+| Grouped report unit/CLI tests | PASS: repetition, pre-redaction grouping, key strength/location/identity, output policy, primary/informative/aggregate/parent-symlink/hardlink collisions, no secret output |
+| Strict config tests | PASS: valid, unknown root/rule/allowlist, malformed, extension chain, inline root+extension, deprecated alias, default non-strict compatibility |
 | Trusted CI hostile-fixture precedence | PASS |
 
 No detection-rule, benchmark-harness, release, tag, image or production-module change was made.
@@ -75,6 +75,6 @@ No detection-rule, benchmark-harness, release, tag, image or production-module c
 
 - HMAC key lifecycle/key-management service is operator-owned; v1 fingerprints remain location-based.
 - v2 fingerprint design requires a future operator decision and dual-acceptance/migration implementation.
-- Module identity remains COA1 pending separate operator decision.
+- Module identity: COA2 conditionally recommended after the `/v2` experiment; COA1 remains fallback pending operator decision and `minVersion` policy.
 - First-parent default remains unchanged pending duplicate/fingerprint/baseline migration approval.
 - No release/tag/image/package/attestation was published.

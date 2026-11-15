@@ -24,6 +24,7 @@ Git: 2.45.2.windows.1. A non-root Linux Docker race/tests run covered the scanne
 | Repeated value on two branches | 2 | 3 | 2 | 1 | 0 | one merge duplicate of feature occurrence |
 | Pathspec `-- feature.txt` | 1 | 2 | 1 | 1 | 0 | pathspec does not remove merge duplicate |
 | Feature fingerprint ignored | 1 | 1 | 1 | 0 | 0 | ignore covers contributing commit; merge duplicate remains |
+| Default-generated baseline supplied | 1 | 1 | 1 | 0 | 0 | baseline suppresses the contributing fingerprint; merge duplicate remains |
 | 100-commit history + one merge | 1 | 2 | 1 | 1 | 0 | median 315.8 ms vs 306.6 ms (3 runs; startup-dominated) |
 
 The extra first-parent count is not accuracy: in ordinary/repeated/pathspec/large histories it is a duplicate occurrence. Genuine new coverage appears only for merge-only/conflict/octopus changes.
