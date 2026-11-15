@@ -139,6 +139,20 @@ func reportInputPaths(configPaths []string, baselinePath, gitleaksIgnorePath, re
 	return inputs
 }
 
+// protectInput registers an additional input that a report destination must
+// never replace. It re-runs validation immediately so the new protection cannot
+// be bypassed by a path that was valid before registration.
+func (o *reportOutput) protectInput(path string) error {
+	if path == "" {
+		return nil
+	}
+	o.protectedInputs = append(o.protectedInputs, path)
+	if _, err := o.validateRequestedPath(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // validateRequestedPath checks the requested destination and policy. A
 // destination that already exists is rejected only in reject mode; aggregation
 // will move to a numbered filename instead.
@@ -396,7 +410,29 @@ func samePath(a, b string) bool {
 		return true
 	}
 
+	if canonicalReportPath(a) == canonicalReportPath(b) {
+		return true
+	}
+
 	infoA, errA := os.Stat(a)
 	infoB, errB := os.Stat(b)
 	return errA == nil && errB == nil && os.SameFile(infoA, infoB)
+}
+
+// canonicalReportPath resolves aliases in the destination's parent directory
+// without following the destination itself. This catches parent-directory
+// symlink aliases for paths that do not exist yet.
+func canonicalReportPath(path string) string {
+	if path == "" {
+		return ""
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return filepath.Clean(path)
+	}
+	parent, err := filepath.EvalSymlinks(filepath.Dir(abs))
+	if err != nil {
+		return filepath.Clean(abs)
+	}
+	return filepath.Clean(filepath.Join(parent, filepath.Base(abs)))
 }

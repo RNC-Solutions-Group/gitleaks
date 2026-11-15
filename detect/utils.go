@@ -34,6 +34,41 @@ func samePath(a, b string) bool {
 
 // sameFileOrPath compares two paths lexically and, when both exist, by file
 // identity. It is used to avoid scanning the report destination as an input.
+func sameGroupedReportDestination(file, configured string) bool {
+	if sameFileOrPath(file, configured) {
+		return true
+	}
+	if !sameFileOrPath(filepath.Dir(file), filepath.Dir(configured)) {
+		return false
+	}
+	base := filepath.Base(configured)
+	ext := filepath.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	if stem == "" {
+		stem = base
+		ext = ""
+	}
+	name := filepath.Base(file)
+	if !strings.HasSuffix(name, ext) {
+		return false
+	}
+	name = strings.TrimSuffix(name, ext)
+	prefix := stem + "_"
+	if !strings.HasPrefix(name, prefix) {
+		return false
+	}
+	number := strings.TrimPrefix(name, prefix)
+	if number == "" {
+		return false
+	}
+	for _, r := range number {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func sameFileOrPath(a, b string) bool {
 	if samePath(a, b) {
 		return true

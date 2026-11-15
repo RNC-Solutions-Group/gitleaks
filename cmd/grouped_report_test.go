@@ -114,7 +114,7 @@ func TestCLIKeyedGroupedReportRejectsPrimaryCollision(t *testing.T) {
 		"--log-level", "error",
 	)
 	require.NotEqual(t, 0, result.exitCode)
-	assert.Contains(t, result.stderr, "must not use the primary report path")
+	assert.Contains(t, result.stderr, "primary report collides")
 	assert.NoFileExists(t, dest)
 }
 

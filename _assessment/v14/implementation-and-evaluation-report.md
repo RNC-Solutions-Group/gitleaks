@@ -10,14 +10,18 @@
 
 | Decision | Outcome | Evidence |
 |---|---|---|
-| OP-01 keyed HMAC grouping | **APPROVED + IMPLEMENTED (opt-in)** | `--grouped-report` + `--grouping-key-file`; separate sidecar; HMAC-SHA-256 domain-separated; no primary suppression; key strength/permissions; redaction-safe; destination checks; tests. |
+| OP-01 keyed HMAC grouping | **APPROVED + IMPLEMENTED (opt-in), V14A-hardened** | `--grouped-report` + `--grouping-key-file`; separate sidecar; HMAC-SHA-256 domain-separated; no primary suppression; key strength/permissions/location; redaction-safe; destination-set collision and output-policy checks; tests. |
 | OP-05 strict config | **APPROVED + IMPLEMENTED (opt-in)** | `--strict-config` recursive schema validation for root/extend/rules/allowlists/required; errors name fields not values; default permissive loading unchanged; extension-chain tests. |
 | OP-04 trusted CI config | **APPROVED + DOCUMENTED/TESTED** | `CI-SECURITY.md`; hostile-repository precedence test; `--no-local-config` + explicit trusted config/env; no workflow activation. |
-| OP-02 module identity | **EVALUATED — COA1 recommended** | `module-identity-comparison.md`; current upstream module path unchanged; binaries/containers are the supported RNC distribution. |
-| OP-03 first-parent default | **EVALUATED — retain current default** | `first-parent-default-evaluation.md`; synthetic default 1 finding, first-parent 3 (1 merge-only, 1 duplicate); no default change. |
+| OP-02 module identity | **EVALUATED — COA2 conditional recommendation after V14A `/v2` proof** | `module-identity-comparison.md`; isolated `/v2` build/test/install experiment passes locally; current upstream module path unchanged; public proxy/install unverified. |
+| OP-03 first-parent default | **EVALUATED — retain current opt-in** | `first-parent-default-evaluation.md`; expanded ordinary/evil/conflict/octopus/repeated/pathspec/ignore/large-history matrix; no default change. |
 | OP-06 fingerprint v2 | **DESIGN ONLY** | `fingerprint-v2-design.md`; keyed versioned grammar, dual-acceptance/v1 caveat, key rotation and migration; no code/default change. |
 
 ## Implementation details
+
+### V14A correction summary
+
+V14A-01 through V14A-05 are documented in `v14a-corrective-review.md`. Key/destination protection, grouped output policy, cross-report collision checks, inline strict validation, and key lifecycle guidance/tests were corrected on the existing branch. No new PR or retarget was performed.
 
 ### OP-01
 
@@ -40,16 +44,11 @@ Trusted CI contract: explicit config/environment, `--no-local-config`, trusted i
 
 ### OP-02
 
-COA1 retains `github.com/zricethezav/gitleaks/v8`, avoiding import/linker churn. COA2 is a breaking module migration; COA3 is consumer-side replace behavior, not a transparent dual identity. No `go.mod` change.
+The isolated `/v2` experiment mechanically migrated 207 files and passed local build, standard/RE2 tests, vet, run, install, linker-stamp and cross-build checks. Public module proxy/`go install` was not verified because nothing was published. COA2 is conditionally recommended for the first independent RNC release, contingent on operator approval and a `minVersion` configuration-compatibility floor; COA1 remains the conservative fallback. `go.mod` is unchanged.
 
 ### OP-03
 
-Synthetic evil-merge results:
-
-- default: 1 finding, feature commit only; merge-only secret absent;
-- first-parent: 3 findings (feature duplicate at merge, feature commit, merge-only secret);
-- extra count is not accuracy; 1 duplicate + 1 genuine merge-only finding;
-- default change would create fingerprints/ignore/baseline duplication and requires migration.
+V14A expanded the matrix. Ordinary merges: default 1 vs first-parent 2 (one duplicate). Evil merge: 1 vs 3 (one duplicate + one merge-only). Conflict-resolution and octopus merge-only secrets: 0 vs 1. Repeated values: 2 vs 3 (one duplicate). Pathspec: 1 vs 2. A feature-fingerprint ignore leaves the merge duplicate at 1. Extra findings are not accuracy. The default remains unchanged because fingerprints, ignores, baselines and Git-version compatibility would need migration.
 
 ### OP-06
 

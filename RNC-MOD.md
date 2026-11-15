@@ -316,9 +316,9 @@ gitleaks git -r - -f json . | jq .
 | Purpose | Write a separate keyed HMAC grouping sidecar without changing primary findings. |
 | Default | Disabled; both flags required together. |
 | Semantics | HMAC-SHA-256 over domain-separated normalized secret; sidecar contains group IDs, counts and occurrences (rule/file/line/commit/fingerprint), never secrets. |
-| Key | Regular protected file, at least 32 bytes, not group/world accessible on POSIX; never logged. Key rotation changes IDs. |
-| Exit | Missing/weak/invalid key or unsafe destination fails before scan; primary findings/exit behavior unchanged. |
-| Limitation | v1 ignore entries remain location-based; grouped IDs are not portable across keys. |
+| Key | Regular protected file, at least 32 bytes, not symlink, not group/world accessible on POSIX; opened-file identity checked; outside the scan target; never logged. Length is not entropy proof; secure generation, Windows ACLs, rotation and hardlink limitations are in `KEY-MANAGEMENT.md`. Key rotation changes IDs. |
+| Exit | Missing/weak/invalid key, key inside the scan target, or unsafe destination/collision fails before scan; primary findings/exit behavior unchanged. Grouped output obeys reject/overwrite/aggregate policy. |
+| Limitation | v1 ignore entries remain location-based; grouped IDs are not portable across keys. Multi-file publication is not crash-atomic; a grouped failure after primary publication exits nonzero and reports the primary path. |
 
 ### 1.2.16 `--strict-config`
 
@@ -591,6 +591,9 @@ Intentional exclusions are successful scan decisions with accounting. Read/open/
 | V14-OP-01 | No repeated-secret grouping. | Unkeyed secret hashes are enumerable; primary dedupe unsafe. | Opt-in keyed HMAC sidecar with protected key, no suppression, destination validation and redaction-safe pre-redaction grouping. | `report/grouped.go`, `cmd/root.go`, tests | Repetition/low-entropy/redaction/key/destination tests; standard/RE2/race | Implemented opt-in. |
 | V14-OP-05 | Unknown config fields ignored. | Permissive Viper loading. | Opt-in recursive strict schema validation; default unchanged. | `config/strict.go`, `cmd/root.go` | Root/rule/extension/malformed tests; default compatibility | Implemented opt-in. |
 | V14-OP-04 | Local config trust not operationally documented. | Compatibility default. | Trusted-CI contract and hostile-fixture precedence tests. | `CI-SECURITY.md`, `cmd/trusted_ci_test.go` | Hostile source/local config test | Documented/tested; default retained. |
+| V14A-01 | Grouped sidecar could use its key path as output. | Key was loaded but not registered as a protected report input; grouped policy ignored. | Key protected for primary/grouped outputs; sidecar obeys resolved output policy; full destination-set collision checks; key-outside-target; existing sidecar excluded from scan. | `cmd/root.go`, `cmd/report.go`, `cmd/report_destinations.go`, `detect/detect.go`, tests | Key/destination/hardlink/symlink/aggregate/informative/policy tests | Corrected; preflight-only multi-file atomicity explicitly not claimed. |
+| V14A-02 | Strict inline root skipped when extension supplied a file. | Inline validation only ran with zero loaded files. | Inline effective source validated even when `ConfigFiles` contains extensions; each file still checked. | `cmd/root.go`, `cmd/strict_config_test.go` | Inline unknown root + valid extension test | Corrected; default non-strict unchanged. |
+| V14A-03 | Module `/v2` and first-parent evidence incomplete. | Prior reports did not test RNC `/v2` or octopus/conflict/baseline/runtime cases. | Isolated `/v2` build/test/install experiment and expanded Git matrix; no production module/default change. | `_assessment/v14/module-identity-comparison.md`, `_assessment/v14/first-parent-default-evaluation.md` | `/v2` standard/RE2/vet/install/linker/cross-build; expanded Git fixtures | Evaluation only; COA2 conditional, first-parent default retained. |
 
 ## 2.2 Security hardening
 
@@ -679,7 +682,9 @@ SARIF result-level severity is deliberately opt-in. `--sarif-level` accepts `non
 
 ### 2.3.6 Grouped HMAC reporting
 
-The grouped sidecar is explicitly separate from the primary report. It uses HMAC-SHA-256 with the domain `rnc-mod/report-grouping/v1`, canonical CRLF-to-LF secret normalization, and exact case/whitespace semantics. Each group contains only a keyed ID, count and occurrence metadata (rule, path, line, commit, primary fingerprint); no secret, match or unkeyed digest is emitted. The sidecar is written through the same destination validation/temp/rename path as reports and only after a completed scan. Adding or rotating the key changes IDs; v1 ignore semantics are unaffected because primary fingerprints are unchanged.
+The grouped sidecar is explicitly separate from the primary report. It uses HMAC-SHA-256 with the domain `rnc-mod/report-grouping/v1`, canonical CRLF-to-LF secret normalization, and exact case/whitespace semantics. Each group contains only a keyed ID, count and occurrence metadata (rule, path, line, commit, primary fingerprint); no secret, match or unkeyed digest is emitted. The sidecar is written through the same destination validation/temp/rename path as reports and only after a completed scan.
+
+The key path is registered as a protected input for both primary and grouped outputs. Primary, informative and grouped destinations are validated as one set, including normalized parent paths, symlink/hardlink identity, aggregate-numbered candidates and protected config/ignore/baseline/template/key inputs. The grouped output honors the resolved reject/overwrite/aggregate policy. Existing grouped output paths are excluded from scan re-ingestion. Multi-file publication is not crash-atomic; failures after partial publication exit nonzero and identify the primary publication. Adding or rotating the key changes IDs; v1 ignore semantics are unaffected because primary fingerprints are unchanged.
 
 ### 2.3.7 Formats and compatibility
 
@@ -747,7 +752,7 @@ The Makefile distinguishes commands that do not mutate tracked source, configura
 
 The proposed RNC release identity is GHCR-only: `ghcr.io/rnc-solutions-group/gitleaks`. The release workflow validates `vMAJOR.MINOR.PATCH-rnc.N` tags, requires the numeric base to be strictly newer than the embedded `minVersion`, verifies the release commit is reachable from protected `rnc-mod`, and requests only `contents: read`/`packages: write`. It does not use Docker Hub credentials or publish an upstream image. No V13 action publishes a release.
 
-The repository keeps the upstream Go module path for compatibility; `go install` of that path obtains upstream Gitleaks, not RNC-Mod. Source builds and future RNC release artifacts are the supported RNC paths. `RELEASING.md` records the full installation matrix, container-tag aliases, artifact portability constraints and proposed checksum/SBOM/provenance/signature verification. An attestation is not claimed merely because the workflow contains a build option.
+The repository currently keeps the upstream Go module path for compatibility; `go install` of that path obtains upstream Gitleaks, not RNC-Mod. V14A's isolated `/v2` experiment passed local build/test/RE2/vet/install/linker/cross-build checks, so COA2 is conditionally recommended if the operator approves an independent module identity and a `minVersion` compatibility floor; public proxy/install remains unverified and no `go.mod` change is made. `RELEASING.md` records the full installation matrix, container-tag aliases, artifact portability constraints and proposed checksum/SBOM/provenance/signature verification. An attestation is not claimed merely because the workflow contains a build option.
 
 ### 2.6.5 Platform support
 
@@ -820,8 +825,8 @@ Source validation, local builds/tests, GitHub Actions, image smoke tests and a p
 | Recursive decoding/hang resources | Not reproduced in V13 probe | Encoded input can still amplify resources; historical futex report unproven | Bound inputs/depth; retain default depth 5 | Controlled harness finds a reproducible defect with stack/RSS evidence. |
 | Release artifact/attestation | Not published | No RNC binary/image/tag/SBOM/signature exists yet | `RELEASING.md` verification checklist; no release claim | Operator authorizes a release and a separate consumer verifies all artifacts. |
 | Fingerprint v2 | Design only | v1 location suppression remains | Dual-acceptance/keyed v2 design in `_assessment/v14/fingerprint-v2-design.md`; no rollout | Operator approves v2 grammar/key/migration. |
-| Module identity | Evaluation only | Upstream module path retained | COA report recommends COA1; no `go.mod` change | Operator selects COA2/COA3. |
-| First-parent default | Policy evaluation only | Default still omits merge-only changes | Explicit first-parent opt-in; synthetic duplicates measured | Operator approves migration for duplicates/fingerprints/baselines. |
+| Module identity | Evaluation only | Upstream module path retained | `/v2` experiment passes local build/test/install; COA2 conditionally recommended; no `go.mod` change | Operator selects COA1/COA2 and approves `minVersion` compatibility policy. |
+| First-parent default | Policy evaluation only | Default still omits merge-only changes | Expanded ordinary/evil/conflict/octopus/repeated/pathspec/ignore/large-history matrix; opt-in retained | Operator approves duplicate/fingerprint/baseline/Git-version migration. |
 | Keyed grouping key lifecycle | Operational responsibility | Group IDs change with key; secure storage is external | Protected key file, no logging; rotate with new IDs | Key-management service is integrated. |
 | Published-release attestation | Not performed | No claim of signed release/SBOM certification | Build/test evidence only | Release pipeline attestation is executed. |
 | Independent scanner harness | Not run | No independent accuracy/oracle certification | Existing tests + separate harness required | Harness baseline is published and executed. |

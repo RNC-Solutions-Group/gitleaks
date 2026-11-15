@@ -121,6 +121,9 @@ type Detector struct {
 	// after a completed scan. It never alters primary findings.
 	GroupedReportWriter func([]report.Finding) (string, error)
 	GroupedReportPath   string
+	// PublishedReportPath is the actual primary report destination after a
+	// successful write. It is used only to report partial multi-file publication.
+	PublishedReportPath string
 	Reporter            report.Reporter
 	// ReportWriter, when set, validates and writes the report for a completed
 	// scan, returning the actual output filename. The CLI sets it so
@@ -526,6 +529,14 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 				Detail: "informative report destination",
 			})
 			logging.Trace().Msg("skipping file: matches informative report path")
+			return findings
+		}
+		if d.GroupedReportPath != "" &&
+			sameGroupedReportDestination(fragment.FilePath, d.GroupedReportPath) {
+			target.Exclude(informative.ReasonExcludedInput, informative.ExclusionOptions{
+				Detail: "grouped report destination",
+			})
+			logging.Trace().Msg("skipping file: matches grouped report path")
 			return findings
 		}
 		// is the path our config or baseline file?

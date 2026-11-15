@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -374,6 +375,25 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 	if err != nil {
 		logging.Fatal().Err(err).Msg("invalid report options")
 	}
+	groupedPath := mustGetStringFlag(cmd, "grouped-report")
+	groupingKeyPath := mustGetStringFlag(cmd, "grouping-key-file")
+	var groupingKey []byte
+	if groupedPath != "" || groupingKeyPath != "" {
+		if groupedPath == "" || groupingKeyPath == "" {
+			logging.Fatal().Msg("--grouped-report and --grouping-key-file must be used together")
+		}
+		if groupedPath == report.StdoutReportPath {
+			logging.Fatal().Msg("--grouped-report requires a file path, not stdout")
+		}
+		if err := rejectGroupingKeyInSource(groupingKeyPath, source); err != nil {
+			logging.Fatal().Err(err).Msg("invalid grouping key location")
+		}
+		groupingKey, err = loadGroupingKey(groupingKeyPath)
+		if err != nil {
+			logging.Fatal().Err(err).Msg("invalid grouping key")
+		}
+	}
+
 	reportPath := mustGetStringFlag(cmd, "report-path")
 	if reportPath != "" {
 		var (
@@ -457,6 +477,11 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 			if err != nil {
 				logging.Fatal().Err(err).Msg("invalid report destination")
 			}
+			if groupingKeyPath != "" {
+				if err := output.protectInput(groupingKeyPath); err != nil {
+					logging.Fatal().Err(err).Msg("grouping key collides with the primary report destination")
+				}
+			}
 			if detector.Informative != nil && !cfg.ConsoleOnly {
 				if err := output.enableInformative(func(primaryPath string) ([]byte, error) {
 					return informative.Marshal(detector.Informative.Document(primaryPath, true))
@@ -469,78 +494,165 @@ func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Dete
 				detector.InformativeReportPath = output.companion.path
 			}
 			detector.ReportWriter = func(findings []report.Finding) (string, error) {
-				return output.write(reporter, findings)
+				path, writeErr := output.write(reporter, findings)
+				if writeErr == nil {
+					detector.PublishedReportPath = path
+				}
+				return path, writeErr
 			}
 		}
 	}
 
-	groupedPath, _ := cmd.Flags().GetString("grouped-report")
-	groupingKeyPath, _ := cmd.Flags().GetString("grouping-key-file")
-	if groupedPath != "" || groupingKeyPath != "" {
-		if groupedPath == "" || groupingKeyPath == "" {
-			logging.Fatal().Msg("--grouped-report and --grouping-key-file must be used together")
-		}
-		if groupedPath == report.StdoutReportPath {
-			logging.Fatal().Msg("--grouped-report requires a file path, not stdout")
-		}
-		if reportPath != "" && sameReportCommandPath(groupedPath, reportPath) {
-			logging.Fatal().Msg("--grouped-report must not use the primary report path")
-		}
-		if detector.InformativeReportPath != "" && sameReportCommandPath(groupedPath, detector.InformativeReportPath) {
-			logging.Fatal().Msg("--grouped-report must not use the informative companion path")
-		}
-		key, err := loadGroupingKey(groupingKeyPath)
-		if err != nil {
-			logging.Fatal().Err(err).Msg("invalid grouping key")
-		}
+	if groupingKeyPath != "" {
 		configFiles := append([]string(nil), cfg.ConfigFiles...)
 		if len(configFiles) == 0 && cfg.Path != "" {
 			configFiles = append(configFiles, cfg.Path)
 		}
-		output, err := newReportOutput(groupedPath, reportOverwrite, source, configFiles, baselinePath, gitleaksIgnorePath, mustGetStringFlag(cmd, "report-template"))
+		output, err := newReportOutput(groupedPath, mode, source, configFiles, baselinePath, gitleaksIgnorePath, mustGetStringFlag(cmd, "report-template"))
 		if err != nil {
 			logging.Fatal().Err(err).Msg("invalid grouped report destination")
 		}
+		if err := output.protectInput(groupingKeyPath); err != nil {
+			logging.Fatal().Err(err).Msg("grouping key collides with the grouped report destination")
+		}
+		if reportPath != "" && reportPath != report.StdoutReportPath {
+			if err := output.protectInput(reportPath); err != nil {
+				logging.Fatal().Err(err).Msg("primary report collides with the grouped report destination")
+			}
+		}
+		if detector.InformativeReportPath != "" {
+			if err := output.protectInput(detector.InformativeReportPath); err != nil {
+				logging.Fatal().Err(err).Msg("informative companion collides with the grouped report destination")
+			}
+		}
+		if err := validateReportDestinationSet(reportPath, detector.InformativeReportPath, groupedPath, mode); err != nil {
+			logging.Fatal().Err(err).Msg("invalid report destination set")
+		}
 		detector.GroupedReportPath = groupedPath
 		detector.GroupedReportWriter = func(findings []report.Finding) (string, error) {
-			return output.write(&report.GroupedReporter{Key: key}, findings)
+			return output.write(&report.GroupedReporter{Key: groupingKey}, findings)
 		}
 	}
 
 	return detector
 }
 
-func sameReportCommandPath(a, b string) bool {
-	absA, errA := filepath.Abs(a)
-	absB, errB := filepath.Abs(b)
-	if errA != nil || errB != nil {
-		return filepath.Clean(a) == filepath.Clean(b)
+func rejectGroupingKeyInSource(keyPath, source string) error {
+	if keyPath == "" || source == "" || source == "-" {
+		return nil
 	}
-	return filepath.Clean(absA) == filepath.Clean(absB)
+	sourceInfo, err := os.Stat(source)
+	if err != nil {
+		return nil
+	}
+	if !sourceInfo.IsDir() {
+		if samePath(keyPath, source) {
+			return fmt.Errorf("grouping key must not be the scan target")
+		}
+		return nil
+	}
+	root, err := canonicalDirectory(source)
+	if err != nil {
+		return fmt.Errorf("could not resolve scan target for grouping-key check: %w", err)
+	}
+	key, err := canonicalDirectoryPath(keyPath)
+	if err != nil {
+		return fmt.Errorf("could not resolve grouping-key path: %w", err)
+	}
+	rel, err := filepath.Rel(root, key)
+	if err != nil {
+		return fmt.Errorf("could not compare grouping-key path with scan target: %w", err)
+	}
+	if rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))) {
+		return fmt.Errorf("grouping key file %q is inside the scan target; store it outside the scanned tree", keyPath)
+	}
+	return nil
+}
+
+func canonicalDirectory(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(resolved), nil
+}
+
+func canonicalDirectoryPath(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	parent, err := filepath.EvalSymlinks(filepath.Dir(abs))
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(filepath.Join(parent, filepath.Base(abs))), nil
 }
 
 func loadGroupingKey(path string) ([]byte, error) {
-	info, err := os.Lstat(path)
+	before, err := os.Lstat(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not inspect grouping key file: %w", err)
 	}
-	if !info.Mode().IsRegular() {
+	if before.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("grouping key file must not be a symbolic link")
+	}
+	if !before.Mode().IsRegular() {
 		return nil, fmt.Errorf("grouping key file must be a regular file")
 	}
-	if info.Size() < 32 {
+	if before.Size() < 32 {
 		return nil, fmt.Errorf("grouping key must contain at least 32 bytes")
 	}
-	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
+	if before.Size() > 1<<20 {
+		return nil, fmt.Errorf("grouping key file is unreasonably large")
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not open grouping key file: %w", err)
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("could not inspect opened grouping key file: %w", err)
+	}
+	if !os.SameFile(before, opened) {
+		return nil, fmt.Errorf("grouping key file changed while it was being opened")
+	}
+	if !opened.Mode().IsRegular() {
+		return nil, fmt.Errorf("grouping key file must be a regular file")
+	}
+	if opened.Size() < 32 {
+		return nil, fmt.Errorf("grouping key must contain at least 32 bytes")
+	}
+	if runtime.GOOS != "windows" && opened.Mode().Perm()&0o077 != 0 {
 		return nil, fmt.Errorf("grouping key file must not be group/world accessible")
 	}
-	key, err := os.ReadFile(path)
+	key, err := io.ReadAll(io.LimitReader(file, (1<<20)+1))
 	if err != nil {
 		return nil, fmt.Errorf("could not read grouping key file: %w", err)
+	}
+	if len(key) > 1<<20 {
+		return nil, fmt.Errorf("grouping key file is unreasonably large")
 	}
 	if len(key) < 32 {
 		return nil, fmt.Errorf("grouping key must contain at least 32 bytes")
 	}
 	return key, nil
+}
+
+func inlineConfigurationIsEffective(cmd *cobra.Command) bool {
+	if cmd.Flags().Changed("config") {
+		return false
+	}
+	if configPath := os.Getenv("GITLEAKS_CONFIG"); configPath != "" {
+		return false
+	}
+	return true
 }
 
 func validateStrictConfiguration(cmd *cobra.Command, cfg config.Config) {
@@ -555,13 +667,14 @@ func validateStrictConfiguration(cmd *cobra.Command, cfg config.Config) {
 	if len(files) == 0 && cfg.Path != "" {
 		files = append(files, cfg.Path)
 	}
-	if len(files) == 0 {
-		if inline := os.Getenv("GITLEAKS_CONFIG_TOML"); inline != "" {
-			if err := config.ValidateStrictTOML([]byte(inline)); err != nil {
-				logging.Fatal().Err(err).Msg("strict configuration validation failed")
-			}
+
+	// An inline configuration remains an effective source even when it extends
+	// a file, which puts that extension in ConfigFiles. Validate the inline
+	// root as well as every file selected by precedence/extension resolution.
+	if inline := os.Getenv("GITLEAKS_CONFIG_TOML"); inline != "" && inlineConfigurationIsEffective(cmd) {
+		if err := config.ValidateStrictTOML([]byte(inline)); err != nil {
+			logging.Fatal().Err(err).Msg("strict inline configuration validation failed")
 		}
-		return
 	}
 	for _, path := range files {
 		if err := config.ValidateStrictFile(path); err != nil {
@@ -651,6 +764,7 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 				if reportErr := detector.Reporter.Write(os.Stdout, findings); reportErr != nil {
 					logging.Fatal().Err(reportErr).Msg("failed to write report")
 				}
+				detector.PublishedReportPath = "stdout"
 			} else {
 				if detector.ReportWriter == nil {
 					logging.Fatal().Msg("failed to write report: report writer is not configured")
@@ -667,6 +781,9 @@ func findingSummaryAndExit(detector *detect.Detector, findings []report.Finding,
 	if err == nil && detector.GroupedReportWriter != nil {
 		groupedPath, groupedErr := detector.GroupedReportWriter(findings)
 		if groupedErr != nil {
+			if detector.PublishedReportPath != "" {
+				logging.Fatal().Err(groupedErr).Msgf("failed to write grouped report after primary report %q was published; multi-file publication is not crash-atomic", detector.PublishedReportPath)
+			}
 			logging.Fatal().Err(groupedErr).Msg("failed to write grouped report")
 		}
 		logging.Info().Str("path", groupedPath).Msg("grouped report written")
