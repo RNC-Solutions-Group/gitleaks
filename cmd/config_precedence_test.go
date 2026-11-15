@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -94,4 +95,47 @@ func TestCLIConfigurationPrecedenceIsPreserved(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCLIUnusedIgnoreDiagnostic(t *testing.T) {
+	source := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(source, "alpha.txt"), []byte("ALPHA_12345678\n"), 0o600))
+	cfg := redactionConfig(t, "")
+	ignore := filepath.Join(t.TempDir(), ".gitleaksignore")
+	require.NoError(t, os.WriteFile(ignore, []byte("alpha.txt:alpha:1\nnever-examined.txt:alpha:1\n"), 0o600))
+
+	result := runReportCLI(t,
+		"dir", source,
+		"--config", cfg,
+		"--gitleaks-ignore-path", ignore,
+		"--report-unused-ignore",
+		"--exit-code", "0",
+		"--no-banner",
+		"--log-level", "warn",
+	)
+	require.Equal(t, 0, result.exitCode, result.stderr)
+	assert.Contains(t, result.stderr, "1 loaded .gitleaksignore entries did not suppress a finding")
+	assert.Contains(t, result.stderr, "never-examined.txt:alpha:1")
+	assert.NotContains(t, result.stderr, "alpha.txt:alpha:1")
+	assert.Contains(t, result.stderr, "not proof of obsolescence")
+}
+
+func TestCLIUnusedIgnoreNotReportedOnIncompleteScan(t *testing.T) {
+	source := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(source, "long.txt"), []byte(strings.Repeat("A", 1_300_000)+"\n"), 0o600))
+	cfg := redactionConfig(t, "")
+	ignore := filepath.Join(t.TempDir(), ".gitleaksignore")
+	require.NoError(t, os.WriteFile(ignore, []byte("unused.txt:alpha:1\n"), 0o600))
+
+	result := runReportCLI(t,
+		"dir", source,
+		"--config", cfg,
+		"--gitleaks-ignore-path", ignore,
+		"--report-unused-ignore",
+		"--exit-code", "0",
+		"--no-banner",
+		"--log-level", "error",
+	)
+	require.NotEqual(t, 0, result.exitCode)
+	assert.NotContains(t, result.stderr, "did not suppress a finding")
 }

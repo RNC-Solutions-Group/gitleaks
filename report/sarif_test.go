@@ -1,6 +1,7 @@
 package report
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -40,6 +41,44 @@ func TestGetLocationUsesCodepointColumns(t *testing.T) {
 	region := locations[0].PhysicalLocation.Region
 	assert.Equal(t, 5, region.StartColumn)
 	assert.Equal(t, 8, region.EndColumn)
+}
+
+func TestSarifResultLevel(t *testing.T) {
+	findings := []Finding{{RuleID: "test-rule", File: "auth.py", StartLine: 1, EndLine: 1, StartColumn: 1, EndColumn: 2}}
+	for _, test := range []struct {
+		name      string
+		level     string
+		wantLevel bool
+	}{
+		{name: "historical omission", level: "", wantLevel: false},
+		{name: "explicit warning", level: "warning", wantLevel: true},
+		{name: "explicit note", level: "note", wantLevel: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			tmpfile, err := os.Create(filepath.Join(t.TempDir(), "report.sarif"))
+			require.NoError(t, err)
+			defer tmpfile.Close()
+			reporter := SarifReporter{Level: test.level}
+			require.NoError(t, reporter.Write(tmpfile, findings))
+			raw, err := os.ReadFile(tmpfile.Name())
+			require.NoError(t, err)
+			var document struct {
+				Runs []struct {
+					Results []struct {
+						Level string `json:"level"`
+					} `json:"results"`
+				} `json:"runs"`
+			}
+			require.NoError(t, json.Unmarshal(raw, &document))
+			require.Len(t, document.Runs, 1)
+			require.Len(t, document.Runs[0].Results, 1)
+			if test.wantLevel {
+				assert.Equal(t, test.level, document.Runs[0].Results[0].Level)
+			} else {
+				assert.Empty(t, document.Runs[0].Results[0].Level)
+			}
+		})
+	}
 }
 
 func TestWriteSarif(t *testing.T) {

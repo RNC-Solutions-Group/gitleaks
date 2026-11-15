@@ -12,6 +12,9 @@ import (
 
 type SarifReporter struct {
 	OrderedRules []config.Rule
+	// Level is an optional SARIF result level. Empty preserves the historical
+	// document, which omitted the field and left severity to the consumer.
+	Level string
 }
 
 var _ Reporter = (*SarifReporter)(nil)
@@ -32,7 +35,7 @@ func (r *SarifReporter) getRuns(findings []Finding) []Runs {
 	return []Runs{
 		{
 			Tool:    r.getTool(),
-			Results: getResults(findings),
+			Results: getResults(findings, r.Level),
 		},
 	}
 }
@@ -82,7 +85,7 @@ func messageText(f Finding) string {
 
 }
 
-func getResults(findings []Finding) []Results {
+func getResults(findings []Finding, level string) []Results {
 	results := []Results{}
 	for _, f := range findings {
 		r := Results{
@@ -90,6 +93,7 @@ func getResults(findings []Finding) []Results {
 				Text: messageText(f),
 			},
 			RuleId:    f.RuleID,
+			Level:     level,
 			Locations: getLocation(f),
 			// This information goes in partial fingerprings until revision
 			// data can be added somewhere else
@@ -247,6 +251,7 @@ type Properties struct {
 
 type Results struct {
 	Message             Message     `json:"message"`
+	Level               string      `json:"level,omitempty"`
 	RuleId              string      `json:"ruleId"`
 	Locations           []Locations `json:"locations"`
 	PartialFingerPrints `json:"partialFingerprints"`

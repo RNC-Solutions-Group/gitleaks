@@ -39,7 +39,7 @@ func TestPreCommitHookManifest(t *testing.T) {
 		assert.Contains(t, body, "entry: gitleaks files --redact --verbose")
 	}
 	assert.Contains(t, hooks["gitleaks"], "entry: gitleaks git --pre-commit --redact --staged --verbose")
-	assert.Contains(t, hooks["gitleaks-docker"], "entry: zricethezav/gitleaks git --pre-commit --redact --staged --verbose")
+	assert.Contains(t, hooks["gitleaks-docker"], "entry: ghcr.io/rnc-solutions-group/gitleaks git --pre-commit --redact --staged --verbose")
 	assert.Contains(t, hooks["gitleaks-system"], "entry: gitleaks git --pre-commit --redact --staged --verbose")
 }
 

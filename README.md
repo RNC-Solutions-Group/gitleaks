@@ -9,19 +9,22 @@
 ```
 
 > [!WARNING]
-> Gitleaks is feature complete. I'm not merging new features into Gitleaks. Future releases will be security patches only. I'm shifting my focus to [Betterleaks](https://github.com/betterleaks/betterleaks)
+> **Upstream notice (applies to upstream Gitleaks, not RNC-Mod):** Gitleaks is feature complete. The upstream maintainer is not merging new features and is shifting focus to [Betterleaks](https://github.com/betterleaks/betterleaks). RNC-Mod is an independently maintained downstream fork; its maintenance, validation and release policy is documented in [RNC-MOD.md](RNC-MOD.md) and [RELEASING.md](RELEASING.md).
 
 ## RNC-Mod — engineering status (2026-11-13)
 
-This is the **RNC-Mod V12 integration candidate**, not an upstream release. The candidate is delivered through [PR #5](https://github.com/RNC-Solutions-Group/gitleaks/pull/5) targeting `rnc-mod`; the V12 implementation corrects Git/parser integrity, report publication, redaction, CSV/SARIF output, CRLF baselines, long-line handling, and pre-commit file selection. The complete operational and engineering record is [RNC-MOD.md](RNC-MOD.md).
+This is the **RNC-Mod V13 integration candidate**, not an upstream release. V13 adds effective-configuration inspection, unused-ignore diagnostics, opt-in local file links and SARIF levels, safe Git argument parsing and remote normalization, bounded explicit-file concurrency, profiling/release hardening, and additional provenance warnings. The complete operational and engineering record is [RNC-MOD.md](RNC-MOD.md); package-by-package evidence is in the [V13 remediation matrix](_assessment/v13-remediation-matrix.md).
 
 - The V12 report-publication correction preserves concurrent companion output and retains a backup when rollback cannot safely restore the prior companion. Crash atomicity across two files is not claimed.
+- V13 adds `gitleaks config`, `--report-unused-ignore`, `--file-links`, `--sarif-level`, quoted `--log-opts` parsing, shallow/bare/subdirectory Git warnings, Azure SSH normalization and bounded explicit-file concurrency.
 - Local validation passes the standard and RE2 suites, vet, module verification, generator cleanliness, real pre-commit integration, and a non-root Linux race run. GitHub Actions runs only for PRs to `rnc-mod` and pushes to `rnc-mod`; results for the final correction head are recorded on PR #5.
 - Default `docker build` remains the historic **root-based** image. `docker build --target runtime-nonroot` is the tested opt-in UID/GID 10001 target; its source/report mount permissions must be granted appropriately.
 - RE2 constrained-runtime address-space limits, merge-only default coverage, source-local configuration trust, recursive-decoding resources, and the independent scanner-harness gate remain explicit limitations in [RNC-MOD.md](RNC-MOD.md#28-remaining-engineering-limitations).
 - The existing upstream Gitleaks Action scanner workflow is **not** part of RNC's test pipeline.
 
 **Dependency attribution:** Historical version proposals that match the independently resolved RNC module graph receive profile-only recognition in [RNC-MOD.md](RNC-MOD.md). Newer pins and different implementations supersede other proposals without contributor tags. No upstream dependency PR was merged or cherry-picked. The RE2 constrained-runtime release issue and Go minimum/toolchain policy remain active.
+
+**RNC distribution:** No RNC release is published yet. Source builds, future RNC release binaries, and the future `ghcr.io/rnc-solutions-group/gitleaks` image are the supported distribution paths; `go install` of the upstream module path installs upstream Gitleaks, not RNC-Mod. See [RELEASING.md](RELEASING.md) for the version convention, installation matrix, container publication controls, and proposed attestations.
 
 **Status and provenance:** [RNC-Mod engineering reference](RNC-MOD.md) · [historical assessment archive](_assessment/) · [active backlog categories](https://github.com/RNC-Solutions-Group/gitleaks/tree/feat/issues-and-pr/_backlog/categories) · [corrected, superseded and declined upstream dispositions](https://github.com/RNC-Solutions-Group/gitleaks/blob/feat/issues-and-pr/_backlog/categories/exclusions.md). The canonical contributor register is Section 3 of `RNC-MOD.md`.
 
@@ -74,7 +77,7 @@ Fingerprint: cd5226711335c68be1e720b318b7bc3135a30eb2:cmd/generate/config/rules/
 
 ## Getting Started
 
-Gitleaks can be installed using Homebrew, mise, Docker, or Go. Gitleaks is also available in binary form for many popular platforms and OS types on the [releases page](https://github.com/gitleaks/gitleaks/releases). In addition, Gitleaks can be implemented as a pre-commit hook directly in your repo or as a GitHub action using [Gitleaks-Action](https://github.com/gitleaks/gitleaks-action).
+Gitleaks can be installed using Homebrew, mise, Docker, or Go. The package, Docker and release commands in this section install or obtain **upstream Gitleaks**; they do not install RNC-Mod. RNC-Mod currently supports source builds, with RNC release binaries and the RNC GHCR image reserved for an actual operator-approved release. See [RELEASING.md](RELEASING.md) for the installation matrix and version convention. The upstream Gitleaks Action is not part of RNC's test or release pipeline.
 
 ### Installing
 
@@ -85,17 +88,14 @@ brew install gitleaks
 # Linux, MacOS, or Windows with mise installed
 mise use -g gitleaks@latest
 
-# Docker (DockerHub)
+# Upstream Docker images (not RNC-Mod)
 docker pull zricethezav/gitleaks:latest
-docker run -v ${path_to_host_folder_to_scan}:/path zricethezav/gitleaks:latest [COMMAND] [OPTIONS] [SOURCE_PATH]
-
-# Docker (ghcr.io)
 docker pull ghcr.io/gitleaks/gitleaks:latest
-docker run -v ${path_to_host_folder_to_scan}:/path ghcr.io/gitleaks/gitleaks:latest [COMMAND] [OPTIONS] [SOURCE_PATH]
 
-# From Source (make sure `go` is installed)
-git clone https://github.com/gitleaks/gitleaks.git
+# RNC-Mod from source (make sure `go` is installed)
+git clone https://github.com/RNC-Solutions-Group/gitleaks.git
 cd gitleaks
+git switch rnc-mod
 make build
 ```
 
@@ -141,7 +141,7 @@ The non-root image cannot read a `0700` repository owned by a different host UID
          - id: gitleaks
    ```
 
-   for a [native execution of gitleaks](https://github.com/gitleaks/gitleaks/releases) or use the [`gitleaks-docker` pre-commit ID](https://github.com/gitleaks/gitleaks/blob/master/.pre-commit-hooks.yaml) for executing gitleaks using the [official Docker images](#installing). If `gitleaks` is already installed on your `PATH` and you want pre-commit to use that executable directly, select the `gitleaks-system` hook instead.
+   for a [native execution of gitleaks](https://github.com/gitleaks/gitleaks/releases) or use the `gitleaks-docker` pre-commit ID for executing the RNC-published `ghcr.io/rnc-solutions-group/gitleaks` image after an RNC release is published. If `gitleaks` is already installed on your `PATH` and you want pre-commit to use that executable directly, select the `gitleaks-system` hook instead.
 
    The `gitleaks`, `gitleaks-docker`, and `gitleaks-system` hooks scan the staged Git index with `--staged`; they are not directory scans. `pass_filenames` is disabled because pre-commit's selected filenames must not be forwarded as Git target arguments. As a consequence, `pre-commit run --all-files` still scans only the staged changes for these hooks, not every tracked file.
 

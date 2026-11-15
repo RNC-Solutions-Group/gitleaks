@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zricethezav/gitleaks/v8/config"
+	"github.com/zricethezav/gitleaks/v8/report"
 )
 
 type ignoreErrorReader struct {
@@ -113,4 +114,12 @@ func TestAddGitleaksIgnoreReadErrorDoesNotMergePartialEntries(t *testing.T) {
 func TestAddGitleaksIgnoreMissingFileIsError(t *testing.T) {
 	d := newIgnoreDetector()
 	require.Error(t, d.AddGitleaksIgnore(filepath.Join(t.TempDir(), "missing")))
+}
+
+func TestUnusedGitleaksIgnoreTracksSuppressedEntries(t *testing.T) {
+	d := NewDetector(config.Config{})
+	d.gitleaksIgnore["used.txt:test-rule:1"] = struct{}{}
+	d.gitleaksIgnore["other.txt:test-rule:2"] = struct{}{}
+	d.AddFinding(report.Finding{File: "used.txt", RuleID: "test-rule", StartLine: 1})
+	assert.Equal(t, []string{"other.txt:test-rule:2"}, d.UnusedGitleaksIgnore())
 }

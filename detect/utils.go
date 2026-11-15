@@ -4,6 +4,7 @@ import (
 	// "encoding/json"
 	"fmt"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,11 +47,6 @@ func sameFileOrPath(a, b string) bool {
 	return errA == nil && errB == nil && os.SameFile(infoA, infoB)
 }
 
-var linkCleaner = strings.NewReplacer(
-	" ", "%20",
-	"%", "%25",
-)
-
 func createScmLink(remote *sources.RemoteInfo, finding report.Finding) string {
 	if remote.Platform == scm.UnknownPlatform ||
 		remote.Platform == scm.NoPlatform ||
@@ -60,7 +56,7 @@ func createScmLink(remote *sources.RemoteInfo, finding report.Finding) string {
 
 	// Clean the path.
 	filePath, _, hasInnerPath := strings.Cut(finding.File, sources.InnerPathSeparator)
-	filePath = linkCleaner.Replace(filePath)
+	filePath = (&url.URL{Path: filePath}).EscapedPath()
 
 	switch remote.Platform {
 	case scm.GitHubPlatform:
@@ -222,7 +218,7 @@ func findingSourceKey(f report.Finding) string {
 	return f.File + "\x00" + f.Commit
 }
 
-func printFinding(f report.Finding, noColor bool) {
+func printFinding(f report.Finding, noColor bool, fileLinks bool) {
 	// trim all whitespace and tabs
 	f.Line = strings.TrimSpace(f.Line)
 	f.Secret = strings.TrimSpace(f.Secret)
@@ -308,6 +304,11 @@ func printFinding(f report.Finding, noColor bool) {
 	}
 	fmt.Fprintf(out, "%-12s %s\n", "File:", f.File)
 	fmt.Fprintf(out, "%-12s %d\n", "Line:", f.StartLine)
+	if fileLinks && f.Commit == "" && f.File != "" {
+		if link := localFileLink(f.File, f.StartLine, noColor); link != "" {
+			fmt.Fprintf(out, "%-12s %s\n", "File-Link:", link)
+		}
+	}
 	if f.Commit == "" {
 		fmt.Fprintf(out, "%-12s %s\n", "Fingerprint:", f.Fingerprint)
 		f.PrintRequiredFindings()
@@ -325,6 +326,32 @@ func printFinding(f report.Finding, noColor bool) {
 
 	f.PrintRequiredFindings()
 	fmt.Fprintln(out, "")
+}
+
+func localFileLink(path string, line int, noColor bool) string {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+	slashPath := filepath.ToSlash(absolute)
+	if len(slashPath) >= 2 && slashPath[1] == ':' {
+		slashPath = "/" + slashPath
+	}
+	uri := (&url.URL{Scheme: "file", Path: slashPath}).String()
+	if line > 0 {
+		uri += fmt.Sprintf("#L%d", line)
+	}
+	if noColor || !stdoutIsTerminal() {
+		return uri
+	}
+	// OSC 8 hyperlink; explicitly opt-in, suppressed by --no-color and by
+	// redirected/non-TTY output so shared logs remain predictable.
+	return "\x1b]8;;" + uri + "\x1b\\" + uri + "\x1b]8;;\x1b\\"
+}
+
+func stdoutIsTerminal() bool {
+	info, err := os.Stdout.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 func truncateRunes(value string, max int) string {

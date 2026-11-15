@@ -2,9 +2,13 @@ package sources
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+
+	"github.com/fatih/semgroup"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,10 +16,15 @@ import (
 
 func collectExplicitFragments(t *testing.T, source *ExplicitFiles) []Fragment {
 	t.Helper()
-	var fragments []Fragment
+	var (
+		mu        sync.Mutex
+		fragments []Fragment
+	)
 	err := source.Fragments(context.Background(), func(fragment Fragment, err error) error {
 		require.NoError(t, err)
+		mu.Lock()
 		fragments = append(fragments, fragment)
+		mu.Unlock()
 		return nil
 	})
 	require.NoError(t, err)
@@ -67,4 +76,24 @@ func TestExplicitFilesDeduplicatesPaths(t *testing.T) {
 	require.NoError(t, os.WriteFile(file, []byte("one\n"), 0o600))
 	fragments := collectExplicitFragments(t, &ExplicitFiles{Paths: []string{file, file}})
 	require.Len(t, fragments, 1)
+}
+
+func TestExplicitFilesBoundedConcurrentScan(t *testing.T) {
+	dir := t.TempDir()
+	paths := make([]string, 0, 24)
+	for i := 0; i < 24; i++ {
+		path := filepath.Join(dir, fmt.Sprintf("%02d.txt", i))
+		require.NoError(t, os.WriteFile(path, []byte(path+"\n"), 0o600))
+		paths = append(paths, path)
+	}
+	fragments := collectExplicitFragments(t, &ExplicitFiles{
+		Paths: paths,
+		Sema:  semgroup.NewGroup(context.Background(), 4),
+	})
+	require.Len(t, fragments, len(paths))
+	seen := make(map[string]struct{}, len(fragments))
+	for _, fragment := range fragments {
+		seen[fragment.FilePath] = struct{}{}
+	}
+	assert.Len(t, seen, len(paths))
 }

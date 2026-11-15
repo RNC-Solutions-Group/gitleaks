@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -66,6 +67,10 @@ type Detector struct {
 	// NoColor is a flag to disable color output
 	NoColor bool
 
+	// FileLinks enables opt-in local file URI links in console findings.
+	// Machine-readable reports are never modified.
+	FileLinks bool
+
 	// IgnoreGitleaksAllow is a flag to ignore gitleaks:allow comments.
 	IgnoreGitleaksAllow bool
 
@@ -98,9 +103,17 @@ type Detector struct {
 
 	// gitleaksIgnore
 	gitleaksIgnore map[string]struct{}
+	// gitleaksIgnoreUsed records entries that suppressed a finding during this
+	// run. It is protected by ignoreMutex.
+	gitleaksIgnoreUsed map[string]struct{}
+	ignoreMutex        *sync.Mutex
 
 	// Sema (https://github.com/fatih/semgroup) controls the concurrency
 	Sema *semgroup.Group
+
+	// ReportUnusedIgnore enables a completed-scan diagnostic listing loaded
+	// ignore entries that did not suppress a finding.
+	ReportUnusedIgnore bool
 
 	// report-related settings.
 	ReportPath string
@@ -177,14 +190,16 @@ func NewDetector(cfg config.Config) *Detector {
 // context to use for timeouts
 func NewDetectorContext(ctx context.Context, cfg config.Config) *Detector {
 	return &Detector{
-		commitMap:      make(map[string]bool),
-		gitleaksIgnore: make(map[string]struct{}),
-		findingMutex:   &sync.Mutex{},
-		commitMutex:    &sync.Mutex{},
-		findings:       make([]report.Finding, 0),
-		Config:         cfg,
-		prefilter:      *ahocorasick.NewTrieBuilder().AddStrings(maps.Keys(cfg.Keywords)).Build(),
-		Sema:           semgroup.NewGroup(ctx, 40),
+		commitMap:          make(map[string]bool),
+		gitleaksIgnore:     make(map[string]struct{}),
+		gitleaksIgnoreUsed: make(map[string]struct{}),
+		ignoreMutex:        &sync.Mutex{},
+		findingMutex:       &sync.Mutex{},
+		commitMutex:        &sync.Mutex{},
+		findings:           make([]report.Finding, 0),
+		Config:             cfg,
+		prefilter:          *ahocorasick.NewTrieBuilder().AddStrings(maps.Keys(cfg.Keywords)).Build(),
+		Sema:               semgroup.NewGroup(ctx, 40),
 	}
 }
 
@@ -413,6 +428,7 @@ func (d *Detector) knownRelativeToRoot(fragment sources.Fragment, finding report
 	if finding.Commit == "" && len(d.gitleaksIgnore) > 0 {
 		fingerprint := fmt.Sprintf("%s:%s:%d", rel, finding.RuleID, finding.StartLine)
 		if _, ok := d.gitleaksIgnore[fingerprint]; ok {
+			d.markGitleaksIgnoreUsed(fingerprint)
 			logger.Debug().
 				Str("fingerprint", fingerprint).
 				Msg("skipping finding: global fingerprint relative to the scan root")
@@ -944,6 +960,28 @@ func abs(x int) int {
 	return x
 }
 
+func (d *Detector) markGitleaksIgnoreUsed(entry string) {
+	d.ignoreMutex.Lock()
+	d.gitleaksIgnoreUsed[entry] = struct{}{}
+	d.ignoreMutex.Unlock()
+}
+
+// UnusedGitleaksIgnore returns loaded ignore entries that did not suppress a
+// finding in this completed run. "Not triggered" is not proof that an entry is
+// obsolete: the relevant file, commit or revision may never have been examined.
+func (d *Detector) UnusedGitleaksIgnore() []string {
+	d.ignoreMutex.Lock()
+	defer d.ignoreMutex.Unlock()
+	unused := make([]string, 0)
+	for entry := range d.gitleaksIgnore {
+		if _, ok := d.gitleaksIgnoreUsed[entry]; !ok {
+			unused = append(unused, entry)
+		}
+	}
+	sort.Strings(unused)
+	return unused
+}
+
 // AddFinding synchronously adds a finding to the findings slice
 func (d *Detector) AddFinding(finding report.Finding) {
 	globalFingerprint := fmt.Sprintf("%s:%s:%d", finding.File, finding.RuleID, finding.StartLine)
@@ -956,6 +994,7 @@ func (d *Detector) AddFinding(finding report.Finding) {
 	// check if we should ignore this finding
 	logger := logging.With().Str("path", finding.File).Str("rule-id", finding.RuleID).Logger()
 	if _, ok := d.gitleaksIgnore[globalFingerprint]; ok {
+		d.markGitleaksIgnoreUsed(globalFingerprint)
 		logger.Debug().
 			Str("fingerprint", globalFingerprint).
 			Msg("skipping finding: global fingerprint")
@@ -963,6 +1002,7 @@ func (d *Detector) AddFinding(finding report.Finding) {
 	} else if finding.Commit != "" {
 		// Awkward nested if because I'm not sure how to chain these two conditions.
 		if _, ok := d.gitleaksIgnore[finding.Fingerprint]; ok {
+			d.markGitleaksIgnoreUsed(finding.Fingerprint)
 			logger.Debug().
 				Str("fingerprint", finding.Fingerprint).
 				Msgf("skipping finding: fingerprint")
@@ -980,7 +1020,7 @@ func (d *Detector) AddFinding(finding report.Finding) {
 	d.findingMutex.Lock()
 	d.findings = append(d.findings, finding)
 	if d.Verbose {
-		printFinding(finding, d.NoColor)
+		printFinding(finding, d.NoColor, d.FileLinks)
 	}
 	d.findingMutex.Unlock()
 }
