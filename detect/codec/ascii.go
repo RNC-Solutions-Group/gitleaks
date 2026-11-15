@@ -1,5 +1,10 @@
 package codec
 
+import (
+	"unicode"
+	"unicode/utf8"
+)
+
 var printableASCII [256]bool
 
 func init() {
@@ -10,14 +15,33 @@ func init() {
 	}
 }
 
-// isPrintableASCII returns true if all bytes are printable ASCII
-func isPrintableASCII(b []byte) bool {
-	for _, c := range b {
-		if !printableASCII[c] {
+// isPrintable reports whether b is valid UTF-8 made up entirely of printable
+// characters. ASCII uses the historical table, preserving its allowances for
+// tab/newline/carriage return. Multibyte runes must be printable Unicode;
+// control characters, format characters and invalid UTF-8 are rejected.
+//
+// #2000: rejecting every non-ASCII byte caused valid decoded text such as
+// "café" or "日本語" to be silently skipped.
+func isPrintable(b []byte) bool {
+	for i := 0; i < len(b); {
+		c := b[i]
+		if c < utf8.RuneSelf {
+			if !printableASCII[c] {
+				return false
+			}
+			i++
+			continue
+		}
+
+		r, size := utf8.DecodeRune(b[i:])
+		if r == utf8.RuneError && size == 1 {
 			return false
 		}
+		if !unicode.IsPrint(r) {
+			return false
+		}
+		i += size
 	}
-
 	return true
 }
 

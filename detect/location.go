@@ -51,7 +51,9 @@ func location(newlineIndices [][]int, raw string, matchIndex []int) Location {
 			lineSet = true
 			location.startLine = lineNum
 			location.endLine = lineNum
-			location.startColumn = (start - prevNewLine) + 1 // +1 because counting starts at 1
+			// Byte columns are relative to the first byte of this line, not to
+			// the previous newline byte (#1424).
+			location.startColumn = (start - lineStart) + 1 // +1 because counting starts at 1
 			location.startColumnCodepoint = location.startColumn
 			if raw != "" {
 				location.startColumnCodepoint = columnOf(raw, lineStart, start) + 1
@@ -61,7 +63,7 @@ func location(newlineIndices [][]int, raw string, matchIndex []int) Location {
 		}
 		if prevNewLine < end && end <= newLineByteIndex {
 			location.endLine = lineNum
-			location.endColumn = (end - prevNewLine)
+			location.endColumn = (end - lineStart)
 			location.endColumnCodepoint = location.endColumn
 			if raw != "" {
 				location.endColumnCodepoint = columnOf(raw, lineStart, end)
@@ -70,15 +72,18 @@ func location(newlineIndices [][]int, raw string, matchIndex []int) Location {
 		}
 
 		prevNewLine = pair[0]
-		lineStart = pair[0] + 1
+		// pair[1] is one byte past the matched '\n'. Using the match end
+		// instead of pair[0]+1 keeps the line start correct if the newline
+		// pattern ever gains a multi-byte form.
+		lineStart = pair[1]
 	}
 
 	if !lineSet {
 		// if lines never get set then that means the secret is most likely
 		// on the last line of the diff output and the diff output does not have
 		// a newline
-		location.startColumn = (start - prevNewLine) + 1 // +1 because counting starts at 1
-		location.endColumn = (end - prevNewLine)
+		location.startColumn = (start - lineStart) + 1 // +1 because counting starts at 1
+		location.endColumn = (end - lineStart)
 		location.startColumnCodepoint = location.startColumn
 		location.endColumnCodepoint = location.endColumn
 		if raw != "" {

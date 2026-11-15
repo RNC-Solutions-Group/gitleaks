@@ -203,6 +203,12 @@ func (vc *ViperConfig) translate(depth int) (Config, error) {
 			if r.ID == "" {
 				return Config{}, fmt.Errorf("%s: [[rules.required]] rule ID is empty", cr.RuleID)
 			}
+			if r.WithinLines != nil && *r.WithinLines < 0 {
+				return Config{}, fmt.Errorf("%s: [[rules.required]] withinLines must be non-negative, got %d", cr.RuleID, *r.WithinLines)
+			}
+			if r.WithinColumns != nil && *r.WithinColumns < 0 {
+				return Config{}, fmt.Errorf("%s: [[rules.required]] withinColumns must be non-negative, got %d", cr.RuleID, *r.WithinColumns)
+			}
 			requiredRule := Required{
 				RuleID:        r.ID,
 				WithinLines:   r.WithinLines,
@@ -214,16 +220,6 @@ func (vc *ViperConfig) translate(depth int) (Config, error) {
 
 		orderedRules = append(orderedRules, cr.RuleID)
 		rulesMap[cr.RuleID] = cr
-	}
-
-	// after all the rules have been processed, let's ensure the required rules
-	// actually exist.
-	for _, r := range rulesMap {
-		for _, rr := range r.RequiredRules {
-			if _, ok := rulesMap[rr.RuleID]; !ok {
-				return Config{}, fmt.Errorf("%s: [[rules.required]] rule ID '%s' does not exist", r.RuleID, rr.RuleID)
-			}
-		}
 	}
 
 	// Assemble the config.
@@ -299,10 +295,21 @@ func (vc *ViperConfig) translate(depth int) (Config, error) {
 	}
 
 	// Validate the rules after everything has been assembled (including extended configs).
+	// Required-rule references are intentionally checked here, not in the
+	// per-file loop above: a local config extending a base config may refer to
+	// a required rule that only exists in the base (#2024).
 	if currentDepth == 0 {
 		for _, rule := range c.Rules {
 			if err := rule.Validate(); err != nil {
 				return Config{}, err
+			}
+			for _, required := range rule.RequiredRules {
+				if required == nil {
+					continue
+				}
+				if _, ok := c.Rules[required.RuleID]; !ok {
+					return Config{}, fmt.Errorf("%s: [[rules.required]] rule ID '%s' does not exist", rule.RuleID, required.RuleID)
+				}
 			}
 		}
 
@@ -518,6 +525,14 @@ func (c *Config) extend(extensionConfig Config) {
 			if currentRule.Path != nil {
 				baseRule.Path = currentRule.Path
 			}
+			// SkipReport is a boolean with no way to distinguish "unset" from
+			// an explicit false in the TOML schema. Merge it monotonically:
+			// an extending config may hide the primary finding, but cannot
+			// silently re-enable one the base config hid (#2024).
+			if currentRule.SkipReport {
+				baseRule.SkipReport = true
+			}
+			baseRule.RequiredRules = mergeRequiredRules(baseRule.RequiredRules, currentRule.RequiredRules)
 			baseRule.Tags = append(baseRule.Tags, currentRule.Tags...)
 			baseRule.Keywords = append(baseRule.Keywords, currentRule.Keywords...)
 			baseRule.Allowlists = append(baseRule.Allowlists, currentRule.Allowlists...)
@@ -539,6 +554,37 @@ func (c *Config) extend(extensionConfig Config) {
 	// sort to keep extended rules in order
 	sort.Strings(c.OrderedRules)
 	return
+}
+
+// mergeRequiredRules combines a base rule's requirements with requirements
+// declared by the extending config. Requirements are keyed by rule ID so a
+// local declaration can adjust proximity for an existing requirement instead
+// of creating a duplicate that would make the composite rule impossible to
+// satisfy in a predictable way. Base order is retained; new local requirements
+// are appended in declaration order.
+func mergeRequiredRules(base, local []*Required) []*Required {
+	if len(local) == 0 {
+		return base
+	}
+	merged := append([]*Required(nil), base...)
+	index := make(map[string]int, len(merged))
+	for i, required := range merged {
+		if required != nil {
+			index[required.RuleID] = i
+		}
+	}
+	for _, required := range local {
+		if required == nil {
+			continue
+		}
+		if i, ok := index[required.RuleID]; ok {
+			merged[i] = required
+			continue
+		}
+		index[required.RuleID] = len(merged)
+		merged = append(merged, required)
+	}
+	return merged
 }
 
 func appendConfigFile(paths []string, path string) []string {
