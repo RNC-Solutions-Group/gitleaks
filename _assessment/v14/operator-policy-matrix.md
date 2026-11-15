@@ -16,4 +16,4 @@
 
 ## Implementation boundary
 
-OP-01/OP-05 are implemented opt-in features, hardened by V14A. OP-04 is documentation plus tests. V14A-01 through V14A-09 are recorded in `v14a-corrective-review.md`; V14A-07 removes overbroad grouped-name exclusion, and V14A-08 binds allocation to the same 1,000-candidate validation set. OP-02/OP-03/OP-06 do **not** change product defaults, module identity or `.gitleaksignore` behavior. No release, tag, image, package or attestation is published.
+OP-01/OP-05 are implemented opt-in features, hardened by V14A. OP-04 is documentation plus tests. V14A-01 through V14A-09 are recorded in `v14a-corrective-review.md`; V14A-07 removes overbroad grouped-name exclusion. **V14B supersedes V14A-08:** the 1,000-candidate cap is removed, preflight is structural, and allocation remains unbounded in numbering. OP-02/OP-03/OP-06 do **not** change product defaults, module identity or `.gitleaksignore` behavior. No release, tag, image, package or attestation is published.

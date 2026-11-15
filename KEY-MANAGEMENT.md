@@ -56,7 +56,7 @@ The key path and grouped destination are validated as a set with all other repor
 - Do not reuse this key for fingerprint v2. Fingerprint v2 will use its own domain and key epoch; the current domain is `rnc-mod/report-grouping/v1`.
 - Grouped reports are not crash-atomic with primary/informative reports. Preflight collision checks prevent destructive alias combinations, but a failure after primary publication can leave a complete primary and missing/partial grouped sidecar. The command exits nonzero and reports the primary path.
 - Only the exact configured grouped destination (or a filesystem alias of it) is excluded from source scanning. A source file merely named like `grouped_001.json` is scanned normally.
-- Aggregate publication considers at most 1,000 numbered alternatives after the requested path. Preflight collision checks use the same bound; if the requested path and all `_001` through `_1000` candidates are occupied, publication fails closed instead of writing `_1001`.
+- Aggregate publication is not capped at 1,000 alternatives. Preflight validates naming families structurally, and the selected candidate is rechecked against protected inputs after exclusive reservation. A directory with very many occupied names costs one reservation attempt per occupied candidate; this is linear allocation work, not a compatibility ceiling.
 
 ## Rotation
 

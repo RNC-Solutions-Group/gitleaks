@@ -8,12 +8,14 @@
 **Final PR head:** recorded on PR #7 after the closeout commit; no new PR was opened.
 **Constraints observed:** no retarget, rebase, force-push, merge, tag, release, image, package, Go module change, detection-rule change or scanner-harness change.
 
+> **V14B superseding note (2026-11-15):** this document records the V14A state at `1f845e0`. V14B removed the V14A 1,000-candidate aggregate allocation ceiling and the quadratic candidate-enumeration validation described below. The V14A record is preserved as history; see `v14b-report-architecture.md` for current behavior.
+
 ## 1. Finding-by-finding disposition
 
 | Finding | Disposition | Correction | Evidence |
 |---|---|---|---|
 | **A — overbroad report-file exclusion** | **Confirmed / corrected** | Removed the filename-pattern exclusion. Only the exact configured grouped destination, or a filesystem alias of it, is excluded from scanning. A source file named `grouped_001.json`, `grouped_123.json`, `grouped_999.json`, `grouped_1000.json` or `grouped_123.txt` is ordinary input. | `detect/detect.go`, `detect/utils.go`; `TestGroupedReportScansLookalikeSourceFiles` (five positive cases), `TestGroupedReportExcludesExactConfiguredDestinationFromScan` (negative exact-match case). |
-| **B — aggregate destination boundary** | **Confirmed / corrected** | Preflight and allocation now share `maxAggregateReportCandidates=1000`. A protected input or cross-report collision at `_1000` is checked; if the base and all 1,000 numbered candidates are occupied, publication fails closed instead of writing an unvalidated `_1001`. | `cmd/report_destinations.go`, `cmd/report.go`; `TestAggregateAllocationUsesValidationBoundary`, `TestGroupedReportRejectsAggregatePrimaryCollision` at `_001` and `_1000`. |
+| **B — aggregate destination boundary** | **Superseded by V14B** | V14A temporarily shared a 1,000-candidate cap between validation and allocation. V14B removed that cap: allocation again supports `_1001` and higher, while preflight checks naming families structurally and rechecks the selected path. | Historical V14A tests are preserved; current evidence is in `v14b-report-architecture.md`. |
 | **C — `minVersion` characterization** | **Confirmed / corrected documentation** | Current `validateMinVersion` warns when the scanner is older; it does not reject the configuration solely from that comparison. The module assessment now separates this behavior from the proposed future compatibility floor. | `config/config.go:validateMinVersion`; `_assessment/v14/module-identity-comparison.md`. No production code change. |
 | V14A-01 grouped key/destination | Corrected (prior V14A) | Key is a protected input; grouped output obeys resolved policy; destination set is validated. | `cmd/root.go`, `cmd/report.go`, `cmd/report_destinations.go`; grouped security tests. |
 | V14A-02 grouped policy | Corrected (prior V14A) | Reject/overwrite/aggregate semantics apply to the sidecar. | `TestGroupedReportObeysOutputPolicy`. |
@@ -35,7 +37,7 @@ Executed on the closeout worktree at the final code state, Go `1.27.3 windows/am
 | `go mod verify` | **PASS** |
 | `go generate ./...` | **PASS**; `config/gitleaks.toml` line endings changed, restored; no other generated tracked diff |
 | `git diff --check` | **PASS** |
-| Focused V14A tests | **PASS**: lookalike filenames, exact destination exclusion, `_1000` allocation, protected-input boundary, `_1000` collision, exhaustion |
+| Focused V14A tests | **PASS** at the V14A head: lookalike filenames, exact destination exclusion, `_1000` allocation, protected-input boundary, `_1000` collision, exhaustion. The cap/exhaustion portion is superseded by V14B. |
 | Focused strict-config tests | **PASS**, including inline root plus extension and malformed/misplaced TOML |
 | Non-root Linux `go test -race -count=1 ./...` | **PASS** — `golang:1.27.4`, UID/GID 10001, clean Linux clone at closeout head `cb7e2c0` (code commit `ca606da`); symlink fixture materialized; all packages |
 | Windows-specific hardlink/symlink/parent-alias tests | **PASS** where supported; POSIX permission test skipped on Windows with an explicit platform reason |
@@ -53,12 +55,13 @@ Reconciled:
 
 - `README.md` — current V14 candidate status, CI limitation, opt-in controls.
 - `RELEASING.md` — removed the contradictory moving-tag claim; only immutable full-version container tags; release-tag base distinguished from runtime `minVersion`; no V14 publication claim.
-- `RNC-MOD.md` — V14 document status and PR #7 metadata; exact-destination scan rule; aggregate boundary; grouped/strict limitations updated from "policy decision" to implemented opt-in; validation claims separated into local, V13 CI and not-run; corrected V14A IDs and artifacts; three H1 sections and attribution register preserved.
-- `KEY-MANAGEMENT.md` — exact destination distinction and aggregate exhaustion contract.
+- `RNC-MOD.md` — V14 document status and PR #7 metadata; exact-destination scan rule; V14B aggregate-family validation; grouped/strict limitations updated from "policy decision" to implemented opt-in; validation claims separated into local, V13 CI and not-run; corrected V14A IDs and artifacts; three H1 sections and attribution register preserved.
+- `KEY-MANAGEMENT.md` — exact destination distinction and V14B uncapped allocation/selected-path check.
 - `_assessment/v14/module-identity-comparison.md` — warning-versus-reject correction.
 - `_assessment/v13-remediation-matrix.md`, `_assessment/v13-reporting-options.md` — V13 historical statuses now point to the V14 opt-in implementation where applicable.
 - `_assessment/contributor-provenance/v13-contributor-manifest.md` — V13 policy-gated wording updated without changing authorship.
-- `_assessment/v14/v14a-corrective-review.md`, `implementation-and-evaluation-report.md`, `operator-policy-matrix.md` — V14A-07/08/09 and final evidence recorded.
+- `_assessment/v14/v14a-corrective-review.md`, `implementation-and-evaluation-report.md`, `operator-policy-matrix.md` — V14A-07/08/09 and final evidence recorded, with V14B supersession noted.
+- `_assessment/v14/v14b-report-architecture.md` — V14B compatibility/collision redesign, benchmark and security evidence.
 - `_assessment/v14/backlog-reconciliation-proposal.md` — post-merge proposal described below.
 
 Attribution structure remains three H1 sections in `RNC-MOD.md`; §3 retains all original upstream contributor credit. No contributor commit was adopted or rewritten in V14.
@@ -91,7 +94,7 @@ No canonical category, exclusion ledger or historical export was modified. The p
 4. Retain the first-parent default, or approve duplicate/fingerprint/baseline migration.
 5. Keep fingerprint v2 design-only or authorize a separate implementation.
 6. Decide whether `minVersion` should gain a compatibility-floor policy; current behavior warns.
-7. Multi-file publication (primary/informative/grouped) is not crash-atomic. Aggregate allocation is intentionally bounded at 1,000 numbered candidates.
+7. Multi-file publication (primary/informative/grouped) is not crash-atomic. **V14B supersedes the former 1,000-candidate cap:** aggregate allocation is unbounded in numbering, with linear reservation attempts and structural preflight checks.
 8. No GitHub Actions result exists for PR #7 until it is retargeted; no Docker, harness, release or attestation result is claimed.
 
 ## 6. Recommendation
