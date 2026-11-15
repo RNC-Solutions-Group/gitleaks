@@ -37,7 +37,7 @@ Final corrective head is recorded after the validation commit. Actual commands/r
 | `go vet ./...` | PASS |
 | `go mod verify` | PASS |
 | `go generate ./...` | PASS; only generated `config/gitleaks.toml` line endings, restored |
-| Non-root Linux `go test -race -count=1 ./...` | PASS at `75e9c0a` |
+| Non-root Linux `go test -race -count=1 ./...` | PASS at `ef55493` |
 | Windows grouped/key/hardlink/symlink/parent-alias tests | PASS where supported; POSIX-permission test skipped on Windows with explicit platform reason |
 | Grouped preflight/render/publication failure tests | PASS |
 | Key unchanged after rejection; existing/numbered sidecar excluded | PASS |

@@ -64,7 +64,7 @@ v2 design uses keyed content identity with a versioned grammar, key ID, rotation
 | `go vet ./...` | PASS |
 | `go mod verify` | PASS |
 | `go generate ./...` and clean tracked tree | PASS (generated config line endings restored) |
-| Non-root Linux `go test -race -count=1 ./...` at corrective head `75e9c0a` | PASS |
+| Non-root Linux `go test -race -count=1 ./...` at corrective head `ef55493` | PASS |
 | Grouped report unit/CLI tests | PASS: repetition, pre-redaction grouping, key strength/location/identity, output policy, primary/informative/aggregate/parent-symlink/hardlink collisions, no secret output |
 | Strict config tests | PASS: valid, unknown root/rule/allowlist, malformed, extension chain, inline root+extension, deprecated alias, default non-strict compatibility |
 | Trusted CI hostile-fixture precedence | PASS |
