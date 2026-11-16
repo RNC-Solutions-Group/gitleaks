@@ -50,6 +50,9 @@ func sameFileOrPath(a, b string) bool {
 }
 
 func createScmLink(remote *sources.RemoteInfo, finding report.Finding) string {
+	if remote == nil {
+		return ""
+	}
 	if remote.Platform == scm.UnknownPlatform ||
 		remote.Platform == scm.NoPlatform ||
 		finding.Commit == "" {

@@ -27,6 +27,14 @@ func Test_createScmLink(t *testing.T) {
 			},
 			want: "",
 		},
+		"nil remote": {
+			remote: nil,
+			finding: report.Finding{
+				Commit: "20553ad96a4a080c94a54d677db97eed8ce2560d",
+				File:   "secret.txt",
+			},
+			want: "",
+		},
 
 		// GitHub
 		"github - single line": {
