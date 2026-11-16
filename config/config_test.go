@@ -654,6 +654,7 @@ auto-overwrite = false
 
 			var vc ViperConfig
 			require.NoError(t, viper.Unmarshal(&vc))
+			vc.ConfigPath = viper.ConfigFileUsed()
 			cfg, err := vc.Translate()
 			require.NoError(t, err)
 			assert.Equal(t, test.autoOverwrite, cfg.AutoOverwrite)
@@ -679,6 +680,7 @@ func TestTranslateTracksConfigFiles(t *testing.T) {
 		require.NoError(t, viper.ReadInConfig())
 		var vc ViperConfig
 		require.NoError(t, viper.Unmarshal(&vc))
+		vc.ConfigPath = viper.ConfigFileUsed()
 		cfg, err := vc.Translate()
 		require.NoError(t, err)
 		return cfg
@@ -701,6 +703,7 @@ func TestTranslateTracksConfigFiles(t *testing.T) {
 		require.NoError(t, viper.ReadConfig(strings.NewReader("title = \"inline\"\n")))
 		var vc ViperConfig
 		require.NoError(t, viper.Unmarshal(&vc))
+		vc.ConfigPath = viper.ConfigFileUsed()
 		cfg, err := vc.Translate()
 		require.NoError(t, err)
 		assert.Empty(t, cfg.ConfigFiles)
@@ -766,6 +769,7 @@ func testTranslate(t *testing.T, test translateCase) {
 
 	var vc ViperConfig
 	err = viper.Unmarshal(&vc)
+	vc.ConfigPath = viper.ConfigFileUsed()
 	require.NoError(t, err)
 	cfg, err := vc.Translate()
 	if err != nil {
@@ -819,6 +823,7 @@ func TestExtendPreservesRequiredRulesAndSkipReport(t *testing.T) {
 		require.NoError(t, viper.ReadInConfig())
 		var vc ViperConfig
 		require.NoError(t, viper.Unmarshal(&vc))
+		vc.ConfigPath = viper.ConfigFileUsed()
 		cfg, err := vc.Translate()
 		require.NoError(t, err)
 		return cfg
@@ -966,6 +971,7 @@ func TestExtendedRuleKeywordsAreDowncase(t *testing.T) {
 
 			var vc ViperConfig
 			err = viper.Unmarshal(&vc)
+			vc.ConfigPath = viper.ConfigFileUsed()
 			require.NoError(t, err)
 			cfg, err := vc.Translate()
 			require.NoError(t, err)
@@ -1041,6 +1047,7 @@ func TestInvalidUserRegexReturnsError(t *testing.T) {
 
 			var vc ViperConfig
 			require.NoError(t, viper.Unmarshal(&vc))
+			vc.ConfigPath = viper.ConfigFileUsed()
 			_, err := vc.Translate()
 			require.Error(t, err)
 			for _, part := range tt.wantParts {
@@ -1065,6 +1072,7 @@ func TestTranslateDoesNotRetainExtensionDepth(t *testing.T) {
 
 		var vc ViperConfig
 		require.NoError(t, viper.Unmarshal(&vc))
+		vc.ConfigPath = viper.ConfigFileUsed()
 		cfg, err := vc.Translate()
 		require.NoError(t, err)
 		return cfg
@@ -1085,6 +1093,7 @@ func TestDefaultConfigPlaceholderAllowlistIsAnchored(t *testing.T) {
 
 	var vc ViperConfig
 	require.NoError(t, viper.Unmarshal(&vc))
+	vc.ConfigPath = viper.ConfigFileUsed()
 	cfg, err := vc.Translate()
 	require.NoError(t, err)
 

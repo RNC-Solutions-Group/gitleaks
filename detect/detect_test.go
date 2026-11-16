@@ -803,6 +803,7 @@ const token = "mockSecret";
 
 			var vc config.ViperConfig
 			err = viper.Unmarshal(&vc)
+			vc.ConfigPath = viper.ConfigFileUsed()
 			require.NoError(t, err)
 			cfg, err := vc.Translate()
 			cfg.Path = filepath.Join(configPath, tt.cfgName+".toml")
@@ -1404,6 +1405,7 @@ func TestFromGit(t *testing.T) {
 
 			var vc config.ViperConfig
 			err = viper.Unmarshal(&vc)
+			vc.ConfigPath = viper.ConfigFileUsed()
 			require.NoError(t, err)
 			cfg, err := vc.Translate()
 			require.NoError(t, err)
@@ -1489,6 +1491,7 @@ func TestFromGitStaged(t *testing.T) {
 
 		var vc config.ViperConfig
 		err = viper.Unmarshal(&vc)
+		vc.ConfigPath = viper.ConfigFileUsed()
 		require.NoError(t, err)
 		cfg, err := vc.Translate()
 		require.NoError(t, err)
@@ -1596,6 +1599,7 @@ func TestFromFiles(t *testing.T) {
 
 			var vc config.ViperConfig
 			err = viper.Unmarshal(&vc)
+			vc.ConfigPath = viper.ConfigFileUsed()
 			require.NoError(t, err)
 
 			cfg, _ := vc.Translate()
@@ -2191,6 +2195,7 @@ func TestDetectWithArchives(t *testing.T) {
 
 			var vc config.ViperConfig
 			err = viper.Unmarshal(&vc)
+			vc.ConfigPath = viper.ConfigFileUsed()
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -2287,6 +2292,7 @@ func TestDetectWithSymlinks(t *testing.T) {
 
 		var vc config.ViperConfig
 		err = viper.Unmarshal(&vc)
+		vc.ConfigPath = viper.ConfigFileUsed()
 		require.NoError(t, err)
 
 		cfg, _ := vc.Translate()

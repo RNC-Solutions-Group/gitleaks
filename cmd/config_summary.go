@@ -36,7 +36,9 @@ func runConfigSummary(cmd *cobra.Command, args []string) {
 	}
 	initConfig(source)
 	cfg := Config(cmd)
-	validateStrictConfiguration(cmd, cfg)
+	if err := validateStrictConfiguration(cmd, cfg); err != nil {
+		logging.Fatal().Err(err).Send()
+	}
 
 	fmt.Fprintln(cmd.OutOrStdout(), "RNC-Mod effective configuration")
 	fmt.Fprintf(cmd.OutOrStdout(), "Target: %s\n", sanitizeConfigSummary(source, 512))
