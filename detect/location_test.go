@@ -10,55 +10,67 @@ import (
 // TestGetLocation tests the getLocation function.
 func TestGetLocation(t *testing.T) {
 	tests := []struct {
-		linePairs    [][]int
+		name         string
+		raw          string
 		start        int
 		end          int
 		wantLocation Location
 	}{
 		{
-			linePairs: [][]int{
-				{0, 39},
-				{40, 55},
-				{56, 57},
-			},
+			name:  "match on first line",
+			raw:   strings.Repeat("x", 35) + "abc" + strings.Repeat("y", 1) + "\ntail\n",
 			start: 35,
 			end:   38,
 			wantLocation: Location{
-				startLine:            1,
+				startLine:            0,
 				startColumn:          36,
-				endLine:              1,
+				endLine:              0,
 				endColumn:            38,
 				startColumnCodepoint: 36,
 				endColumnCodepoint:   38,
-				startLineIndex:       1,
-				endLineIndex:         40,
+				startLineIndex:       0,
+				endLineIndex:         39,
 			},
 		},
 		{
-			linePairs: [][]int{
-				{0, 39},
-				{40, 55},
-				{56, 57},
-			},
-			start: 40,
-			end:   44,
+			name:  "match on later line",
+			raw:   "first line\n....abc\n",
+			start: 15,
+			end:   18,
 			wantLocation: Location{
-				startLine:            2,
-				startColumn:          1,
-				endLine:              2,
-				endColumn:            4,
-				startColumnCodepoint: 1,
-				endColumnCodepoint:   4,
-				startLineIndex:       41,
-				endLineIndex:         56,
+				startLine:            1,
+				startColumn:          5,
+				endLine:              1,
+				endColumn:            7,
+				startColumnCodepoint: 5,
+				endColumnCodepoint:   7,
+				startLineIndex:       11,
+				endLineIndex:         18,
 			},
 		},
 	}
 
 	for _, test := range tests {
-		loc := location(test.linePairs, "", []int{test.start, test.end})
-		assert.Equal(t, test.wantLocation, loc)
+		t.Run(test.name, func(t *testing.T) {
+			loc := location(newLineRegexp.FindAllStringIndex(test.raw, -1), test.raw, []int{test.start, test.end})
+			assert.Equal(t, test.wantLocation, loc)
+		})
 	}
+}
+
+func TestGetLocationColumnsAreRelativeToLineStart(t *testing.T) {
+	raw := "first line\n..f..\nlast line\n"
+	start := strings.Index(raw, "\n..f..") + 3
+	loc := location(newLineRegexp.FindAllStringIndex(raw, -1), raw, []int{start, start + 1})
+
+	// #1424: a later-line match three bytes into its line is column 3, not 4.
+	assert.Equal(t, 1, loc.startLine)
+	assert.Equal(t, 3, loc.startColumn)
+	assert.Equal(t, 3, loc.endColumn)
+
+	first := location(newLineRegexp.FindAllStringIndex(raw, -1), raw, []int{0, 1})
+	assert.Equal(t, 0, first.startLine)
+	assert.Equal(t, 1, first.startColumn)
 }
 
 // TestGetLocationCountsCodepoints checks that columns are counted in Unicode

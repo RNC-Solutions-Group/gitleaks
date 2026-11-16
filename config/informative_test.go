@@ -21,6 +21,7 @@ func translateTOML(t *testing.T, content string) Config {
 
 	var vc ViperConfig
 	require.NoError(t, viper.Unmarshal(&vc))
+	vc.ConfigPath = viper.ConfigFileUsed()
 	cfg, err := vc.Translate()
 	require.NoError(t, err)
 	return cfg

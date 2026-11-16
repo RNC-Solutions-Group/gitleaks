@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -253,298 +252,114 @@ func Execute() {
 }
 
 func Config(cmd *cobra.Command) config.Config {
-	var vc config.ViperConfig
-	if err := viper.Unmarshal(&vc); err != nil {
-		logging.Fatal().Err(err).Msg("Failed to load config")
-	}
-
-	cfg, err := vc.Translate()
+	cfg, err := loadConfig(cmd)
 	if err != nil {
 		logging.Fatal().Err(err).Msg("Failed to load config")
 	}
-	cfg.Path, _ = cmd.Flags().GetString("config")
-
 	return cfg
 }
 
-func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Detector {
-	validateStrictConfiguration(cmd, cfg)
-	var err error
+func loadConfig(cmd *cobra.Command) (config.Config, error) {
+	var vc config.ViperConfig
+	if err := viper.Unmarshal(&vc); err != nil {
+		return config.Config{}, err
+	}
+	vc.ConfigPath = viper.ConfigFileUsed()
 
-	// Setup common detector
+	cfg, err := vc.Translate()
+	if err != nil {
+		return config.Config{}, err
+	}
+	flagPath, err := cmd.Flags().GetString("config")
+	if err != nil {
+		return config.Config{}, err
+	}
+	cfg.Path = flagPath
+	return cfg, nil
+}
+
+func Detector(cmd *cobra.Command, cfg config.Config, source string) *detect.Detector {
+	detector, err := newDetector(cmd, cfg, source)
+	if err != nil {
+		logging.Fatal().Err(err).Send()
+	}
+	return detector
+}
+
+// newDetector constructs the detector and report plan without terminating the
+// process. Detector keeps the CLI boundary fatal; tests and future callers can
+// exercise the complete control plane through this function and receive the
+// error instead.
+func newDetector(cmd *cobra.Command, cfg config.Config, source string) (*detect.Detector, error) {
+	if err := validateStrictConfiguration(cmd, cfg); err != nil {
+		return nil, err
+	}
+
+	opts, err := loadDetectorOptions(cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	detector := detect.NewDetectorContext(cmd.Context(), cfg)
 	if cfg.InformativeReport {
 		detector.Informative = informative.New("directory")
 	}
+	opts.apply(detector)
 
-	if detector.MaxDecodeDepth, err = cmd.Flags().GetInt("max-decode-depth"); err != nil {
-		logging.Fatal().Err(err).Send()
-	}
-
-	if detector.MaxArchiveDepth, err = cmd.Flags().GetInt("max-archive-depth"); err != nil {
-		logging.Fatal().Err(err).Send()
-	}
-
-	// set color flag at first
-	if detector.NoColor, err = cmd.Flags().GetBool("no-color"); err != nil {
-		logging.Fatal().Err(err).Send()
-	}
-	// also init logger again without color
-	if detector.NoColor {
-		logging.Logger = log.Output(zerolog.ConsoleWriter{
-			Out:     os.Stderr,
-			NoColor: detector.NoColor,
-		}).Level(logLevel)
-	}
-	if detector.FileLinks, err = cmd.Flags().GetBool("file-links"); err != nil {
-		logging.Fatal().Err(err).Send()
-	}
 	detector.Config.Path, err = cmd.Flags().GetString("config")
 	if err != nil {
-		logging.Fatal().Err(err).Send()
+		return nil, err
 	}
-
-	// if config path is not set, then use the {source}/.gitleaks.toml path.
-	// note that there may not be a `{source}/.gitleaks.toml` file, this is ok.
+	// If config path is not set, use the {source}/.gitleaks.toml path. The file
+	// may not exist; this only records the source-local path for reporting.
 	if detector.Config.Path == "" {
 		detector.Config.Path = filepath.Join(source, ".gitleaks.toml")
-	}
-	// set verbose flag
-	if detector.Verbose, err = cmd.Flags().GetBool("verbose"); err != nil {
-		logging.Fatal().Err(err).Send()
-	}
-	// set redact flag
-	if detector.Redact, err = cmd.Flags().GetUint("redact"); err != nil {
-		logging.Fatal().Err(err).Send()
-	}
-	if detector.MaxTargetMegaBytes, err = cmd.Flags().GetInt("max-target-megabytes"); err != nil {
-		logging.Fatal().Err(err).Send()
-	}
-	if detector.ReportUnusedIgnore, err = cmd.Flags().GetBool("report-unused-ignore"); err != nil {
-		logging.Fatal().Err(err).Send()
-	}
-	// set ignore gitleaks:allow flag
-	if detector.IgnoreGitleaksAllow, err = cmd.Flags().GetBool("ignore-gitleaks-allow"); err != nil {
-		logging.Fatal().Err(err).Send()
 	}
 
 	gitleaksIgnorePath, err := cmd.Flags().GetString("gitleaks-ignore-path")
 	if err != nil {
-		logging.Fatal().Err(err).Msg("could not get .gitleaksignore path")
+		return nil, fmt.Errorf("could not get .gitleaksignore path: %w", err)
+	}
+	if err := loadGitleaksIgnorePath(detector, gitleaksIgnorePath, cmd.Flags().Changed("gitleaks-ignore-path")); err != nil {
+		return nil, fmt.Errorf("could not call AddGitleaksIgnore: %w", err)
+	}
+	if err := loadGitleaksIgnoreFile(detector, filepath.Join(source, ".gitleaksignore")); err != nil {
+		return nil, fmt.Errorf("could not call AddGitleaksIgnore: %w", err)
 	}
 
-	// The flag path may be a file or a directory containing .gitleaksignore.
-	// An explicitly requested path must exist; an auto-discovered source file
-	// is optional. Both paths reject directories and special files before
-	// opening them.
-	if err = loadGitleaksIgnorePath(detector, gitleaksIgnorePath, cmd.Flags().Changed("gitleaks-ignore-path")); err != nil {
-		logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
+	baselinePath, err := cmd.Flags().GetString("baseline-path")
+	if err != nil {
+		return nil, err
 	}
-	if err = loadGitleaksIgnoreFile(detector, filepath.Join(source, ".gitleaksignore")); err != nil {
-		logging.Fatal().Err(err).Msg("could not call AddGitleaksIgnore")
-	}
-
-	// ignore findings from the baseline (an existing report in json format generated earlier)
-	baselinePath, _ := cmd.Flags().GetString("baseline-path")
 	if baselinePath != "" {
-		err = detector.AddBaseline(baselinePath, source)
-		if err != nil {
+		if err := detector.AddBaseline(baselinePath, source); err != nil {
 			logging.Error().Msgf("Could not load baseline. The path must point of a gitleaks report generated using the default format: %s", err)
 		}
 	}
 
-	// If set, only apply rules that are defined in the flag
-	rules, _ := cmd.Flags().GetStringSlice("enable-rule")
+	rules, err := cmd.Flags().GetStringSlice("enable-rule")
+	if err != nil {
+		return nil, err
+	}
 	if len(rules) > 0 {
 		logging.Info().Msg("Overriding enabled rules: " + strings.Join(rules, ", "))
 		ruleOverride := make(map[string]config.Rule)
 		for _, ruleName := range rules {
-			if r, ok := cfg.Rules[ruleName]; ok {
-				ruleOverride[ruleName] = r
-			} else {
-				logging.Fatal().Msgf("Requested rule %s not found in rules", ruleName)
+			rule, ok := cfg.Rules[ruleName]
+			if !ok {
+				return nil, fmt.Errorf("requested rule %s not found in rules", ruleName)
 			}
+			ruleOverride[ruleName] = rule
 		}
 		detector.Config.Rules = ruleOverride
 	}
 
-	// Validate report settings. Build and validate the reporter before
-	// inspecting the destination: an invalid format or template must not
-	// create, truncate, or remove an existing report.
-	mode, err := resolveReportMode(cfg, cmd)
+	plan, err := buildReportPlan(cmd, cfg, source, baselinePath, gitleaksIgnorePath, detector.Informative)
 	if err != nil {
-		logging.Fatal().Err(err).Msg("invalid report options")
+		return nil, err
 	}
-	groupedPath := mustGetStringFlag(cmd, "grouped-report")
-	groupingKeyPath := mustGetStringFlag(cmd, "grouping-key-file")
-	var groupingKey []byte
-	if groupedPath != "" || groupingKeyPath != "" {
-		if groupedPath == "" || groupingKeyPath == "" {
-			logging.Fatal().Msg("--grouped-report and --grouping-key-file must be used together")
-		}
-		if groupedPath == report.StdoutReportPath {
-			logging.Fatal().Msg("--grouped-report requires a file path, not stdout")
-		}
-		if err := rejectGroupingKeyInSource(groupingKeyPath, source); err != nil {
-			logging.Fatal().Err(err).Msg("invalid grouping key location")
-		}
-		groupingKey, err = loadGroupingKey(groupingKeyPath)
-		if err != nil {
-			logging.Fatal().Err(err).Msg("invalid grouping key")
-		}
-	}
-
-	reportPath := mustGetStringFlag(cmd, "report-path")
-	var primaryReportOutput *reportOutput
-	if reportPath != "" {
-		var (
-			reporter       report.Reporter
-			reportFormat   = strings.TrimSpace(strings.ToLower(mustGetStringFlag(cmd, "report-format")))
-			reportTemplate = mustGetStringFlag(cmd, "report-template")
-		)
-		if reportFormat == "" {
-			ext := strings.ToLower(filepath.Ext(reportPath))
-			switch ext {
-			case ".csv":
-				reportFormat = "csv"
-			case ".json":
-				reportFormat = "json"
-			case ".sarif":
-				reportFormat = "sarif"
-			default:
-				logging.Fatal().Msgf("Unknown report format: %s", reportFormat)
-			}
-			logging.Debug().Msgf("No report format specified, inferred %q from %q", reportFormat, ext)
-		}
-		switch reportFormat {
-		case "csv":
-			reporter = &report.CsvReporter{}
-		case "json":
-			reporter = &report.JsonReporter{}
-		case "junit":
-			reporter = &report.JunitReporter{}
-		case "sarif":
-			sarifLevel, err := cmd.Flags().GetString("sarif-level")
-			if err != nil {
-				logging.Fatal().Err(err).Msg("could not read SARIF level")
-			}
-			switch sarifLevel {
-			case "", "none", "note", "warning", "error":
-			default:
-				logging.Fatal().Msgf("invalid --sarif-level %q (expected none, note, warning, error)", sarifLevel)
-			}
-			reporter = &report.SarifReporter{
-				OrderedRules: cfg.GetOrderedRules(),
-				Level:        sarifLevel,
-			}
-		case "template":
-			if reporter, err = report.NewTemplateReporter(reportTemplate); err != nil {
-				logging.Fatal().Err(err).Msg("Invalid report template")
-			}
-		default:
-			logging.Fatal().Msgf("unknown report format %s", reportFormat)
-		}
-
-		// Sanity check.
-		if reportTemplate != "" && reportFormat != "template" {
-			logging.Fatal().Msgf("Report format must be 'template' if --report-template is specified")
-		}
-		if reportFormat != "sarif" {
-			if sarifLevel, _ := cmd.Flags().GetString("sarif-level"); sarifLevel != "" {
-				logging.Fatal().Msg("--sarif-level requires --report-format=sarif")
-			}
-		}
-
-		detector.ReportPath = reportPath
-		detector.Reporter = reporter
-		if reportPath != report.StdoutReportPath {
-			// Protect every configuration file loaded from disk, including
-			// auto-discovered, GITLEAKS_CONFIG, and extended configurations.
-			// cfg.Path alone is not sufficient because it is reset from the
-			// --config flag elsewhere in the command layer.
-			configFiles := append([]string(nil), cfg.ConfigFiles...)
-			if len(configFiles) == 0 && cfg.Path != "" {
-				configFiles = append(configFiles, cfg.Path)
-			}
-			output, err := newReportOutput(
-				reportPath,
-				mode,
-				source,
-				configFiles,
-				baselinePath,
-				gitleaksIgnorePath,
-				reportTemplate,
-			)
-			if err != nil {
-				logging.Fatal().Err(err).Msg("invalid report destination")
-			}
-			primaryReportOutput = output
-			if groupingKeyPath != "" {
-				if err := output.protectInput(groupingKeyPath); err != nil {
-					logging.Fatal().Err(err).Msg("grouping key collides with the primary report destination")
-				}
-			}
-			if detector.Informative != nil && !cfg.ConsoleOnly {
-				if err := output.enableInformative(func(primaryPath string) ([]byte, error) {
-					return informative.Marshal(detector.Informative.Document(primaryPath, true))
-				}); err != nil {
-					logging.Fatal().Err(err).Msg("invalid informative report destination")
-				}
-				// Prevent a pre-existing companion from being scanned as source
-				// content. The actual aggregate filename is allocated later; it
-				// cannot exist before publication unless it is an older report.
-				detector.InformativeReportPath = output.companion.path
-			}
-			detector.ReportWriter = func(findings []report.Finding) (string, error) {
-				path, writeErr := output.write(reporter, findings)
-				if writeErr == nil {
-					detector.PublishedReportPath = path
-				}
-				return path, writeErr
-			}
-		}
-	}
-
-	if groupingKeyPath != "" {
-		configFiles := append([]string(nil), cfg.ConfigFiles...)
-		if len(configFiles) == 0 && cfg.Path != "" {
-			configFiles = append(configFiles, cfg.Path)
-		}
-		output, err := newReportOutput(groupedPath, mode, source, configFiles, baselinePath, gitleaksIgnorePath, mustGetStringFlag(cmd, "report-template"))
-		if err != nil {
-			logging.Fatal().Err(err).Msg("invalid grouped report destination")
-		}
-		if err := output.protectInput(groupingKeyPath); err != nil {
-			logging.Fatal().Err(err).Msg("grouping key collides with the grouped report destination")
-		}
-		if reportPath != "" && reportPath != report.StdoutReportPath {
-			if err := output.protectInput(reportPath); err != nil {
-				logging.Fatal().Err(err).Msg("primary report collides with the grouped report destination")
-			}
-		}
-		if detector.InformativeReportPath != "" {
-			if err := output.protectInput(detector.InformativeReportPath); err != nil {
-				logging.Fatal().Err(err).Msg("informative companion collides with the grouped report destination")
-			}
-		}
-		if err := validateReportDestinationSet(reportPath, detector.InformativeReportPath, groupedPath, mode); err != nil {
-			logging.Fatal().Err(err).Msg("invalid report destination set")
-		}
-		if primaryReportOutput != nil {
-			// Make the grouped destination a protected peer of the primary
-			// output. The selected primary/companion path is checked against it
-			// after reservation and immediately before publication.
-			if err := primaryReportOutput.protectInput(groupedPath); err != nil {
-				logging.Fatal().Err(err).Msg("grouped report collides with the primary report destination")
-			}
-		}
-		detector.GroupedReportPath = groupedPath
-		detector.GroupedReportWriter = func(findings []report.Finding) (string, error) {
-			return output.write(&report.GroupedReporter{Key: groupingKey}, findings)
-		}
-	}
-
-	return detector
+	plan.apply(detector)
+	return detector, nil
 }
 
 func rejectGroupingKeyInSource(keyPath, source string) error {
@@ -665,13 +480,13 @@ func inlineConfigurationIsEffective(cmd *cobra.Command) bool {
 	return true
 }
 
-func validateStrictConfiguration(cmd *cobra.Command, cfg config.Config) {
+func validateStrictConfiguration(cmd *cobra.Command, cfg config.Config) error {
 	strict, err := cmd.Flags().GetBool("strict-config")
 	if err != nil {
-		logging.Fatal().Err(err).Msg("could not read --strict-config")
+		return fmt.Errorf("could not read --strict-config: %w", err)
 	}
 	if !strict {
-		return
+		return nil
 	}
 	files := append([]string(nil), cfg.ConfigFiles...)
 	if len(files) == 0 && cfg.Path != "" {
@@ -683,14 +498,15 @@ func validateStrictConfiguration(cmd *cobra.Command, cfg config.Config) {
 	// root as well as every file selected by precedence/extension resolution.
 	if inline := os.Getenv("GITLEAKS_CONFIG_TOML"); inline != "" && inlineConfigurationIsEffective(cmd) {
 		if err := config.ValidateStrictTOML([]byte(inline)); err != nil {
-			logging.Fatal().Err(err).Msg("strict inline configuration validation failed")
+			return fmt.Errorf("strict inline configuration validation failed: %w", err)
 		}
 	}
 	for _, path := range files {
 		if err := config.ValidateStrictFile(path); err != nil {
-			logging.Fatal().Err(err).Msg("strict configuration validation failed")
+			return fmt.Errorf("strict configuration validation failed: %w", err)
 		}
 	}
+	return nil
 }
 
 func setInformativeSourceType(detector *detect.Detector, sourceType string) {

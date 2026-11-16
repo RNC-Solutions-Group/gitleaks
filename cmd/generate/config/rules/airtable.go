@@ -27,10 +27,15 @@ func AirtablePersonalAccessToken() *config.Rule {
 		Description: "Uncovered a possible Airtable Personal AccessToken, potentially compromising database access and leading to data leakage or alteration.",
 		RuleID:      "airtable-personnal-access-token",
 		Regex:       regexp.MustCompile(`\b(pat[[:alnum:]]{14}\.[a-f0-9]{64})\b`),
-		Keywords:    []string{"airtable"},
+		// The token prefix itself is the only literal guaranteed to appear in a
+		// match. Requiring the unrelated product name "airtable" made the
+		// keyword prefilter suppress bare PATs before the regex ran (#2257).
+		Keywords: []string{"pat"},
 	}
 
 	// validate
-	tps := utils.GenerateSampleSecrets("airtable", "pat"+secrets.NewSecret(utils.AlphaNumeric("14")+"\\."+utils.Hex("64")))
+	token := "pat" + secrets.NewSecret(utils.AlphaNumeric("14")+"\\."+utils.Hex("64"))
+	tps := utils.GenerateSampleSecrets("airtable", token)
+	tps = append(tps, token)
 	return utils.Validate(r, tps, nil)
 }

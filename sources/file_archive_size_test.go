@@ -145,6 +145,42 @@ func TestFileFragmentsActualArchivesStillWork(t *testing.T) {
 	})
 }
 
+func TestFileFragmentsArchiveWithUnknownExtension(t *testing.T) {
+	tests := []struct {
+		name string
+		data []byte
+	}{
+		{name: "zip", data: makeZip(t, "secret.txt", archiveTestSecret)},
+		{name: "gzip", data: makeGzip(t, []byte(archiveTestSecret))},
+		{name: "tar", data: makeTar(t, "secret.txt", archiveTestSecret)},
+		{name: "tar.gz", data: makeTarGz(t, "secret.txt", archiveTestSecret)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// #2010: archive identification previously used only the filename,
+			// so valid compressed content named with an unrelated extension
+			// was passed to the plain-file reader and skipped as binary.
+			f := &File{
+				Content:         bytes.NewReader(tt.data),
+				Path:            "payload.other",
+				MaxArchiveDepth: 2,
+			}
+			raw, err := collectAllFragments(t, f)
+			require.NoError(t, err)
+			assert.Contains(t, raw, archiveTestSecret)
+		})
+	}
+}
+
+func TestFileFragmentsUnknownExtensionPlaintextStaysPlaintext(t *testing.T) {
+	content := "header\n" + archiveTestSecret + "\ntrailer\n"
+	f := &File{Content: strings.NewReader(content), Path: "payload.other", MaxArchiveDepth: 2}
+	raw, err := collectAllFragments(t, f)
+	require.NoError(t, err)
+	assert.Equal(t, content, raw)
+}
+
 func TestFileFragmentsCorruptArchiveIsOperationalError(t *testing.T) {
 	// A valid zip signature with a truncated body must route to the extractor
 	// and report the extraction failure, not silently fall back to plaintext.

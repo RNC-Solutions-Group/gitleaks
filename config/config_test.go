@@ -654,6 +654,7 @@ auto-overwrite = false
 
 			var vc ViperConfig
 			require.NoError(t, viper.Unmarshal(&vc))
+			vc.ConfigPath = viper.ConfigFileUsed()
 			cfg, err := vc.Translate()
 			require.NoError(t, err)
 			assert.Equal(t, test.autoOverwrite, cfg.AutoOverwrite)
@@ -679,6 +680,7 @@ func TestTranslateTracksConfigFiles(t *testing.T) {
 		require.NoError(t, viper.ReadInConfig())
 		var vc ViperConfig
 		require.NoError(t, viper.Unmarshal(&vc))
+		vc.ConfigPath = viper.ConfigFileUsed()
 		cfg, err := vc.Translate()
 		require.NoError(t, err)
 		return cfg
@@ -701,6 +703,7 @@ func TestTranslateTracksConfigFiles(t *testing.T) {
 		require.NoError(t, viper.ReadConfig(strings.NewReader("title = \"inline\"\n")))
 		var vc ViperConfig
 		require.NoError(t, viper.Unmarshal(&vc))
+		vc.ConfigPath = viper.ConfigFileUsed()
 		cfg, err := vc.Translate()
 		require.NoError(t, err)
 		assert.Empty(t, cfg.ConfigFiles)
@@ -766,6 +769,7 @@ func testTranslate(t *testing.T, test translateCase) {
 
 	var vc ViperConfig
 	err = viper.Unmarshal(&vc)
+	vc.ConfigPath = viper.ConfigFileUsed()
 	require.NoError(t, err)
 	cfg, err := vc.Translate()
 	if err != nil {
@@ -804,6 +808,169 @@ func testTranslate(t *testing.T, test translateCase) {
 	}
 }
 
+func TestExtendPreservesRequiredRulesAndSkipReport(t *testing.T) {
+	write := func(t *testing.T, name, content string) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), name)
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+		return path
+	}
+	translate := func(t *testing.T, path string) Config {
+		t.Helper()
+		viper.Reset()
+		t.Cleanup(viper.Reset)
+		viper.SetConfigFile(path)
+		require.NoError(t, viper.ReadInConfig())
+		var vc ViperConfig
+		require.NoError(t, viper.Unmarshal(&vc))
+		vc.ConfigPath = viper.ConfigFileUsed()
+		cfg, err := vc.Translate()
+		require.NoError(t, err)
+		return cfg
+	}
+
+	base := write(t, "base.toml", `
+title = "base"
+[[rules]]
+id = "base-primary"
+description = "base"
+regex = 'password\s*=\s*"([^"]+)"'
+
+[[rules]]
+id = "context"
+description = "base context"
+regex = 'username\s*=\s*"([^"]+)"'
+`)
+
+	t.Run("local required rules and skipReport survive extension", func(t *testing.T) {
+		main := write(t, "main.toml", `
+title = "main"
+[extend]
+path = "`+filepath.ToSlash(base)+`"
+
+[[rules]]
+id = "base-primary"
+skipReport = true
+[[rules.required]]
+id = "local-context"
+withinColumns = 7
+
+[[rules]]
+id = "local-context"
+regex = 'role\s*=\s*"([^"]+)"'
+`)
+		cfg := translate(t, main)
+		rule := cfg.Rules["base-primary"]
+		assert.True(t, rule.SkipReport, "local skipReport must be merged")
+		require.Len(t, rule.RequiredRules, 1)
+		assert.Equal(t, "local-context", rule.RequiredRules[0].RuleID)
+		if assert.NotNil(t, rule.RequiredRules[0].WithinColumns) {
+			assert.Equal(t, 7, *rule.RequiredRules[0].WithinColumns)
+		}
+	})
+
+	t.Run("base and local required rules are combined", func(t *testing.T) {
+		baseCombined := write(t, "base-combined.toml", `
+title = "base"
+[[rules]]
+id = "base-primary"
+regex = 'password\s*=\s*"([^"]+)"'
+[[rules.required]]
+id = "context"
+withinLines = 9
+
+[[rules]]
+id = "context"
+regex = 'username\s*=\s*"([^"]+)"'
+`)
+		main := write(t, "main.toml", `
+title = "main"
+[extend]
+path = "`+filepath.ToSlash(baseCombined)+`"
+
+[[rules]]
+id = "base-primary"
+[[rules.required]]
+id = "local-context"
+withinColumns = 3
+
+[[rules]]
+id = "local-context"
+regex = 'role\s*=\s*"([^"]+)"'
+`)
+		cfg := translate(t, main)
+		rule := cfg.Rules["base-primary"]
+		require.Len(t, rule.RequiredRules, 2)
+		assert.Equal(t, "context", rule.RequiredRules[0].RuleID)
+		assert.Equal(t, "local-context", rule.RequiredRules[1].RuleID)
+	})
+
+	t.Run("local requirement replaces the same base rule id", func(t *testing.T) {
+		baseWithRequired := write(t, "base-required.toml", `
+title = "base"
+[[rules]]
+id = "base-primary"
+regex = 'password\s*=\s*"([^"]+)"'
+[[rules.required]]
+id = "context"
+withinLines = 9
+
+[[rules]]
+id = "context"
+regex = 'username\s*=\s*"([^"]+)"'
+`)
+		main := write(t, "main.toml", `
+title = "main"
+[extend]
+path = "`+filepath.ToSlash(baseWithRequired)+`"
+
+[[rules]]
+id = "base-primary"
+[[rules.required]]
+id = "context"
+withinLines = 2
+`)
+		cfg := translate(t, main)
+		rule := cfg.Rules["base-primary"]
+		require.Len(t, rule.RequiredRules, 1)
+		if assert.NotNil(t, rule.RequiredRules[0].WithinLines) {
+			assert.Equal(t, 2, *rule.RequiredRules[0].WithinLines)
+		}
+	})
+}
+
+func TestRequiredProximityRejectsNegativeValues(t *testing.T) {
+	tests := []struct {
+		name string
+		toml string
+		want string
+	}{
+		{
+			name: "negative lines",
+			toml: "title = \"bad\"\n[[rules]]\nid = \"primary\"\nregex = 'password'\n[[rules.required]]\nid = \"context\"\nwithinLines = -1\n[[rules]]\nid = \"context\"\nregex = 'username'\n",
+			want: "withinLines must be non-negative",
+		},
+		{
+			name: "negative columns",
+			toml: "title = \"bad\"\n[[rules]]\nid = \"primary\"\nregex = 'password'\n[[rules.required]]\nid = \"context\"\nwithinColumns = -1\n[[rules]]\nid = \"context\"\nregex = 'username'\n",
+			want: "withinColumns must be non-negative",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := viper.New()
+			v.SetConfigType("toml")
+			require.NoError(t, v.ReadConfig(strings.NewReader(tt.toml)))
+			var vc ViperConfig
+			require.NoError(t, v.Unmarshal(&vc))
+			_, err := vc.Translate()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.want)
+		})
+	}
+}
+
 func TestExtendedRuleKeywordsAreDowncase(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -836,6 +1003,7 @@ func TestExtendedRuleKeywordsAreDowncase(t *testing.T) {
 
 			var vc ViperConfig
 			err = viper.Unmarshal(&vc)
+			vc.ConfigPath = viper.ConfigFileUsed()
 			require.NoError(t, err)
 			cfg, err := vc.Translate()
 			require.NoError(t, err)
@@ -911,6 +1079,7 @@ func TestInvalidUserRegexReturnsError(t *testing.T) {
 
 			var vc ViperConfig
 			require.NoError(t, viper.Unmarshal(&vc))
+			vc.ConfigPath = viper.ConfigFileUsed()
 			_, err := vc.Translate()
 			require.Error(t, err)
 			for _, part := range tt.wantParts {
@@ -935,6 +1104,7 @@ func TestTranslateDoesNotRetainExtensionDepth(t *testing.T) {
 
 		var vc ViperConfig
 		require.NoError(t, viper.Unmarshal(&vc))
+		vc.ConfigPath = viper.ConfigFileUsed()
 		cfg, err := vc.Translate()
 		require.NoError(t, err)
 		return cfg
@@ -955,6 +1125,7 @@ func TestDefaultConfigPlaceholderAllowlistIsAnchored(t *testing.T) {
 
 	var vc ViperConfig
 	require.NoError(t, viper.Unmarshal(&vc))
+	vc.ConfigPath = viper.ConfigFileUsed()
 	cfg, err := vc.Translate()
 	require.NoError(t, err)
 

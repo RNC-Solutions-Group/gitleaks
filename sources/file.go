@@ -28,6 +28,12 @@ const InnerPathSeparator = "!"
 // archive package, including brotli's bounded trial decode.
 const archivePeekSize = 64 * 1_000
 
+// archiveSniffSize bounds content-first identification for files whose name
+// does not select a format. Every archive signature and a tar header fit well
+// inside this prefix; keeping it smaller than archivePeekSize avoids a 64 KB
+// speculative read for ordinary text files.
+const archiveSniffSize = 4 * 1_000
+
 type seekReaderAt interface {
 	io.ReaderAt
 	io.Seeker
@@ -101,23 +107,11 @@ func (s *File) ensureTarget() *informative.Target {
 // Fragments yields fragments for the this source
 func (s *File) Fragments(ctx context.Context, yield FragmentsFunc) error {
 	s.ensureTarget()
-	format, _, err := archives.Identify(ctx, s.Path, nil)
-	if err != nil && !errors.Is(err, archives.NoMatch) {
-		return fmt.Errorf("could not identify file format: %w", err)
+	format, err := s.identifyArchiveFormat(ctx)
+	if err != nil {
+		return err
 	}
-	// Identify was called without content, so a filename alone can select a
-	// format. Verify the selected format against a bounded content prefix
-	// before routing the file into archive/decompression handling.
-	if err == nil && format != nil {
-		matches, matchErr := s.contentMatchesArchive(ctx, format)
-		if matchErr != nil {
-			return matchErr
-		}
-		if !matches {
-			format = nil
-		}
-	}
-	if err == nil && format != nil {
+	if format != nil {
 		if s.archiveDepth+1 > s.MaxArchiveDepth {
 			var event *zerolog.Event
 
@@ -161,27 +155,108 @@ func (s *File) Fragments(ctx context.Context, yield FragmentsFunc) error {
 	return s.fileFragments(ctx, bufio.NewReader(s.Content), yield)
 }
 
-// contentMatchesArchive reports whether the selected format's stream signature
-// matches a bounded prefix. Consumed bytes are restored before returning, even
-// on a read error, so the caller can report the error without losing content.
-// The content-verification approach is adapted from gitleaks/gitleaks#2317
-// (@Varshith-Kali), with explicit read-error propagation and non-seekable
-// prefix replay added here.
-func (s *File) contentMatchesArchive(ctx context.Context, format archives.Format) (bool, error) {
-	peeked := make([]byte, archivePeekSize)
+// identifyArchiveFormat selects an archive or compression format using both
+// the filename and a bounded content prefix. The prefix is restored before
+// returning, even after a read error, so the caller never loses content.
+//
+// The filename-only pass retains the historical extension behavior and gives
+// deterministic errors for a corrupt archive whose name promises a format.
+// When that pass does not produce a stream-verified format, a name-free
+// content pass recovers valid archives with missing or misleading extensions
+// (#2010). The content verification approach is adapted from
+// gitleaks/gitleaks#2317 (@Varshith-Kali), with explicit read-error propagation
+// and non-seekable prefix replay added here.
+func (s *File) identifyArchiveFormat(ctx context.Context) (archives.Format, error) {
+	// Unnamed streams have no filename contract and historically were never
+	// treated as archives. Avoid probing them: a single-shot reader may
+	// deliver its terminal error together with data, and a speculative peek
+	// would consume that error before the plain reader can report it.
+	if s.Content == nil || s.Path == "" {
+		return nil, nil
+	}
+
+	nameFormat, _, nameErr := archives.Identify(ctx, s.Path, nil)
+	if nameErr != nil && !errors.Is(nameErr, archives.NoMatch) {
+		return nil, fmt.Errorf("could not identify file format: %w", nameErr)
+	}
+
+	var peeked []byte
+	if nameErr == nil && nameFormat != nil {
+		var err error
+		peeked, err = s.readArchivePrefix(archivePeekSize)
+		if err != nil {
+			// Preserve the historical archive-named error path. The plain
+			// reader is not used for a filename that promises an archive.
+			return nil, err
+		}
+		if len(peeked) == 0 {
+			return nil, nil
+		}
+		matches, matchErr := verifyArchiveStream(ctx, nameFormat, s.Path, peeked)
+		if matchErr != nil {
+			return nil, fmt.Errorf("could not verify archive content: %w", matchErr)
+		}
+		if matches.ByStream {
+			return nameFormat, nil
+		}
+	} else {
+		var err error
+		peeked, err = s.readArchivePrefix(archiveSniffSize)
+		if err != nil {
+			// Do not turn a partial read failure on an ordinary file into a
+			// control-flow error before the plain reader has scanned the bytes
+			// that were available. The reader is replayed from the restored
+			// prefix and reports the original failure after yielding it.
+			logging.Debug().
+				Err(err).
+				Str("path", s.FullPath()).
+				Msg("archive prefix was unavailable; scanning as plain content")
+			return nil, nil
+		}
+		if len(peeked) == 0 {
+			return nil, nil
+		}
+	}
+
+	// Content-only identification. An empty name prevents an unrelated
+	// extension from influencing the result.
+	contentFormat, _, contentErr := archives.Identify(ctx, "", bytes.NewReader(peeked))
+	if contentErr != nil {
+		if errors.Is(contentErr, archives.NoMatch) {
+			return nil, nil
+		}
+		// Random text can make a format's stream probe return a parser
+		// error. Content sniffing is an enhancement, not a new failure mode
+		// for ordinary files: fall back to the plain-text reader.
+		logging.Debug().
+			Err(contentErr).
+			Str("path", s.FullPath()).
+			Msg("archive content probe did not identify a format")
+		return nil, nil
+	}
+	if contentFormat == nil {
+		return nil, nil
+	}
+	matches, matchErr := verifyArchiveStream(ctx, contentFormat, s.Path, peeked)
+	if matchErr != nil {
+		return nil, fmt.Errorf("could not verify archive content: %w", matchErr)
+	}
+	if !matches.ByStream {
+		return nil, nil
+	}
+	return contentFormat, nil
+}
+
+func (s *File) readArchivePrefix(limit int) ([]byte, error) {
+	peeked := make([]byte, limit)
 	n, readErr := io.ReadFull(s.Content, peeked)
 	peeked = peeked[:n]
 	s.restorePrefix(peeked)
 
 	if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
-		return false, fmt.Errorf("could not read file for archive verification: %w", readErr)
+		return nil, fmt.Errorf("could not read file for archive verification: %w", readErr)
 	}
-
-	match, err := verifyArchiveStream(ctx, format, s.Path, peeked)
-	if err != nil {
-		return false, fmt.Errorf("could not verify archive content: %w", err)
-	}
-	return match.ByStream, nil
+	return peeked, nil
 }
 
 func (s *File) restorePrefix(prefix []byte) {

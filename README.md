@@ -473,10 +473,15 @@ In v8.28.0 Gitleaks introduced composite rules, which are made up of a single "p
 
 **Proximity matching:** Using the `withinLines` and `withinColumns` fields instructs the primary rule to only report a finding if the auxiliary `required` rules also find matches within the specified proximity. You can set:
 
-- **`withinLines: N`** - required findings must be within N lines (vertically)
-- **`withinColumns: N`** - required findings must be within N characters (horizontally)
-- **Both** - creates a rectangular search area (both constraints must be satisfied)
+- **`withinLines: N`** - required findings must start within N lines (vertically)
+- **`withinColumns: N`** - required findings must start on the same line and within N bytes (horizontally)
+- **Both** - both constraints must be satisfied. Column numbers are local to a line, so `withinColumns` requires the same start line; `withinLines` cannot make a cross-line pair satisfy the column constraint.
 - **Neither** - fragment-level matching (required findings can be anywhere in the same fragment)
+
+`withinColumns` is measured in bytes against the start of the line, matching the JSON/CSV
+column contract. It is not a cross-line coordinate: comparing a column on line 1 with a
+column on line 300 compares two unrelated line offsets. Negative values are rejected
+during configuration loading; zero requires the same start column.
 
 Here are diagrams illustrating each proximity behavior:
 
@@ -544,15 +549,19 @@ fragment = section of data gitleaks is looking at
    ┌─────┤fragment├─────┐
   +4L   ┌└────────┴ ┐   │
    │            ┌─┐     │ ┌───────────────┐
-   │    │       │a│◀┼───┼─│+2L/+1C ✓ MATCH│
+   │            │a│◀────┼─│same line/+1C ✓│
    │         ┌─┐└─┘     │ └───────────────┘
    0L   │    │p│    │   │
-   │         └─┘        │
-   │    │           │   │ ┌────────────┐
-  -4L    ─ ─ ─ ─ ─ ─┌─┐ │ │-5L/+3C ✗ NO│
-   │                │a│◀┼─│   MATCH    │
-   └───-3C────0L───+3C┴─┘ └────────────┘
+   │         └─┘        │ ┌────────────────┐
+   │    ┌─┐             │ │+2L/+1C ✗ COLUMN│
+  -4L   │a│◀────────────┼─│  IS LINE-LOCAL │
+   │    └─┘             │ └────────────────┘
+   └────────────────────┘
 ```
+
+The column constraint cannot be satisfied across lines even when `withinLines` is
+also set. This prevents a required finding hundreds of lines away from matching
+merely because both lines happen to use the same column.
 
 <details><summary>Some final quick thoughts on composite rules.</summary>This is an experimental feature! It's subject to change so don't go sellin' a new B2B SaaS feature built on top of this feature. Scan type (git vs dir) based context is interesting. I'm monitoring the situation. Composite rules might not be super useful for git scans because gitleaks only looks at additions in the git history. It could be useful to scan non-additions in git history for `required` rules. Oh, right this is a readme, I'll shut up now.</details>
 
