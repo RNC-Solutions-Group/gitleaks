@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/fatih/semgroup"
@@ -275,11 +276,13 @@ func (s *Git) processDiffFile(
 			)
 		}
 
+		raw, addedLines := gitDiffFragment(textFragment, s.Cmd.contextLines > 0)
 		fragment := Fragment{
 			CommitSHA:         commitSHA,
 			FilePath:          diffFile.NewName,
-			Raw:               textFragment.Raw(gitdiff.OpAdd),
+			Raw:               raw,
 			StartLine:         int(textFragment.NewPosition),
+			AddedLines:        addedLines,
 			CommitInfo:        commitInfo,
 			InformativeTarget: target,
 		}
@@ -290,4 +293,40 @@ func (s *Git) processDiffFile(
 	}
 
 	return nil
+}
+
+// gitDiffFragment builds the text handed to the detector. The default remains
+// additions only, preserving the established coordinate and fingerprint
+// contract. With context enabled, unchanged lines are included so a rule whose
+// evidence spans several lines can match (#1647); addedLines records the
+// new-file positions that may actually credit a finding.
+func gitDiffFragment(fragment *gitdiff.TextFragment, includeContext bool) (string, []LineRange) {
+	if !includeContext {
+		return fragment.Raw(gitdiff.OpAdd), nil
+	}
+
+	var (
+		builder strings.Builder
+		added   []LineRange
+		line    = int(fragment.NewPosition)
+	)
+	for _, patchLine := range fragment.Lines {
+		switch patchLine.Op {
+		case gitdiff.OpContext:
+			builder.WriteString(patchLine.Line)
+			line++
+		case gitdiff.OpAdd:
+			builder.WriteString(patchLine.Line)
+			if n := len(added); n > 0 && added[n-1].End+1 == line {
+				added[n-1].End = line
+			} else {
+				added = append(added, LineRange{Start: line, End: line})
+			}
+			line++
+		case gitdiff.OpDelete:
+			// Deleted lines do not exist in the new file and must not shift
+			// the new-file coordinate sequence.
+		}
+	}
+	return builder.String(), added
 }

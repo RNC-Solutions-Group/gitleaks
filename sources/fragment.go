@@ -38,6 +38,13 @@ type Fragment struct {
 	// StartLine is the line number this fragment starts on
 	StartLine int
 
+	// AddedLines lists the new-file line ranges that were actually added by a
+	// Git diff. It is empty for every non-Git source and for Git's default
+	// addition-only fragments. When context lines are included for matching,
+	// the detector uses these ranges to reject findings that live wholly in
+	// unchanged context.
+	AddedLines []LineRange `json:"-"`
+
 	// CommitInfo captures additional information about the git commit if applicable
 	CommitInfo *CommitInfo
 
@@ -47,6 +54,12 @@ type Fragment struct {
 	// fragment's target. It carries reporting metadata only and is never part
 	// of finding output.
 	InformativeTarget *informative.Target
+}
+
+// LineRange is an inclusive range of 1-based new-file line numbers.
+type LineRange struct {
+	Start int
+	End   int
 }
 
 // RootRelativePath returns filePath relative to root with `/` separators, or
