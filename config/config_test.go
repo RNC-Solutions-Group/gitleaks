@@ -939,6 +939,38 @@ withinLines = 2
 	})
 }
 
+func TestRequiredProximityRejectsNegativeValues(t *testing.T) {
+	tests := []struct {
+		name string
+		toml string
+		want string
+	}{
+		{
+			name: "negative lines",
+			toml: "title = \"bad\"\n[[rules]]\nid = \"primary\"\nregex = 'password'\n[[rules.required]]\nid = \"context\"\nwithinLines = -1\n[[rules]]\nid = \"context\"\nregex = 'username'\n",
+			want: "withinLines must be non-negative",
+		},
+		{
+			name: "negative columns",
+			toml: "title = \"bad\"\n[[rules]]\nid = \"primary\"\nregex = 'password'\n[[rules.required]]\nid = \"context\"\nwithinColumns = -1\n[[rules]]\nid = \"context\"\nregex = 'username'\n",
+			want: "withinColumns must be non-negative",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := viper.New()
+			v.SetConfigType("toml")
+			require.NoError(t, v.ReadConfig(strings.NewReader(tt.toml)))
+			var vc ViperConfig
+			require.NoError(t, v.Unmarshal(&vc))
+			_, err := vc.Translate()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.want)
+		})
+	}
+}
+
 func TestExtendedRuleKeywordsAreDowncase(t *testing.T) {
 	tests := []struct {
 		name             string
