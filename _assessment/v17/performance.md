@@ -8,7 +8,8 @@ certification. The frozen harness and its records were not modified.
 | Field | Value |
 | --- | --- |
 | Accepted V16 base | `4112c3411f943aacfe6313fe9837ccd7078ae0e3` |
-| V17 implementation checkpoint | `8446960` plus the documentation commit |
+| V17 implementation checkpoint | `8446960` (implementation), `0baddda` (tests), plus documentation |
+| V17 Windows AMD64 binary SHA-256 | `07AC4866F49666F71C4C1A0F0A241FAB1FF789D32743E8D1AFD6C2A2017EE53B` |
 | Host | Windows 11 26300, 11th Gen Intel i7-11375H, 4 cores / 8 threads |
 | Toolchain | Go 1.27.3 windows/amd64; Git 2.45.2 |
 | Build | `go build -trimpath -ldflags "-s -w -X=.../version.Version=..."` |
