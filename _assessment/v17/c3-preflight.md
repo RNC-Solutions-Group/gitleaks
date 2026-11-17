@@ -24,7 +24,7 @@ changes, and the independent V16 detection-gap portfolio.
 | Package | Upstream references | V17 state | Planned C3 action |
 | --- | --- | --- | --- |
 | `SCAN-03` | #1651, #2324 | Current reader extends the current line to 1 MiB and errors rather than silently splitting beyond it; partial V16 fix | **C3A:** boundary matrix at 100 KB, 125 KB, 1 MiB, CRLF, long first line, secret crossing boundary; prove no false-clean |
-| `SCAN-04` | #1757, #2348 | Invalid UTF-8 differs under `gore2regex`; no V17 change | **C3A:** choose lossless replacement/segmentation policy; both backends; binary/NUL controls |
+| `SCAN-04` | #1757, #2348 | Confirmed locally: a secret after invalid bytes is found by the standard backend (1 finding) and missed by `gore2regex` (0) on the same file/config; V17 did not change it | **C3A:** choose lossless replacement/segmentation policy; both backends; binary/NUL controls |
 | `SCAN-05` | #2217 | Test-only stale PR | **Reject/defer:** no product defect; reuse any useful test ideas |
 | `SCAN-06` | #1951 | `filetype` MIME classifier remains; V17 gate uses signatures | **C3A design spike:** MIME vs signatures; do not replace without a negative corpus |
 | `SCAN-07` | #1888, #1936 | Multi-root/glob still unsupported | **Defer:** feature, not a correctness package |
