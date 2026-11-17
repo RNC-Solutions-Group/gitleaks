@@ -2,6 +2,7 @@ package sources
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -82,6 +83,9 @@ type GitCmd struct {
 	// staged is true for `git diff --staged`; binary-marked text must then be
 	// read from the index rather than skipped or read from the worktree.
 	staged bool
+	// contextLines is the number of unchanged context lines included in each
+	// history patch. Zero is the addition-only default.
+	contextLines int
 
 	drainOnce sync.Once
 	unparsed  int64
@@ -103,17 +107,28 @@ type gitOutputTracker struct {
 func (t *gitOutputTracker) Write(p []byte) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	for _, b := range p {
-		if b == '\n' {
-			t.countLine()
-			continue
+	written := len(p)
+	// Count only line-leading prefixes. IndexByte is optimized for the
+	// newline search, avoiding a per-byte Go loop over every diff byte.
+	for len(p) > 0 {
+		i := bytes.IndexByte(p, '\n')
+		if i < 0 {
+			t.appendPrefix(p)
+			break
 		}
-		if t.prefixLen < len(t.prefix) {
-			t.prefix[t.prefixLen] = b
-			t.prefixLen++
-		}
+		t.appendPrefix(p[:i])
+		t.countLine()
+		p = p[i+1:]
 	}
-	return len(p), nil
+	return written, nil
+}
+
+func (t *gitOutputTracker) appendPrefix(line []byte) {
+	if t.prefixLen >= len(t.prefix) {
+		return
+	}
+	n := copy(t.prefix[t.prefixLen:], line)
+	t.prefixLen += n
 }
 
 func (t *gitOutputTracker) finish() {
@@ -294,6 +309,35 @@ func NewGitLogCmd(source string, logOpts string) (*GitCmd, error) {
 // NewGitLogCmdContext is the same as NewGitLogCmd but supports passing in a
 // context to use for timeouts
 func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*GitCmd, error) {
+	return NewGitLogCmdContextWithOptions(ctx, source, logOpts, GitLogOptions{})
+}
+
+// GitLogOptions controls optional history-selection behavior without changing
+// the established default. ScanMerges asks Git for a merge commit's diff
+// against its first parent, which recovers secrets introduced only by a
+// conflict resolution or evil merge at the cost of reporting branch content a
+// second time at the merge commit.
+type GitLogOptions struct {
+	ScanMerges bool
+	// ContextLines adds unchanged context around each patch and includes it in
+	// matching fragments. Findings are still accepted only when their line
+	// span overlaps an added line. The default zero preserves addition-only
+	// scanning.
+	ContextLines int
+}
+
+const maxGitContextLines = 100
+
+func (o GitLogOptions) validate() error {
+	if o.ContextLines < 0 || o.ContextLines > maxGitContextLines {
+		return fmt.Errorf("git context lines must be between 0 and %d", maxGitContextLines)
+	}
+	return nil
+}
+
+// NewGitLogCmdContextWithOptions is NewGitLogCmdContext with explicit optional
+// history behavior.
+func NewGitLogCmdContextWithOptions(ctx context.Context, source string, logOpts string, options GitLogOptions) (*GitCmd, error) {
 	userArgs, err := parseGitLogOpts(logOpts)
 	if err != nil {
 		return nil, err
@@ -301,16 +345,25 @@ func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*G
 	if err := validateGitLogArgs(userArgs); err != nil {
 		return nil, err
 	}
+	if err := options.validate(); err != nil {
+		return nil, err
+	}
 	sourceClean := filepath.Clean(source)
-	if isShallowRepository(ctx, sourceClean) {
+	shallow, bare, top, topOK := gitRepositoryState(ctx, sourceClean)
+	if shallow {
 		logging.Warn().Msg("source is a shallow Git repository; history before the shallow boundary is unavailable and cannot be treated as a complete full-history scan")
 	}
-	if isBareRepository(ctx, sourceClean) {
+	if bare {
 		logging.Warn().Msg("source is a bare Git repository; automatic working-tree .gitleaks.toml/.gitleaksignore discovery is unavailable, so pass explicit --config/--gitleaks-ignore-path when needed")
-	} else if top, ok := gitTopLevel(ctx, sourceClean); ok && !sameFilesystemPath(top, sourceClean) {
+	} else if topOK && !sameFilesystemPath(top, sourceClean) {
 		logging.Warn().Msg("Git history is repository-wide; the selected source is a subdirectory. Use --log-opts with a pathspec to limit history. Directory scans remain bounded to the selected path")
 	}
-	args := []string{"-C", sourceClean, "log", "-p", "-U0"}
+	args := []string{"-C", sourceClean, "log", "-p", fmt.Sprintf("-U%d", options.ContextLines)}
+	if options.ScanMerges {
+		// Placed before user arguments so an explicit --no-diff-merges (or a
+		// supported --diff-merges mode) remains authoritative.
+		args = append(args, "--diff-merges=first-parent")
+	}
 	if len(userArgs) > 0 {
 		args = append(args, userArgs...)
 	} else {
@@ -321,7 +374,12 @@ func NewGitLogCmdContext(ctx context.Context, source string, logOpts string) (*G
 
 	logging.Debug().Msgf("executing: %s", cmd.String())
 
-	return newGitCmd(cmd, sourceClean)
+	gitCmd, err := newGitCmd(cmd, sourceClean)
+	if err != nil {
+		return nil, err
+	}
+	gitCmd.contextLines = options.ContextLines
+	return gitCmd, nil
 }
 
 // parseGitLogOpts tokenizes --log-opts without a shell. It supports single and
@@ -419,6 +477,42 @@ func gitTopLevel(ctx context.Context, source string) (string, bool) {
 func isBareRepository(ctx context.Context, source string) bool {
 	out, err := exec.CommandContext(ctx, "git", "-C", source, "rev-parse", "--is-bare-repository").Output()
 	return err == nil && strings.TrimSpace(string(out)) == "true"
+}
+
+// gitRepositoryState collects the shallow/bare/top-level facts used for
+// provenance warnings. The normal non-bare case is answered by one rev-parse
+// call. Git rejects --show-toplevel in a bare repository, so that case falls
+// back to a two-state query instead of treating the warning check as a
+// failure. This replaces three sequential subprocesses on the normal path,
+// which is material process-startup overhead for short scans.
+func gitRepositoryState(ctx context.Context, source string) (shallow, bare bool, top string, topOK bool) {
+	// The common non-bare case is answered in one subprocess. Git rejects
+	// --show-toplevel in a bare repository, so fall back to the two-state
+	// query there rather than treating the warning check as a failure.
+	out, err := exec.CommandContext(
+		ctx,
+		"git", "-C", source,
+		"rev-parse", "--is-shallow-repository", "--is-bare-repository", "--show-toplevel",
+	).Output()
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		if len(lines) == 3 {
+			return strings.TrimSpace(lines[0]) == "true",
+				strings.TrimSpace(lines[1]) == "true",
+				strings.TrimSpace(lines[2]),
+				true
+		}
+	}
+
+	out, err = exec.CommandContext(ctx, "git", "-C", source, "rev-parse", "--is-shallow-repository", "--is-bare-repository").Output()
+	if err != nil {
+		return false, false, "", false
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) != 2 {
+		return false, false, "", false
+	}
+	return strings.TrimSpace(lines[0]) == "true", strings.TrimSpace(lines[1]) == "true", "", false
 }
 
 func sameFilesystemPath(a, b string) bool {
@@ -549,7 +643,8 @@ func newGitCmd(cmd *exec.Cmd, repoPath string) (*GitCmd, error) {
 	go listenForStdErr(stderr, stderrInfo, errCh)
 
 	tracker := &gitOutputTracker{}
-	buffered := bufio.NewReader(io.TeeReader(stdout, tracker))
+	// A larger read buffer reduces pipe-read syscalls for large histories.
+	buffered := bufio.NewReaderSize(io.TeeReader(stdout, tracker), 64*1024)
 	diffFiles, err := gitdiff.Parse(buffered)
 	if err != nil {
 		// The command is running but its output never reached the parser.

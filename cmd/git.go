@@ -16,6 +16,8 @@ func init() {
 	gitCmd.Flags().String("platform", "", "the target platform used to generate links (github, gitlab)")
 	gitCmd.Flags().Bool("staged", false, "scan staged commits (good for pre-commit)")
 	gitCmd.Flags().Bool("pre-commit", false, "scan using git diff")
+	gitCmd.Flags().Bool("scan-merges", false, "scan merge commits against their first parent; merge-introduced secrets are covered but findings may be reported again at the merge commit")
+	gitCmd.Flags().Int("git-context-lines", 0, "include up to 100 unchanged lines around each Git patch for multi-line matching; findings wholly in context are rejected")
 	gitCmd.Flags().String("log-opts", "", "git log options")
 }
 
@@ -54,6 +56,8 @@ func runGit(cmd *cobra.Command, args []string) {
 	logOpts := mustGetStringFlag(cmd, "log-opts")
 	staged := mustGetBoolFlag(cmd, "staged")
 	preCommit := mustGetBoolFlag(cmd, "pre-commit")
+	scanMerges := mustGetBoolFlag(cmd, "scan-merges")
+	contextLines := mustGetIntFlag(cmd, "git-context-lines")
 
 	var (
 		findings    []report.Finding
@@ -69,7 +73,12 @@ func runGit(cmd *cobra.Command, args []string) {
 		// Remote info + links are irrelevant for staged changes.
 		scmPlatform = scm.NoPlatform
 	} else {
-		if gitCmd, err = sources.NewGitLogCmdContext(cmd.Context(), source, logOpts); err != nil {
+		if gitCmd, err = sources.NewGitLogCmdContextWithOptions(
+			cmd.Context(),
+			source,
+			logOpts,
+			sources.GitLogOptions{ScanMerges: scanMerges, ContextLines: contextLines},
+		); err != nil {
 			logging.Fatal().Err(err).Msg("could not create Git log cmd")
 		}
 		if scmPlatform, err = scm.PlatformFromString(mustGetStringFlag(cmd, "platform")); err != nil {

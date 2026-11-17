@@ -180,6 +180,18 @@ func (s *File) identifyArchiveFormat(ctx context.Context) (archives.Format, erro
 		return nil, fmt.Errorf("could not identify file format: %w", nameErr)
 	}
 
+	// Archive traversal is opt-in and disabled by default. Without traversal
+	// there is no reason to read a prefix of every ordinary file: only a
+	// filename that promises an archive can change this scan's behavior (the
+	// depth check excludes it). This avoids the 4 KB prefix read and the
+	// content-format trial (including brotli's speculative decode) on the
+	// overwhelmingly common non-archive path. Files with misleading archive
+	// names are still stream-verified below so a text file named ".zip" is
+	// scanned rather than silently excluded.
+	if s.MaxArchiveDepth <= 0 && (nameErr != nil || nameFormat == nil) {
+		return nil, nil
+	}
+
 	var peeked []byte
 	if nameErr == nil && nameFormat != nil {
 		var err error
@@ -198,6 +210,11 @@ func (s *File) identifyArchiveFormat(ctx context.Context) (archives.Format, erro
 		}
 		if matches.ByStream {
 			return nameFormat, nil
+		}
+		if s.MaxArchiveDepth <= 0 {
+			// Misnamed archive: no traversal is enabled, so the historical
+			// plain-content path is the only useful outcome.
+			return nil, nil
 		}
 	} else {
 		var err error
@@ -219,7 +236,13 @@ func (s *File) identifyArchiveFormat(ctx context.Context) (archives.Format, erro
 	}
 
 	// Content-only identification. An empty name prevents an unrelated
-	// extension from influencing the result.
+	// extension from influencing the result. Only invoke the archive
+	// package's trial decoder when the prefix has an archive signature or
+	// binary structure; brotli has no magic and otherwise attempts a
+	// speculative decode of every text prefix.
+	if !looksLikeArchiveContent(peeked) {
+		return nil, nil
+	}
 	contentFormat, _, contentErr := archives.Identify(ctx, "", bytes.NewReader(peeked))
 	if contentErr != nil {
 		if errors.Is(contentErr, archives.NoMatch) {
@@ -245,6 +268,61 @@ func (s *File) identifyArchiveFormat(ctx context.Context) (archives.Format, erro
 		return nil, nil
 	}
 	return contentFormat, nil
+}
+
+// archivePrefixSignatures are the leading byte sequences that make a
+// content-format trial worthwhile. Tar and several container formats are
+// covered by the NUL-byte check below rather than a fixed prefix.
+var archivePrefixSignatures = [][]byte{
+	[]byte("PK\x03\x04"),                 // zip local file
+	[]byte("PK\x05\x06"),                 // zip end of central directory
+	[]byte("PK\x07\x08"),                 // zip spanning marker
+	{0x1f, 0x8b},                         // gzip
+	[]byte("BZh"),                        // bzip2
+	{0xfd, '7', 'z', 'X', 'Z', 0x00},     // xz
+	{0x28, 0xb5, 0x2f, 0xfd},             // zstd
+	{0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c}, // 7z
+	[]byte("Rar!\x1a\x07"),               // rar
+	{0x04, 0x22, 0x4d, 0x18},             // lz4
+	{0x1f, 0x9d},                         // compress
+	[]byte("LZIP"),                       // lzip
+	{0xff, 0x06, 0x00, 0x00, 's', 'N', 'a', 'P', 'p', 'Y'}, // snappy framed
+}
+
+// looksLikeArchiveContent is a cheap, conservative gate for the content
+// format trial. It must only return false when no supported archive matcher
+// could succeed; returning true for ordinary binary data merely restores the
+// previous full trial and cannot hide an archive.
+func looksLikeArchiveContent(prefix []byte) bool {
+	for _, signature := range archivePrefixSignatures {
+		if bytes.HasPrefix(prefix, signature) {
+			return true
+		}
+	}
+	if len(prefix) >= 262 && string(prefix[257:262]) == "ustar" {
+		return true
+	}
+	// Tar headers and most binary containers contain NUL bytes. Brotli has no
+	// signature, so it remains intentionally unsupported for name-free
+	// detection (a documented residual).
+	return bytes.IndexByte(prefix, 0) >= 0
+}
+
+// fragmentReadBufferSize bounds the per-file read buffer. The historical
+// 100 KB buffer was allocated for every file even when the file was only a
+// few hundred bytes, which dominated allocation and GC on small-file
+// workloads. A known size lets the buffer fit the file while retaining the
+// same chunking behavior for large or unknown streams.
+func fragmentReadBufferSize(size int64) int {
+	const minBufferSize = 4 * 1024
+	if size <= 0 || size >= defaultBufferSize {
+		return defaultBufferSize
+	}
+	n := int(size) + 1
+	if n < minBufferSize {
+		return minBufferSize
+	}
+	return n
 }
 
 func (s *File) readArchivePrefix(limit int) ([]byte, error) {
@@ -523,9 +601,10 @@ func (s *File) decompressorFragments(ctx context.Context, decompressor archives.
 
 // fileFragments reads the file into fragments to yield
 func (s *File) fileFragments(ctx context.Context, reader *bufio.Reader, yield FragmentsFunc) error {
-	// Create a buffer if the caller hasn't provided one
+	// Create a buffer if the caller hasn't provided one. Fit known small files
+	// instead of allocating the full streaming buffer for every file.
 	if s.Buffer == nil {
-		s.Buffer = make([]byte, defaultBufferSize)
+		s.Buffer = make([]byte, fragmentReadBufferSize(s.Size))
 	}
 
 	totalLines := 0

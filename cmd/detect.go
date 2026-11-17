@@ -38,6 +38,8 @@ func init() {
 	detectCmd.Flags().Bool("follow-symlinks", false, "scan files that are symlinks to other files")
 	detectCmd.Flags().StringP("source", "s", ".", "path to source")
 	detectCmd.Flags().String("log-opts", "", "git log options")
+	detectCmd.Flags().Bool("scan-merges", false, "scan merge commits against their first parent; merge-introduced secrets are covered but findings may be reported again at the merge commit")
+	detectCmd.Flags().Int("git-context-lines", 0, "include up to 100 unchanged lines around each Git patch for multi-line matching; findings wholly in context are rejected")
 	detectCmd.Flags().String("platform", "", "the target platform used to generate links (github, gitlab)")
 }
 
@@ -125,7 +127,14 @@ func runDetect(cmd *cobra.Command, args []string) {
 		)
 
 		logOpts := mustGetStringFlag(cmd, "log-opts")
-		if gitCmd, err = sources.NewGitLogCmdContext(cmd.Context(), sourcePath, logOpts); err != nil {
+		scanMerges := mustGetBoolFlag(cmd, "scan-merges")
+		contextLines := mustGetIntFlag(cmd, "git-context-lines")
+		if gitCmd, err = sources.NewGitLogCmdContextWithOptions(
+			cmd.Context(),
+			sourcePath,
+			logOpts,
+			sources.GitLogOptions{ScanMerges: scanMerges, ContextLines: contextLines},
+		); err != nil {
 			logging.Fatal().Err(err).Msg("could not create Git cmd")
 		}
 

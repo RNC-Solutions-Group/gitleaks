@@ -251,6 +251,15 @@ func TestGitOutputTrackerCountsDiffSections(t *testing.T) {
 	_, _ = tracker.Write([]byte("diff --git a/two b/two"))
 	tracker.finish()
 	require.Equal(t, int64(2), tracker.sectionCount())
+
+	// Prefixes may be split across arbitrary pipe reads.
+	split := &gitOutputTracker{}
+	_, _ = split.Write([]byte("diff --"))
+	_, _ = split.Write([]byte("git a/one b/one\n"))
+	_, _ = split.Write([]byte("diff --git a/two"))
+	_, _ = split.Write([]byte(" b/two\n"))
+	split.finish()
+	require.Equal(t, int64(2), split.sectionCount())
 }
 
 func TestSanitizeGitDiagnostic(t *testing.T) {
@@ -314,6 +323,8 @@ func TestParseGitLogOpts(t *testing.T) {
 		want []string
 	}{
 		{name: "plain", raw: "--all --full-history", want: []string{"--all", "--full-history"}},
+		{name: "quoted no-notes", raw: `'--no-notes'`, want: []string{"--no-notes"}},
+		{name: "quoted pathspec", raw: `--all -- 'src path'`, want: []string{"--all", "--", "src path"}},
 		{name: "double quoted pathspec", raw: `--all -- "path with spaces"`, want: []string{"--all", "--", "path with spaces"}},
 		{name: "single quoted", raw: `--all -- 'path with spaces'`, want: []string{"--all", "--", "path with spaces"}},
 		{name: "escaped space", raw: `--all -- path\ with\ spaces`, want: []string{"--all", "--", "path with spaces"}},
@@ -405,6 +416,35 @@ func TestNormalizeGitRemoteURL(t *testing.T) {
 			assert.Empty(t, got.User)
 		})
 	}
+}
+
+func TestGitRepositoryState(t *testing.T) {
+	dir := t.TempDir()
+	runGit := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, string(out))
+	}
+	runGit("init", "-q")
+	runGit("config", "user.name", "Test")
+	runGit("config", "user.email", "test@example.com")
+	runGit("commit", "-q", "--allow-empty", "-m", "initial")
+
+	shallow, bare, top, topOK := gitRepositoryState(context.Background(), dir)
+	assert.False(t, shallow)
+	assert.False(t, bare)
+	assert.True(t, topOK)
+	assert.True(t, sameFilesystemPath(top, dir))
+
+	bareDir := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare", "-q", bareDir)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	shallow, bare, _, topOK = gitRepositoryState(context.Background(), bareDir)
+	assert.False(t, shallow)
+	assert.True(t, bare)
+	assert.False(t, topOK)
 }
 
 func TestBareRepositoryDetection(t *testing.T) {

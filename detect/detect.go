@@ -391,6 +391,9 @@ func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]r
 		}
 
 		for _, finding := range d.DetectContext(ctx, Fragment(fragment)) {
+			if !findingTouchesAddedLine(fragment, finding) {
+				continue
+			}
 			if d.knownRelativeToRoot(fragment, finding) {
 				continue
 			}
@@ -420,6 +423,25 @@ func (d *Detector) DetectSource(ctx context.Context, source sources.Source) ([]r
 	}
 
 	return d.Findings(), collector.Err()
+}
+
+// findingTouchesAddedLine rejects a finding that lives wholly in unchanged
+// Git context. Sources without added-line metadata (and Git's default
+// addition-only fragments) always pass.
+func findingTouchesAddedLine(fragment sources.Fragment, finding report.Finding) bool {
+	if len(fragment.AddedLines) == 0 {
+		return true
+	}
+	// Path-only findings have no line span; a changed file is enough.
+	if finding.StartLine == 0 {
+		return true
+	}
+	for _, lineRange := range fragment.AddedLines {
+		if finding.StartLine <= lineRange.End && finding.EndLine >= lineRange.Start {
+			return true
+		}
+	}
+	return false
 }
 
 // knownRelativeToRoot checks .gitleaksignore fingerprints and baseline entries
@@ -492,10 +514,14 @@ func (d *Detector) Detect(fragment Fragment) []report.Finding {
 // DetectContext is the same as Detect but supports passing in a
 // context to use for timeouts
 func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []report.Finding {
-	if fragment.Bytes == nil {
+	// Raw and Bytes are two views of the same fragment for file sources. Count
+	// the content once; previously directory scans reported roughly twice the
+	// bytes they actually inspected.
+	if len(fragment.Bytes) > 0 {
+		d.TotalBytes.Add(uint64(len(fragment.Bytes)))
+	} else {
 		d.TotalBytes.Add(uint64(len(fragment.Raw)))
 	}
-	d.TotalBytes.Add(uint64(len(fragment.Bytes)))
 
 	var (
 		findings []report.Finding
@@ -510,6 +536,11 @@ func (d *Detector) DetectContext(ctx context.Context, fragment Fragment) []repor
 
 	target := fragment.InformativeTarget
 	paths := newFragmentPaths(fragment)
+	// Newline positions depend only on the original fragment. Compute them
+	// once per fragment instead of once for every rule that produces a match
+	// (and once more for every required rule). A finding-heavy fragment can
+	// otherwise scan the same bytes hundreds of times.
+	newlineIndices := newLineRegexp.FindAllStringIndex(fragment.Raw, -1)
 
 	// check if filepath is allowed
 	if fragment.FilePath != "" {
@@ -590,14 +621,14 @@ ScanLoop:
 					if len(rule.Keywords) == 0 {
 						// if no keywords are associated with the rule always scan the
 						// fragment using the rule
-						findings = append(findings, d.detectRuleWithPaths(fragment, currentRaw, rule, encodedSegments, paths)...)
+						findings = append(findings, d.detectRuleWithPaths(fragment, currentRaw, rule, encodedSegments, paths, newlineIndices)...)
 						continue
 					}
 
 					// check if keywords are in the fragment
 					for _, k := range rule.Keywords {
 						if _, ok := keywords[strings.ToLower(k)]; ok {
-							findings = append(findings, d.detectRuleWithPaths(fragment, currentRaw, rule, encodedSegments, paths)...)
+							findings = append(findings, d.detectRuleWithPaths(fragment, currentRaw, rule, encodedSegments, paths, newlineIndices)...)
 							break
 						}
 					}
@@ -625,12 +656,21 @@ ScanLoop:
 	return filter(findings, d.Redact)
 }
 
-// detectRule scans the given fragment for the given rule and returns a list of findings
+// detectRule scans the given fragment for the given rule and returns a list of findings.
+// It computes the fragment-local newline positions for callers that invoke one
+// rule in isolation; DetectContext passes a shared slice to avoid rescanning.
 func (d *Detector) detectRule(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment) []report.Finding {
-	return d.detectRuleWithPaths(fragment, currentRaw, r, encodedSegments, newFragmentPaths(fragment))
+	return d.detectRuleWithPaths(
+		fragment,
+		currentRaw,
+		r,
+		encodedSegments,
+		newFragmentPaths(fragment),
+		newLineRegexp.FindAllStringIndex(fragment.Raw, -1),
+	)
 }
 
-func (d *Detector) detectRuleWithPaths(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, paths fragmentPaths) []report.Finding {
+func (d *Detector) detectRuleWithPaths(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, paths fragmentPaths, newlineIndices [][]int) []report.Finding {
 	var (
 		findings []report.Finding
 		logger   = func() zerolog.Logger {
@@ -705,9 +745,6 @@ func (d *Detector) detectRuleWithPaths(fragment Fragment, currentRaw string, r c
 	if len(matches) == 0 {
 		return findings
 	}
-
-	// TODO profile this, probably should replace with something more efficient
-	newlineIndices := newLineRegexp.FindAllStringIndex(fragment.Raw, -1)
 
 	// use currentRaw instead of fragment.Raw since this represents the current
 	// decoding pass on the text
@@ -842,11 +879,11 @@ func (d *Detector) detectRuleWithPaths(fragment Fragment, currentRaw string, r c
 	}
 
 	// Process required rules and create findings with auxiliary findings
-	return d.processRequiredRules(fragment, currentRaw, r, encodedSegments, findings, logger, paths)
+	return d.processRequiredRules(fragment, currentRaw, r, encodedSegments, findings, logger, paths, newlineIndices)
 }
 
 // processRequiredRules handles the logic for multi-part rules with auxiliary findings
-func (d *Detector) processRequiredRules(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, primaryFindings []report.Finding, logger zerolog.Logger, paths fragmentPaths) []report.Finding {
+func (d *Detector) processRequiredRules(fragment Fragment, currentRaw string, r config.Rule, encodedSegments []*codec.EncodedSegment, primaryFindings []report.Finding, logger zerolog.Logger, paths fragmentPaths, newlineIndices [][]int) []report.Finding {
 	if len(primaryFindings) == 0 {
 		logger.Debug().Msg("no primary findings to process for required rules")
 		return primaryFindings
@@ -867,7 +904,7 @@ func (d *Detector) processRequiredRules(fragment Fragment, currentRaw string, r 
 		inheritedFragment.InheritedFromFinding = true
 
 		// Call detectRule once for each required rule
-		requiredFindings := d.detectRuleWithPaths(inheritedFragment, currentRaw, rule, encodedSegments, paths)
+		requiredFindings := d.detectRuleWithPaths(inheritedFragment, currentRaw, rule, encodedSegments, paths, newlineIndices)
 		allRequiredFindings[requiredRule.RuleID] = requiredFindings
 
 		logger.Debug().

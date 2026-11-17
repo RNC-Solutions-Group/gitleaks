@@ -116,8 +116,18 @@ func init() {
 	encodingsRe = regexp.MustCompile(strings.Join(namedPatterns, "|"))
 }
 
-// findEncodingMatches finds as many encodings as it can for this pass
+// findEncodingMatches finds as many encodings as it can for this pass.
+//
+// The combined encoding regexp is expensive on ordinary source text. A cheap
+// conservative prefilter rejects data that cannot contain any supported
+// encoding, avoiding a full RE2 scan for the common case. It is deliberately
+// a superset of the regexp: every match it allows still goes through the
+// existing decoder and precedence rules unchanged.
 func findEncodingMatches(data string) []encodingMatch {
+	if !mayContainEncoding(data) {
+		return nil
+	}
+
 	var all []encodingMatch
 	for _, matchIndex := range encodingsRe.FindAllStringSubmatchIndex(data, -1) {
 		// Add the encodingMatch with its proper encoding
@@ -158,4 +168,61 @@ func findEncodingMatches(data string) []encodingMatch {
 	}
 
 	return filtered
+}
+
+// mayContainEncoding reports whether data can possibly contain an encoding
+// understood by encodingsRe. It mirrors the necessary character conditions:
+//
+//   - percent encoding requires a '%'
+//   - Unicode escapes require "U+" or a backslash followed by u/U
+//   - base64/hex requires a run of at least 16 characters from the base64
+//     character class, including a likely-base64 character. A run without
+//     one cannot decode (decodeBase64 rejects it), so it cannot produce a
+//     segment; hex runs are a subset of this class and are also covered.
+//
+// The scan exits as soon as a candidate is found so encoded content pays only
+// a short prefix check before the real regexp runs.
+func mayContainEncoding(data string) bool {
+	run := 0
+	likely := false
+	for i := 0; i < len(data); i++ {
+		c := data[i]
+		switch c {
+		case '%':
+			return true
+		case '\\':
+			if i+1 < len(data) && (data[i+1] == 'u' || data[i+1] == 'U') {
+				return true
+			}
+		case 'U':
+			if i+1 < len(data) && data[i+1] == '+' {
+				return true
+			}
+		}
+
+		if isBase64Alphabet(c) {
+			run++
+			if isLikelyBase64Char(c) {
+				likely = true
+			}
+			if run >= 16 && likely {
+				return true
+			}
+			continue
+		}
+		run = 0
+		likely = false
+	}
+	return false
+}
+
+func isBase64Alphabet(c byte) bool {
+	return c >= 'a' && c <= 'z' ||
+		c >= 'A' && c <= 'Z' ||
+		c >= '0' && c <= '9' ||
+		c == '_' || c == '/' || c == '+' || c == '-'
+}
+
+func isLikelyBase64Char(c byte) bool {
+	return c >= '0' && c <= '9' || c == '+' || c == '/' || c == '-' || c == '_'
 }
